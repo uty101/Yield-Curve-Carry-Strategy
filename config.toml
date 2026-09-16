@@ -9,7 +9,7 @@
 # Durations are years. Costs are basis points. Windows are months.
 
 # ---------------------------------------------------------------- universe
-base_currency = ""                    # DECISION 1 pending: "USD" or "GBP"
+base_currency = "USD"                 # issue #1 answer 1; FX is stored as units of base per unit of foreign
 countries = ["US", "GB", "DE", "JP", "CA", "FR"]   # IT dropped, session-1 correction 3: decisions/euro_curves.md
 tenors = [1, 2, 3, 5, 7, 10, 20, 30]  # standard tenor grid, years
 short_tenor = 0.25                    # anchor tenor for the funding rate on every curve (1.8): the BIS policy rate, an
@@ -26,6 +26,15 @@ DE = 1
 FR = 1
 # IT = 1                             # kept for reference; Italy is not in `countries`
 
+# currency of each country; the funding rate, hedge and FX loaders key on it
+[currency]
+US = "USD"
+GB = "GBP"
+DE = "EUR"
+JP = "JPY"
+CA = "CAD"
+FR = "EUR"
+
 [sample]
 strategy_start = ""                   # set in step 1.9 from data/checks/sample_window.txt (YYYY-MM-DD)
 sample_full_start = ""                # set in step 1.9: first month all 6 countries are present (France is the binding one)
@@ -37,10 +46,12 @@ sample_max_tenor = 10                 # ... have every tenor up to and including
 [nelson_siegel]
 ns_lambda_grid = [0.2, 1.5, 0.05]     # lambda grid: lo, hi, step (per year)
 ns_lambda_fixed = 0.7                 # Diebold-Li fixed lambda
+min_tenors = 5                        # a country-month with fewer observed standard tenors is not fitted (2.2, 2.3)
 
 [pca]
 pca_min_months = 60                   # minimum months before an expanding-window PCA produces a score
 pca_z_window = 36                     # rolling window for the PC2 z-score (6.7)
+stability_min_months = 24             # a decade with fewer months of changes is not reported in 3.2
 
 # ----------------------------------------------------------------- strategy
 [signal]
@@ -48,7 +59,8 @@ yield_floor = 0.002                   # buckets with zero yield below 20 bp are 
 
 [weights]
 long_duration_budget = 5.0            # years of duration per unit capital in the long leg (brief 6.5)
-duration_neutral_scope = ""           # DECISION 3 pending: "book" or "country"
+duration_neutral_scope = "book"       # issue #1 answer 3; "country" is a logged robustness run in 5.5
+min_eligible_buckets = 6              # a month with fewer eligible buckets holds nothing (5.2); logged
 
 [overlay]
 z_entry = 1.5                         # |z| beyond which a steepener/flattener is entered
@@ -71,3 +83,8 @@ max_leverage = 2.0                    # cap on the vol-target scalar
 dd_stop = 0.10                        # drawdown from peak that flattens the book
 dd_reentry_months = 3                 # months flat before re-entry after a stop
 rates_vol_pct = 0.90                  # expanding percentile of pooled PC1 12m vol above which the book is flat
+risk_control_base_variants = ["carry_hedged", "combined_hedged"]  # the books each control in 6.2 is applied to
+
+# ------------------------------------------------------------------ report
+[report]
+chart1_decades = [1990, 2000, 2010, 2020]  # one fitted-vs-observed date per decade per country (2.4)
