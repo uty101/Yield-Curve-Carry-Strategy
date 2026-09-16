@@ -172,7 +172,9 @@ Sub-commands are added by the step that builds them; until then they print
 - `src/curvecarry/speclog.py`:
   - `log_run(cfg: dict, label: str, note: str, path: str | Path = "reports/specifications.csv") -> str`:
     appends one row `run_id, timestamp_utc, git_commit, config_hash, label, note`
-    (`run_id` = `f"{timestamp_utc:%Y%m%dT%H%M%S}-{config_hash}"`, commit from
+    (`run_id` = `f"{timestamp_utc:%Y%m%dT%H%M%S}-{config_hash}"`, with
+    `-2`, `-3`, … appended when that id already exists in the file, so two
+    runs of one config in the same second get distinct ids; commit from
     `git rev-parse --short HEAD`, `"nogit"` on failure), creating the file
     with a header if absent. Opens in append mode only. Returns `run_id`.
   - `count_runs(path) -> int`: number of data rows. This is N for the
