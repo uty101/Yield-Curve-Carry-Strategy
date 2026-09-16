@@ -83,7 +83,7 @@ to make a run pass.
 | 9 | Nothing is imported from the project 1 repo. The duration-budget engine is written here. | review |
 | 10 | Do not add features, refactor other modules, or improve earlier steps unless the current step says so. | review |
 | 11 | If a data source is unreachable, stop and say so. A substitution is written into `decisions/` before it is used. | review |
-| 12 | Tests never use the network. Every `parse()` is tested on a fixture in `tests/fixtures/` (first 50 rows of the real download). | review (a test that needs the internet is a bug) |
+| 12 | Tests never use the network. Every `parse()` is tested on a fixture in `tests/fixtures/` (first 50 rows of the real download, made by `scripts/make_fixture.py`). Every review follows `review/TEMPLATE.md`. | `test_reviews_follow_template` (reviews); network side is review (a test that needs the internet is a bug) |
 | 13 | Interpolation in yield is linear in tenor, between observed tenors only. One interpolation function in the package; every module uses it. No extrapolation, ever: a tenor beyond the longest observed is missing. | pending 1.8 |
 | 14 | `config.toml` is written in full in step 0.1 with every key the plan names. A later step may change a default only if the step says so, and that change is a commit on its own. | `test_config_loads_every_named_key`; the default-change rule is review |
 
@@ -106,7 +106,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (17 tests after 0.2)
+uv run pytest -q                                       # make test (20 tests after 0.3)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build    # steps 1.8-1.9
