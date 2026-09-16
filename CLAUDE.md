@@ -26,6 +26,25 @@ and stops. Never two steps. Never the next step because it "makes sense".
 If a step cannot be done as written, stop and say why. If a step needs a
 choice that neither `PLAN.md` nor `config.toml` makes, stop and ask.
 
+**Everything the owner must read or answer goes on GitHub as an issue**, not
+only in the terminal — the owner reviews and replies from the Claude app,
+which reads GitHub. Use `scripts/gh_issue.py` (token from the git credential
+store or `GITHUB_TOKEN`; never printed, never in a file):
+
+```bash
+uv run python scripts/gh_issue.py post --title "Review X.Y: <one line>" --body-file review/X.Y.md --label review
+uv run python scripts/gh_issue.py post --title "Question X.Y: <one line>" --body-file q.md --label question
+uv run python scripts/gh_issue.py read <n>     # the owner's answers arrive as comments
+uv run python scripts/gh_issue.py list
+```
+
+At the end of every step: post the review file as an issue titled
+`Review X.Y: ...` after the push, and put the issue URL in the terminal
+summary. When a step needs a decision: post it as a `question` issue with the
+recommendation and one reason per option, then stop. At the start of every
+session: `list`, and `read` any issue with new comments before doing
+anything — an answer on GitHub counts as the owner's answer.
+
 ---
 
 ## Invariants
@@ -93,6 +112,8 @@ uv run curvecarry report   # step 6.4
 - The credential helper is `manager` (global); `git push` to
   `https://github.com/uty101/Yield-Curve-Carry-Strategy.git` authenticates
   through it.
+- `gh` is not installed and `gh auth login` needs a browser; `scripts/gh_issue.py`
+  talks to the REST API with the same stored credential instead.
 
 ### Data state on disk
 
