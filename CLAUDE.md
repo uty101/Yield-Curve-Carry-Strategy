@@ -61,7 +61,7 @@ to make a run pass.
 | 3 | `par` and `zero` are never mixed in one calculation. Any function that takes a curve asserts on `curve_type`. | pending 1.9 / 2.1 |
 | 4 | Every number that affects a result comes from `config.toml`. Nothing in `src/` reads a knob that is not there. | review |
 | 5 | Raw files are never overwritten; every fetch appends to `data/raw/manifest.json` (URL, sha256, bytes, fetched_at, source). A re-fetch gets a new filename with the fetch date. | pending 0.2 |
-| 6 | Every strategy run is a row in `reports/specifications.csv` **before** it computes. A variant with no row did not happen. The file is append-only. N in the deflated Sharpe is that row count. | pending 0.1 |
+| 6 | Every strategy run is a row in `reports/specifications.csv` **before** it computes. A variant with no row did not happen. The file is append-only. N in the deflated Sharpe is that row count. | `test_run_without_row_fails`, `test_speclog_is_append_only` |
 | 7 | Anything a function uses at month *t* is dated on or before *t*. Expanding-window PCA scores at *t* do not change when later months are appended. | pending 5.4 |
 | 8 | No number in `README.md` is typed by hand. The results table is pasted from `reports/results.md` and a test asserts equality. | pending 6.4 |
 | 9 | Nothing is imported from the project 1 repo. The duration-budget engine is written here. | review |
@@ -69,7 +69,7 @@ to make a run pass.
 | 11 | If a data source is unreachable, stop and say so. A substitution is written into `decisions/` before it is used. | review |
 | 12 | Tests never use the network. Every `parse()` is tested on a fixture in `tests/fixtures/` (first 50 rows of the real download). | review (a test that needs the internet is a bug) |
 | 13 | Interpolation in yield is linear in tenor, between observed tenors only. One interpolation function in the package; every module uses it. No extrapolation, ever: a tenor beyond the longest observed is missing. | pending 1.8 |
-| 14 | `config.toml` is written in full in step 0.1 with every key the plan names. A later step may change a default only if the step says so, and that change is a commit on its own. | review |
+| 14 | `config.toml` is written in full in step 0.1 with every key the plan names. A later step may change a default only if the step says so, and that change is a commit on its own. | `test_config_loads_every_named_key`; the default-change rule is review |
 
 Two consequences worth spelling out:
 
@@ -90,7 +90,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test
+uv run pytest -q                                       # make test (9 tests after 0.1)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build    # steps 1.8-1.9
