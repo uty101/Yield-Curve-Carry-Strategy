@@ -1,4 +1,4 @@
-# Yield Curve Modelling and a G7 Carry Strategy — Build Plan v1
+# Yield Curve Modelling and a G7 Carry Strategy — Build Plan v2
 
 This file is the build specification. Work through it one step at a time.
 
@@ -28,6 +28,16 @@ interbank as a robustness column; Canada from the zero-coupon curve; par
 curves bootstrapped to zero in step 1.9. Italy is not in the universe
 (`decisions/euro_curves.md`).
 
+**v2 (2026-09-16, after the review of v1 in issue #2)** — four amendments:
+(A) every bucket return is an excess return over its own funding rate and
+the hedge is the CIP identity `r_hedged = r_excess_local`; (B) the funding
+rate is never on the curve — no anchor row, a flat short-end convention
+below the shortest observed tenor, US and DE gain observed 0.25 and 0.5
+tenors; (C) the risk controls use returns dated ≤ t−1; (D) euro funding
+before 1999 is the national BIS policy rate, spliced at
+`config.hedge.eur_splice`. Steps changed: 1.1, 1.3, 1.5, 1.7, 1.8, 1.9,
+2.1, 3.1, 4.1, 4.2, 4.3, 5.3, 5.5, 6.1, 6.2.
+
 ## Global rules (apply to every step)
 
 1. One step per session. Run `make test` and `make lint`, write the review,
@@ -53,7 +63,11 @@ curves bootstrapped to zero in step 1.9. Italy is not in the universe
 13. Interpolation in yield is linear in tenor, between observed tenors only.
     There is one interpolation function in the package and every module uses
     it. No extrapolation, ever; a tenor beyond the longest observed is
-    missing.
+    missing. **One exception, by convention:** below the shortest
+    *observed* zero tenor the zero yield is flat from that tenor
+    (`config.short_end = "flat"`). It is not extrapolation, it lives in
+    `Curve.at`, and only `bondmath`, `bootstrap` and the 1-year rolldown
+    through `Curve.at` exercise it (`decisions/short_anchor.md`).
 14. `config.toml` is written in full in step 0.1 with every key the plan
     names, so that no later step "adds a knob". A later step may change a
     default only if the step says so, and the change is a commit on its own.
@@ -69,7 +83,7 @@ tidy `pandas.DataFrame` with exactly these columns, in this order:
 |---|---|---|
 | `date` | `datetime64[ns]` | calendar month end (`Timestamp + MonthEnd(0)`, midnight). The observation is the last available in that calendar month in the source's own calendar; the stamp is the calendar month end so countries align. |
 | `country` | `str` | ISO2: `US`, `GB`, `DE`, `JP`, `CA`, `FR` |
-| `tenor_years` | `float64` | years; `0.25` is the funding anchor (`decisions/short_anchor.md`) |
+| `tenor_years` | `float64` | years; every observed tenor is kept, standard or not (US 0.25 and 0.5, JP 15, 25, 40, FR 15, 25, CA 0.25-year steps). The funding rate is never a row: it lives in `data/interim/funding.parquet` (`decisions/short_anchor.md`) |
 | `yield` | `float64` | decimal, annually compounded (see below) |
 | `curve_type` | `str` | `zero` or `par` |
 | `source` | `str` | the manifest `source` name of the raw file it came from |
@@ -99,9 +113,22 @@ yields are quoted with the country's coupon frequency and are not converted.
 **Curve object.** `curvecarry.curves.Curve` is a frozen dataclass:
 `tenors: np.ndarray`, `yields: np.ndarray`, `curve_type: str`, `country: str`,
 `date: pd.Timestamp`, sorted by tenor, NaNs dropped.
-`Curve.from_panel(panel: pd.DataFrame, country: str, date: pd.Timestamp, *, include_anchor: bool) -> Curve`.
+`Curve.from_panel(panel: pd.DataFrame, country: str, date: pd.Timestamp) -> Curve`
+(all observed tenors of that country-month, standard and non-standard).
 `Curve.at(tenor: float) -> float` calls the one interpolation function
-(rule 13) and returns NaN outside `[tenors.min(), tenors.max()]`.
+(rule 13) inside `[tenors.min(), tenors.max()]`, returns **`yields[0]`
+below `tenors.min()`** (the flat short end, `config.short_end`), and NaN
+above `tenors.max()`.
+
+**Funding table.** `data/interim/funding.parquet` (step 1.7) has
+`date, country, currency, rate, kind, source` — one row per
+`(country, month end, kind)`, `kind ∈ {policy, interbank_3m}`. For a euro
+country before `config.hedge.eur_splice` the policy rate is the national
+BIS series named in `config.hedge.eur_legacy`; from the splice it is `XM`.
+`r_short_local` for a bucket is this table at the bucket's country and
+date; `r_short_base` is the row of the base currency's country. Every
+bucket return the strategy sees is an excess return over its own
+`r_short_local` (amendment A).
 
 **Units in names.** Columns ending `_bp` are basis points; everything else
 is decimal. `carry` is per year; `rolldown` is per horizon month;
@@ -251,7 +278,10 @@ others kept. Loader steps write `stage = observed`; 1.8 writes
 ## Step 1.1 — US: FRED constant-maturity par yields
 
 **Build**
-- `src/curvecarry/loaders/us.py`. Series `DGS1 DGS2 DGS3 DGS5 DGS7 DGS10 DGS20 DGS30`,
+- `src/curvecarry/loaders/us.py`. Series `DGS3MO DGS6MO DGS1 DGS2 DGS3 DGS5 DGS7 DGS10 DGS20 DGS30`
+  (`DGS3MO` → 0.25, `DGS6MO` → 0.5, both from 1981-09, kept in the panel as
+  non-standard tenors like JP's 15y; they give the US curve an observed
+  short end — amendment B),
   URL `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<series>`,
   raw `data/raw/fred/<series>_<date>.csv`, source `fred`.
   - `parse(paths)`: columns `observation_date, <series>`; `"."` → NaN;
@@ -265,16 +295,16 @@ others kept. Loader steps write `stage = observed`; 1.8 writes
 - CLI: `fetch --source us`, `build --step us`.
 
 **Test** `tests/test_loader_us.py` on `tests/fixtures/fred/DGS*.csv`
-(8 fixtures, header + 50 rows each) plus a synthetic frame for the gap check.
-- `test_units_us`, `test_tenors_us` (`{1,2,3,5,7,10,20,30}`), `test_dates_us`,
+(10 fixtures, header + 50 rows each) plus a synthetic frame for the gap check.
+- `test_units_us`, `test_tenors_us` (`{0.25,0.5,1,2,3,5,7,10,20,30}`), `test_dates_us`,
   `test_no_duplicates_us`.
 - `test_month_end_is_last_observation_not_average`: a synthetic month with
   values 1, 2, 3 on three days gives 3 (× 1e-2), not 2.
 - `test_gap_is_recorded_not_filled`: a synthetic DGS20 with 24 missing months
   produces one `gaps` entry and no yields in those months.
 
-**Done when** the six tests pass and `data/checks/coverage.csv` has 8 US rows
-with the two gaps in `gaps`.
+**Done when** the six tests pass and `data/checks/coverage.csv` has 10 US rows
+with the two gaps in `gaps` and 1981-09 first dates for 0.25 and 0.5.
 
 ## Step 1.2 — UK: Bank of England nominal spot curve, month-end archive
 
@@ -325,8 +355,9 @@ with the two gaps in `gaps`.
     in `src/curvecarry/svensson.py` (shared with 2.3), in the Bundesbank's
     decay-time form:
     `y = β0 + β1·(1−e^{−τ/τ1})/(τ/τ1) + β2·[(1−e^{−τ/τ1})/(τ/τ1) − e^{−τ/τ1}] + β3·[(1−e^{−τ/τ2})/(τ/τ2) − e^{−τ/τ2}]`.
-  - `parse(paths)`: reconstructs the 8 standard tenors daily from the
-    parameters, decimal, then applies the compounding conversion per
+  - `parse(paths)`: reconstructs the 8 standard tenors **and 0.25 and 0.5**
+    daily from the parameters (amendment B: the observed short end for
+    Germany), decimal, then applies the compounding conversion per
     Conventions (recorded in `decisions/compounding.md`).
   - `load(cfg)`: `month_end_sample` → `country = "DE"`, `curve_type = "zero"`,
     `data/interim/curves_de.parquet`; and the month-end sampled parameters
@@ -335,7 +366,7 @@ with the two gaps in `gaps`.
 
 **Test** `tests/test_loader_de.py` on `tests/fixtures/bundesbank/*.csv`
 (7 fixtures).
-- `test_units_de`, `test_tenors_de` (`{1,2,3,5,7,10,20,30}`), `test_dates_de`,
+- `test_units_de`, `test_tenors_de` (`{0.25,0.5,1,2,3,5,7,10,20,30}`), `test_dates_de`,
   `test_no_duplicates_de`.
 - `test_reconstruct_published_10y_within_1bp`: on 20 dates drawn with
   `numpy.random.default_rng(0)` from the fixture dates where all seven
@@ -391,18 +422,19 @@ dates for 20, 25, 30, 40.
     (tenor = int(col[2:-2]) / 100), `"na"` → NaN. **Values are already
     decimals: no division.** Compounding per Conventions.
   - `load(cfg)`: `month_end_sample` → `country = "CA"`, `curve_type = "zero"`.
-    `ZC025YR` is dropped: the 0.25 anchor is the policy rate for every
-    country (`decisions/short_anchor.md`). The file is published with a
+    Every tenor from 0.25 to 30 is kept (non-standard ones as observed
+    rows, like JP's 15y). The file is published with a
     two-week lag; if the latest calendar month has no observation, that
     month is missing and coverage shows it.
 
 **Test** `tests/test_loader_ca.py` on `tests/fixtures/boc/zero_curve.csv`.
 - `test_units_ca` — the decisive one: `yield.max() > 0.001` fails if the
   loader divides by 100.
-- `test_tenors_ca` (`{0.5, 0.75, 1.0, …, 30.0}` minus 0.25), `test_dates_ca`,
+- `test_tenors_ca` (`{0.25, 0.5, 0.75, 1.0, …, 30.0}`, 120 tenors), `test_dates_ca`,
   `test_no_duplicates_ca`.
 - `test_na_is_missing`: `na` → NaN.
-- `test_anchor_tenor_dropped`: no `tenor_years == 0.25` row.
+- `test_no_division_by_100`: a fixture cell `0.0226506` is returned as
+  `0.0226506`, not `0.000226506`.
 
 **Done when** the six tests pass and coverage has CA rows.
 
@@ -452,7 +484,10 @@ first date.
 - `src/curvecarry/loaders/short_rates.py`:
   - Policy rates (default, `config.hedge.funding_rate = "policy"`): BIS
     `https://stats.bis.org/api/v2/data/dataflow/BIS/WS_CBPOL/1.0/M.<A>?format=csv`
-    for `A ∈ {US, GB, JP, CA, XM}` (XM = euro area, used for EUR). Raw
+    for `A ∈ {US, GB, JP, CA, XM, DE, FR}` (XM = euro area from 1999-01;
+    `DE` and `FR` are the national series, both discontinued at 1998-12,
+    probed 2026-09-16: DE 1948-07 → 1998-12, FR 1945-01 → 1998-12 —
+    amendment D). Raw
     `data/raw/bis/CBPOL_<A>_<date>.csv`, source `bis`. SDMX-CSV:
     `TIME_PERIOD` (`YYYY-MM`), `OBS_VALUE` in percent → `/ 100`; stamped to
     calendar month end. The BIS monthly value is the end-of-month rate; the
@@ -462,9 +497,18 @@ first date.
     raw `data/raw/fred/<series>_<date>.csv`, `/ 100`, first-of-month dates
     stamped to that month's end.
   - `load(cfg) -> pd.DataFrame` → `data/interim/short_rates.parquet` with
-    columns `date, currency, rate, kind, source`; `currency ∈ {USD,GBP,JPY,CAD,EUR}`,
-    `kind ∈ {policy, interbank_3m}`. The country→currency map is
-    `config.currency`.
+    columns `date, area, rate, kind, source`; `area ∈ {US,GB,JP,CA,XM,DE,FR,EZ}`
+    (the BIS / OECD area code), `kind ∈ {policy, interbank_3m}`.
+  - `build_funding(cfg) -> pd.DataFrame` → `data/interim/funding.parquet`
+    (the Funding table in Conventions): one row per `(country, date, kind)`
+    for every country in `config.countries` **and** the base currency's
+    country. `currency = config.currency[country]`. For `policy`: a euro
+    country takes `area = config.hedge.eur_legacy[country]` for dates
+    `< config.hedge.eur_splice` and `area = XM` from the splice month end;
+    every other country takes its own area. For `interbank_3m`: the OECD
+    series of its currency (`EZ` for EUR; nothing before 1994-01 and
+    nothing national — the robustness column is one series type).
+    A missing rate is a missing row, never filled.
 - `src/curvecarry/loaders/fx.py`:
   - FRED daily `DEXUSUK` (USD per GBP), `DEXJPUS` (JPY per USD), `DEXCAUS`
     (CAD per USD), `DEXUSEU` (USD per EUR); raw `data/raw/fred/<series>_<date>.csv`.
@@ -476,17 +520,26 @@ first date.
     always **units of base currency per unit of foreign currency**.
     `month_end_sample` (last observation of the month).
   - `load(cfg)` → `data/interim/fx.parquet`: `date, currency, spot, source`,
-    with a row for the base currency at `spot = 1.0`.
-- `data/checks/coverage.csv` gets rows with `country = <currency>` and
-  `curve_type = funding` / `fx` (`stage = observed`).
+    with a row for the base currency at `spot = 1.0`. `DEXUSEU` starts
+    1999-01: there is no EUR spot before it, so DE and FR **unhedged**
+    returns are missing before 1999-01 (their hedged returns are not —
+    under amendment A the hedged return needs no FX). Recorded in
+    coverage, never filled (amendment D).
+- `data/checks/coverage.csv` gets rows with `country = <cc>` and
+  `curve_type = funding_policy` / `funding_interbank_3m` (one per country,
+  showing the DE/FR splice as a continuous series) and
+  `country = <currency>`, `curve_type = fx` (`stage = observed`).
 
 **Test** `tests/test_loader_short_rates.py`, `tests/test_loader_fx.py` on
 `tests/fixtures/bis/*.csv`, `tests/fixtures/fred/IR3TIB01*.csv`,
 `tests/fixtures/fred/DEX*.csv`.
 - `test_units_policy`, `test_units_interbank`: rates in `[-0.05, 0.5]`,
   `max > 0.001`.
-- `test_five_currencies_two_kinds`: the set of `(currency, kind)` is the
-  full 5 × 2.
+- `test_funding_table_covers_every_country_and_kind`: `(country, kind)`
+  is the full 6 × 2 (plus the base country if not in the universe).
+- `test_eur_splice`: on a synthetic DE, FR and XM series, a DE row dated
+  1998-12-31 equals the DE series, a DE row dated 1999-01-31 equals XM;
+  the same for FR; a US row never reads the euro series.
 - `test_month_end_stamp`: every `date` is a calendar month end.
 - `test_fx_direction`: on the fixtures with USD base, GBP `spot` in
   `[1.0, 3.0]`, EUR in `[0.8, 1.7]`, JPY in `[0.002, 0.015]`, CAD in
@@ -495,10 +548,11 @@ first date.
   `spot_USD × spot_GBP(USD base) == 1` to 1e-12 on matching dates.
 - `test_fx_last_observation_of_month`: synthetic month → last value.
 
-**Done when** the seven tests pass and `data/interim/short_rates.parquet`,
-`data/interim/fx.parquet` exist with the coverage rows.
+**Done when** the eight tests pass and `data/interim/short_rates.parquet`,
+`data/interim/funding.parquet`, `data/interim/fx.parquet` exist with the
+coverage rows.
 
-## Step 1.8 — Harmonise: one panel at the 8 tenors plus the anchor
+## Step 1.8 — Harmonise: one panel, the 8 standard tenors marked
 
 **Build**
 - `src/curvecarry/interp.py`:
@@ -506,23 +560,24 @@ first date.
   — the one interpolation function (rule 13). Linear in tenor between the
   two adjacent observed tenors; exact at an observed tenor; **NaN** for any
   target outside `[tenors.min(), tenors.max()]`; NaN inputs dropped first;
-  raises `ValueError` if fewer than 2 finite points. `Curve.at` calls it.
+  raises `ValueError` if fewer than 2 finite points. `Curve.at` calls it
+  inside the observed range and applies the flat short end below it
+  (Conventions; the flat rule is in `Curve.at`, never here).
 - `src/curvecarry/harmonise.py`:
   - `standard_tenors(cfg) -> list[float]` = `config.tenors`.
   - `to_standard(curve_df: pd.DataFrame, cfg) -> pd.DataFrame`: per
-    `(country, date)`, yields at the 8 standard tenors: the observed value
-    where the tenor is observed, `interpolate_yield` where it lies between
-    observed tenors, NaN beyond the longest (or before the shortest)
-    observed. Adds `interpolated: bool`.
-  - `add_anchor(panel, short_rates, cfg) -> pd.DataFrame`: one row per
-    `(country, date)` at `tenor_years = config.short_tenor` with the
-    policy rate of `config.currency[country]` (`kind = funding_rate`),
-    `curve_type` = that country's curve type (so a `(country, date)` has one
-    curve type), `source = bis`, `anchor = True`. Missing rate → no anchor
-    row and a line in `data/checks/anchor_missing.csv`.
+    `(country, date)`, keeps every observed tenor and adds the standard
+    tenors that are not observed: `interpolate_yield` where the tenor lies
+    between observed tenors, NaN (row absent) beyond the longest or before
+    the shortest observed. Adds `interpolated: bool` and
+    `standard: bool` (`tenor_years ∈ config.tenors`).
+  - No funding row is added to any curve (amendment B; v1's `add_anchor`
+    is withdrawn). The funding rate is joined by `(country, date)` from
+    `funding.parquet` where it is needed (4.1, 4.2).
   - `build(cfg) -> pd.DataFrame` → `data/processed/curves.parquet`:
-    CurveFrame columns + `interpolated`, `anchor`. Countries from
-    `config.countries`. Coverage `stage = harmonised` for the 8 tenors.
+    CurveFrame columns + `interpolated`, `standard`. Countries from
+    `config.countries`. Coverage `stage = harmonised` for the 8 standard
+    tenors.
   - Dates: the panel index is the union of month ends across countries; a
     country-month absent in the source is absent here (no forward fill).
 - CLI `build --step harmonise`.
@@ -536,14 +591,17 @@ first date.
 - `test_standard_tenors_from_jp_like_input`: tenors `{1..10,15,20,25,30}`
   give all 8 standard tenors with `interpolated == False` everywhere.
 - `test_standard_tenors_from_boc_like_input`: tenors in 0.25 steps to 30 →
-  all 8, none interpolated; to 25 → 30y NaN.
-- `test_anchor_is_policy_rate_of_currency`: DE and FR anchors both equal the
-  EUR policy rate; anchor `curve_type` equals the country's.
+  all 8 standard, none interpolated; to 25 → no 30y row.
+- `test_non_standard_tenors_kept`: US-like input with 0.25 and 0.5 keeps
+  them with `standard == False`; JP-like input keeps 15, 25, 40.
+- `test_no_funding_row_on_curve`: no row whose `source` is `bis` or whose
+  `tenor_years` is not from the loader's own observed set or
+  `config.tenors`.
 - `test_one_curve_type_per_country_month`.
 - `test_no_forward_fill`: a missing month stays missing.
 
-**Done when** the eight tests pass and `data/checks/coverage.csv` has
-`harmonised` rows for 6 countries × 8 tenors.
+**Done when** the nine tests pass and `data/checks/coverage.csv` has
+`harmonised` rows for 6 countries × 8 standard tenors.
 
 ## Step 1.9 — Par to zero, the two sample windows, the gate
 
@@ -552,21 +610,22 @@ first date.
   - `bootstrap_par_to_zero(par: Curve, freq: int) -> Curve`: asserts
     `par.curve_type == "par"`. Coupon dates `t_k = k / freq` for
     `k = 1 … freq × T_max` where `T_max` is the longest observed par tenor.
-    Par yield at each `t_k` by `interpolate_yield` over the observed par
-    tenors **including the 0.25 anchor**; `t_k` below the shortest observed
-    tenor is not reached because the anchor is at 0.25 ≤ 1/freq. For
+    Par yield at each `t_k` by `par.at(t_k)`: `interpolate_yield` over the
+    observed par tenors, and **flat at the shortest observed par yield
+    for `t_k` below it** (`config.short_end = "flat"`; JP and FR have no
+    tenor below 1, US has 0.25 and 0.5 from 1981-09 — amendment B). For
     `t_k ≤ 1/freq` (single-cashflow bond) `z = c` with `c` the par yield
     at `t_k` (converted from the coupon-frequency convention to annual:
     `z = (1 + c/freq)^freq − 1`). For later `t_k`:
     `DF_k = (1 − (c_k/freq) · Σ_{j<k} DF_j) / (1 + c_k/freq)`, `z_k = DF_k^(−1/t_k) − 1`.
-    Returns the zero curve at the 8 standard tenors (those ≤ `T_max`) as
-    `Curve(curve_type="zero")`; tenors beyond `T_max` are absent (rule 13).
+    Returns the zero curve at every observed par tenor plus the 8 standard
+    tenors (those ≤ `T_max`) as `Curve(curve_type="zero")`; tenors
+    beyond `T_max` are absent (rule 13).
   - `build(cfg) -> pd.DataFrame` → `data/processed/curves_zero.parquet`:
     same schema as `curves.parquet` plus `bootstrapped: bool`. Countries
     whose source is `zero` (GB, DE, CA) pass through unchanged; `par`
     countries (US, JP, FR) are bootstrapped per `(country, date)` with
-    `freq = config.coupon_frequency[country]`. The anchor row is carried
-    through unchanged (it is a rate, not a bond yield). The par panel
+    `freq = config.coupon_frequency[country]`. The par panel
     `curves.parquet` is kept as is (both stored).
   - `data/checks/par_zero_gap.csv`: `country, date, tenor_years, par_yield, zero_yield, gap_bp`
     at 10 and 30 years for US, JP, FR, every month.
@@ -582,20 +641,25 @@ first date.
 
 **Test** `tests/test_bootstrap.py` (synthetic).
 - `test_flat_par_gives_flat_zero`: a flat 4% par curve (freq 1 and freq 2,
-  tenors 0.25, 1, 2, 3, 5, 7, 10, 20, 30) gives zero yields equal to
+  tenors 1, 2, 3, 5, 7, 10, 20, 30 — no sub-1y tenor, so the stubs use
+  the flat rule) gives zero yields equal to
   `(1 + 0.04/freq)^freq − 1` at every tenor to 1e-12 (exactly 0.04 for
   freq 1).
 - `test_reprice_par_bonds_at_100`: an upward-sloping par curve
-  (2% at 0.25 to 5% at 30) bootstrapped, then each observed par bond priced
+  (2% at 1 to 5% at 30, and again with 0.25 and 0.5 observed) bootstrapped,
+  then each observed par bond priced
   off the zero curve (`bondmath` is 2.1; this test uses a local
   cashflow-sum helper in the test file) is within 0.005 of 100.
 - `test_zero_source_passes_through`: a `zero` input is returned identical.
 - `test_par_assertion`: passing a `zero` curve raises `AssertionError`.
 - `test_no_tenor_beyond_longest_par`: par curve to 10y gives no 20 or 30.
+- `test_short_stub_is_flat_at_shortest_par`: with tenors from 1y and
+  freq 2, the 0.5y discount factor equals the one implied by the 1y par
+  yield; with 0.5 observed it equals the one implied by the 0.5 par yield.
 - `test_sample_window_rule`: a synthetic coverage panel with a known first
   5-of-6 month and first 6-of-6 month gives those two dates.
 
-**Done when** the six tests pass, `data/checks/par_zero_gap.csv` and
+**Done when** the seven tests pass, `data/checks/par_zero_gap.csv` and
 `data/checks/sample_window.txt` exist, and `config.toml` has both dates.
 
 **Gate.** The owner reviews `data/checks/coverage.csv` and
@@ -607,7 +671,7 @@ is started. The pass is recorded in `CLAUDE.md` → Validation status.
 # Phase 2 — Curve models
 
 All fits use the **zero** panel `curves_zero.parquet` at the 8 standard
-tenors; the 0.25 anchor is excluded from fitting (it is a policy rate).
+tenors (`standard == True`); non-standard observed tenors are not fitted.
 A country-month with fewer than `config.nelson_siegel.min_tenors` (5)
 non-null standard tenors is not fitted and is counted in
 `data/checks/fit_skipped.csv`.
@@ -625,7 +689,9 @@ non-null standard tenors is not fitted and is counted in
   - `price_from_zero(curve: Curve, tenor: float, coupon: float, freq: int) -> float`:
     dirty price per 100 = `Σ (100·coupon/freq)·DF(t_j) + 100·DF(T)` with
     `DF(t) = discount_factor(curve.at(t), t)`; raises `ValueError` if any
-    `curve.at(t_j)` is NaN (no extrapolation).
+    `curve.at(t_j)` is NaN (above the longest observed tenor; below the
+    shortest `Curve.at` is flat by convention, so a seasoned bond's short
+    stub always prices).
   - `par_yield_from_zero(curve, tenor, freq) -> float` = `freq · (1 − DF(T)) / Σ DF(t_j)`.
   - `yield_from_price(price: float, tenor: float, coupon: float, freq: int) -> float`:
     ytm `y` (coupon-frequency compounding) by `scipy.optimize.brentq` on
@@ -654,8 +720,11 @@ non-null standard tenors is not fitted and is counted in
 - `test_duration_matches_finite_difference`: `−(P(y+h) − P(y−h)) / (2hP)`
   with `h = 1e-6` matches `D` to 1e-6.
 - `test_curve_type_asserted`: a `par` Curve → `AssertionError`.
+- `test_short_end_is_flat_not_nan`: a zero curve observed from 1y,
+  `curve.at(0.5) == curve.at(1.0)` exactly and is finite; `curve.at(31)`
+  with max tenor 30 is NaN; a curve observed from 0.25 interpolates at 0.5.
 
-**Done when** the seven tests pass.
+**Done when** the eight tests pass.
 
 ## Step 2.2 — Nelson-Siegel
 
@@ -769,7 +838,8 @@ has both models for every fitted country-month.
     `Δy_t = (y_t − y_{t−1}) × 1e4` where `t−1` is the previous calendar
     month end **and both months are present at all 8 tenors**; otherwise
     the row is dropped and counted in `data/checks/pca_dropped.csv`
-    (`country, n_months_total, n_dropped, reason`). The anchor is excluded.
+    (`country, n_months_total, n_dropped, reason`). Non-standard tenors are
+    excluded.
   - `pca(changes: np.ndarray) -> PCAResult`: demean by column;
     `S = np.cov(X, rowvar=False, ddof=1)`; `w, V = np.linalg.eigh(S)`;
     sort descending; sign rule per component:
@@ -845,20 +915,25 @@ equals the sum of the three to 0.05 pp; one row per scope).
 ## Step 4.1 — Carry and rolldown
 
 **Build**
-- `src/curvecarry/carry.py`, on `curves_zero.parquet`, horizon `Δt = 1/12`:
-  - per `(country, date, tenor n ∈ standard tenors)` with `Curve` built
-    `include_anchor=True`:
-    `r_short = curve.at(0.25)` (the anchor);
+- `src/curvecarry/carry.py`, on `curves_zero.parquet` and
+  `funding.parquet`, horizon `Δt = 1/12`:
+  - per `(country, date, tenor n ∈ standard tenors)` with
+    `Curve.from_panel` (all observed tenors of that country-month):
+    `r_short` = `funding.parquet` at `(country, date, kind = config.hedge.funding_rate)`
+    — never read off the curve (amendment B);
     `carry = y_n − r_short` (per year);
     `(c, D, C) = par_bond_risk(curve, n, freq)`;
-    `y_roll = curve.at(n − Δt)` (between observed tenors; for n = 1 this
-    lies between 0.25 and 1 — `decisions/short_anchor.md`);
+    `y_roll = curve.at(n − Δt)`: between observed tenors, and for n = 1
+    under the flat rule where no sub-1y tenor is observed, so JP's and
+    FR's 1-year rolldown is exactly 0 (`decisions/short_anchor.md`);
     `rolldown = (y_n − y_roll) × D` (per horizon month, decimal);
     `expected_return_1m = carry × Δt + rolldown`.
   - Output `data/processed/carry.parquet`:
     `date, country, tenor_years, yield, r_short, carry, rolldown, duration, convexity, par_yield, expected_return_1m`.
     Rows where any input is NaN are dropped and counted in
-    `data/checks/carry_missing.csv` (`country, tenor_years, n_missing`).
+    `data/checks/carry_missing.csv` (`country, tenor_years, n_missing,
+    n_flat_short_end` — the last is the number of 1-year bucket-months
+    where `n − Δt` fell below the shortest observed tenor).
 - CLI `build --step carry`.
 
 **Test** `tests/test_carry.py` (synthetic curves).
@@ -866,14 +941,18 @@ equals the sum of the three to 0.05 pp; one row per scope).
   `carry == y − r_short`.
 - `test_linear_curve_rolldown`: `y(τ) = a + bτ` → `rolldown == b × Δt × D`
   to 1e-12 for every tenor.
-- `test_one_year_bucket_rolls_toward_anchor`: with an anchor at 0.25 and
-  no other tenor below 1, `y_roll(1)` is the interpolation between the
-  anchor and the 1y point.
+- `test_one_year_rolldown_uses_observed_short_end_else_flat`: with 0.5
+  observed, `y_roll(1)` is the interpolation between 0.5 and 1 and
+  `rolldown ≠ 0`; with nothing below 1, `y_roll(1) == y(1)` and
+  `rolldown == 0` exactly, and `n_flat_short_end` counts it.
+- `test_r_short_from_funding_table_not_curve`: changing the curve leaves
+  `r_short` unchanged; changing the funding row changes `carry` one for
+  one.
 - `test_duration_is_par_bond_risk`: `duration` equals
   `bondmath.par_bond_risk(...)[1]` exactly.
 - `test_missing_input_is_counted_not_filled`.
 
-**Done when** the five tests pass and `data/processed/carry.parquet` exists.
+**Done when** the six tests pass and `data/processed/carry.parquet` exists.
 
 ## Step 4.2 — Return engine
 
@@ -891,15 +970,20 @@ equals the sum of the three to 0.05 pp; one row per scope).
     `r_local_approx = c/12 − D·Δy + ½·C·Δy²` with `(D, C)` from
     `par_bond_risk(curve_t, n, freq)`.
   - `gap_bp = (r_local_full − r_local_approx) × 1e4`.
-  - **`r_local = r_local_full`** is the return the strategy uses; the
-    approximation is diagnostic.
+  - **`r_local = r_local_full`**; the approximation is diagnostic.
+  - `r_short_local` = `funding.parquet` at `(country, t, kind = config.hedge.funding_rate)`
+    (dated `t`, the country's own currency);
+    **`r_excess_local = r_local − r_short_local / 12`** — the bucket's
+    return over its own financing, the quantity every later step uses
+    (amendment A). A `robustness` copy, `r_short_local_interbank_3m`,
+    `r_excess_local_interbank_3m`, with `kind = funding_rate_robustness`.
   - A bucket present at `t` whose price at `t+1` cannot be computed
     (`price_from_zero` raises: the aged tenor needs an unobserved tenor)
     gets `r_local = 0.0`, `closed = True`, and a row in
     `data/checks/closed_buckets.csv` (`date, country, tenor_years, reason`)
     — "closed at its last available price".
   - Output `data/processed/returns.parquet`:
-    `date (= t), country, tenor_years, coupon, duration, convexity, dy, r_local_full, r_local_approx, gap_bp, r_local, closed`.
+    `date (= t), country, tenor_years, coupon, duration, convexity, dy, r_local_full, r_local_approx, gap_bp, r_local, r_short_local, r_excess_local, r_short_local_interbank_3m, r_excess_local_interbank_3m, closed`.
   - `data/checks/return_approx_gap.csv`: the full distribution — per
     `tenor_years`: `n, mean_bp, std_bp, p01, p05, p50, p95, p99, max_abs_bp`,
     and the 20 largest `|gap_bp|` rows with their dates.
@@ -922,27 +1006,45 @@ equals the sum of the three to 0.05 pp; one row per scope).
   `r_local == 0`, `closed`, one log row.
 - `test_full_repricing_uses_dirty_price`: the price at `t+1` includes
   accrued (equals cashflow sum with first stub `1/freq − 1/12`).
+- `test_excess_return_subtracts_own_funding`: `r_local 0.01`,
+  `r_short_local 0.048` → `r_excess_local == 0.01 − 0.004` to 1e-15; the
+  funding row is the bucket's country and date `t`, not `t+1`.
 
-**Done when** the five tests pass and `data/checks/return_approx_gap.csv`
+**Done when** the six tests pass and `data/checks/return_approx_gap.csv`
 exists.
 
-## Step 4.3 — FX hedge column
+## Step 4.3 — Hedged and unhedged excess returns
 
 **Build**
-- `returns.add_fx(returns, short_rates, fx, cfg) -> pd.DataFrame` adds to
-  `returns.parquet`:
-  - `hedge_carry = (r_short_base − r_short_foreign) / 12` with both from
-    `short_rates.parquet`, `kind = config.hedge.funding_rate`, dated `t`;
+- `returns.add_fx(returns, funding, fx, cfg) -> pd.DataFrame` adds to
+  `returns.parquet` (amendment A):
+  - `r_short_base` = `funding.parquet` at the base currency's country,
+    dated `t`, `kind = config.hedge.funding_rate`;
+  - **`r_hedged = r_excess_local`** — under covered interest parity the
+    FX-hedged excess return in the base currency equals the local excess
+    return. No FX series enters it;
   - `fx_return = ln(S_{t+1}) − ln(S_t)` with `S` = base per foreign from
     `fx.parquet` (foreign appreciation is a gain);
-  - `r_hedged = r_local + hedge_carry`; `r_unhedged = r_local + fx_return`.
-  - For the base country's currency all of `r_local, r_hedged, r_unhedged`
-    are equal (`hedge_carry = fx_return = 0`).
-  - A robustness copy with `kind = funding_rate_robustness`:
-    `hedge_carry_interbank_3m`, `r_hedged_interbank_3m` (NaN where the
+  - **`r_unhedged = r_local + fx_return − r_short_base / 12`** — the local
+    return converted at spot, financed in the base currency;
+  - `hedge_carry = (r_short_base − r_short_local) / 12` kept as a
+    **diagnostic** column only; by construction
+    `r_local + hedge_carry − r_short_base/12 == r_hedged`.
+  - For the base country's currency `r_hedged == r_unhedged == r_excess_local`
+    and `fx_return == hedge_carry == 0`.
+  - Robustness columns with `kind = funding_rate_robustness` and the same
+    definitions: `r_hedged_interbank_3m = r_excess_local_interbank_3m`,
+    `r_unhedged_interbank_3m`, `hedge_carry_interbank_3m` (NaN where the
     interbank series is missing).
-- `decisions/basis.md`: what the hedged return omits (the cross-currency
-  basis). The step probes, and records the status of, the free candidates
+  - `r_unhedged` is NaN where no `S` exists (EUR before 1999-01); such a
+    bucket is not held in an unhedged variant (5.3) and is counted in
+    `data/checks/closed_buckets.csv` with `reason = no_fx`.
+- `decisions/basis.md`: first the two-line derivation —
+  a bond bought with `1` unit of foreign currency borrowed at
+  `r_short_local` and the proceeds sold forward: forward premium under CIP
+  is `(r_short_base − r_short_local)/12`, so the base-currency excess
+  return is `r_local + (r_short_base − r_short_local)/12 − r_short_base/12 = r_local − r_short_local/12 = r_excess_local`;
+  then what that omits (the cross-currency basis). The step probes, and records the status of, the free candidates
   it can find (at minimum: FRED search for "cross-currency basis", BIS
   Statistics Explorer, the ECB Data Portal); if none yields a series, it
   states that the basis is **not measured** and quotes the brief's 20 to
@@ -952,14 +1054,21 @@ exists.
 - CLI `build --step fx`.
 
 **Test** `tests/test_fx_hedge.py` (synthetic).
-- `test_base_country_columns_equal`.
+- `test_hedged_is_local_excess_return`: `r_hedged == r_local − r_short_local/12`
+  to 1e-15 and does not change when the FX series changes.
+- `test_cip_identity`: `r_local + hedge_carry − r_short_base/12 == r_hedged`
+  to 1e-14 on 1,000 random rows.
+- `test_base_country_columns_equal`: `r_hedged == r_unhedged == r_excess_local`,
+  `fx_return == hedge_carry == 0`.
 - `test_hedge_carry_sign_and_size`: base 5%, foreign 1% → `+0.04/12`.
-- `test_unhedged_uses_log_change_of_base_per_foreign`: `S` 1.00 → 1.02 →
-  `fx_return == ln(1.02)`; a foreign appreciation raises `r_unhedged`.
-- `test_hedge_uses_rates_dated_t_not_t_plus_1`.
-- `test_robustness_column_present_and_nan_where_missing`.
+- `test_unhedged_uses_log_change_and_base_funding`: `S` 1.00 → 1.02,
+  `r_local 0`, `r_short_base 0.048` → `r_unhedged == ln(1.02) − 0.004`; a
+  foreign appreciation raises `r_unhedged`.
+- `test_rates_dated_t_not_t_plus_1`.
+- `test_robustness_columns_present_and_nan_where_missing`.
+- `test_no_fx_means_unhedged_nan_and_logged`.
 
-**Done when** the five tests pass, `returns.parquet` has the new columns,
+**Done when** the eight tests pass, `returns.parquet` has the new columns,
 and `decisions/basis.md` exists.
 
 ## Step 4.4 — Chart 4
@@ -1056,7 +1165,9 @@ exists.
     `carry_hedged`, `carry_unhedged`.
   - Timing: weights `w_t` from `signal` at month end `t`; held `t → t+1`;
     bucket return `r_{j,t}` from `returns.parquet` row dated `t`
-    (`r_hedged` or `r_unhedged`). A bucket missing at `t` is not held; a
+    (`r_hedged` or `r_unhedged` as defined in 4.3 — both excess returns,
+    so a net long notional is charged its financing). A bucket missing at
+    `t`, or with NaN `r_unhedged` in an unhedged variant, is not held; a
     bucket with `closed = True` contributes `r = 0` and is counted in
     `n_closed_t`.
     `r_gross_t = Σ_j w_{j,t} r_{j,t}`.
@@ -1070,9 +1181,9 @@ exists.
     `sample_full_start` (session-1 correction 5).
   - `src/curvecarry/metrics.py`:
     `annualised_return = mean(r) × 12`; `annualised_vol = std(r, ddof=1) × √12`;
-    `sharpe = annualised_return / annualised_vol` (no risk-free subtraction:
-    the book is duration-neutral long/short and hedged, so it is an excess
-    return already); `max_drawdown` on the wealth index `Π(1 + r)` with
+    `sharpe = annualised_return / annualised_vol` (no risk-free subtraction,
+    because every bucket return is an excess return over its funding
+    rate); `max_drawdown` on the wealth index `Π(1 + r)` with
     `peak_date`, `trough_date`; `turnover_mean`; `n_months`;
     `year_2022 = {return, vol, sharpe, max_drawdown}` on the 12 months
     of 2022 alone.
@@ -1095,12 +1206,15 @@ exists.
 - `test_turnover_and_cost`: `wd` from `{A: +2, B: −2}` to `{A: +2, C: −2}`
   → `turnover = 2`, `cost = 0.5e-4 × 4`.
 - `test_missing_bucket_not_held_and_closed_is_zero`.
+- `test_net_notional_is_financed`: two buckets with weights summing to
+  `+3` units of notional, zero price change (`r_local = 0`), `r_short 4%`
+  → `r_gross = −3 × 0.04/12` to 1e-15.
 - `test_metrics_closed_forms`: constant monthly return `r` →
   `annualised_return = 12r`, `vol = 0`, drawdown 0; a `−10%` then `+5%`
   series → `max_drawdown = −0.10`, dates right.
 - `test_two_windows_reported`: metrics frame has `window ∈ {full, six}`.
 
-**Done when** the seven tests pass, `reports/specifications.csv` has two new
+**Done when** the eight tests pass, `reports/specifications.csv` has two new
 rows, and `data/checks/metrics_carry_hedged.csv`,
 `data/checks/metrics_carry_unhedged.csv` exist.
 
@@ -1165,8 +1279,8 @@ rows, and `data/checks/metrics_carry_hedged.csv`,
   summed `wd`.
 - Robustness variants, each its own logged row:
   `carry_hedged_country_scope` (`duration_neutral_scope = "country"`),
-  `carry_hedged_interbank_3m` (`funding_rate = interbank_3m` for the anchor,
-  carry, hedge; sample limited to where the series exist, stated in the
+  `carry_hedged_interbank_3m` (`funding_rate = interbank_3m` for `r_short`
+  in carry, `r_excess_local` and `r_short_base`; sample limited to where the series exist, stated in the
   table). A variant's config override is recorded in its spec-log `note` as the JSON of the
   overridden keys; the base `config.toml` is not edited.
 - `metrics.deflated_sharpe(sr_monthly: float, sr_var_trials: float, n_trials: int, T: int, skew: float, kurt: float) -> tuple[float, float]`
@@ -1207,8 +1321,13 @@ all eight variants in both windows.
 **Build**
 - `src/curvecarry/decomposition.py`, per variant and month `t`, on the
   held positions:
-  - `carry_earned_t = Σ_j w_j (c_j/12 + rolldown_j)` (`c_j` the par yield
-    the bond was bought at, `rolldown_j` from 4.1);
+  - **hedged variants:** `carry_earned_t = Σ_j w_j (c_j/12 − r_short_j/12 + rolldown_j)`
+    (`c_j` the par yield the bond was bought at, `r_short_j` its own
+    funding rate, `rolldown_j` from 4.1); `funding_t = 0` and `fx_t = 0`
+    (financing is inside carry earned, and there is no FX term).
+    **unhedged variants:** `carry_earned_t = Σ_j w_j (c_j/12 + rolldown_j)`,
+    `funding_t = −Σ_j w_j r_short_base/12`, `fx_t = Σ_j w_j fx_return_j`
+    (amendment A);
   - `yield_change_pnl_t = Σ_j w_j (r_local_full,j − c_j/12 − rolldown_j)` —
     the exact remainder, so the identity holds to machine precision. Its
     Taylor form `Σ_j w_j (−D_j Δy_j + ½ C_j Δy_j²)` with
@@ -1216,12 +1335,12 @@ all eight variants in both windows.
     aged tenor, zero curve) is stored as `yield_change_taylor_t` and the
     difference as `taylor_residual_t` (this is the 4.2 gap aggregated by
     the weights);
-  - `hedge_t = Σ_j w_j hedge_carry_j` (or `fx_return_j` for unhedged);
   - `cost_t = −cost_t` from the backtest.
-  - Identity: `carry_earned + yield_change_pnl + hedge + cost == r_net`
-    to 1e-10 every month.
+  - Identity: `carry_earned + yield_change_pnl + funding + fx + cost == r_net`
+    to 1e-10 every month (for hedged variants `funding` and `fx` are zero
+    columns, so it is the four-piece identity).
   - Outputs `data/processed/decomposition_<variant>.parquet`
-    (`date, carry_earned, yield_change_pnl, yield_change_taylor, taylor_residual, hedge, cost, r_net, identity_gap`),
+    (`date, carry_earned, yield_change_pnl, yield_change_taylor, taylor_residual, funding, fx, cost, r_net, identity_gap`),
     `data/checks/decomposition_shares.csv` (`variant, window, piece, cumulative, share`
     where `cumulative` is the sum of the monthly piece and `share` its
     fraction of the summed `r_net`).
@@ -1233,7 +1352,10 @@ all eight variants in both windows.
 **Test** `tests/test_decomposition.py` (synthetic backtest in `tmp_path`).
 - `test_four_pieces_sum_to_reported_return`: `|identity_gap| < 1e-10`
   every month.
-- `test_carry_earned_hand_computed`.
+- `test_carry_earned_hand_computed`: hedged, one bucket `w 2`, `c 0.03`,
+  `r_short 0.012`, `rolldown 0.0005` → `2 × (0.0025 − 0.001 + 0.0005)`;
+  unhedged, the same bucket → `2 × (0.0025 + 0.0005)` and
+  `funding == −2 × r_short_base/12`.
 - `test_taylor_residual_equals_weighted_gap`: equals `Σ w_j gap_j` from 4.2
   to 1e-12.
 - `test_shares_sum_to_one`.
@@ -1252,11 +1374,14 @@ and the two chart-5 pngs exist.
 - `src/curvecarry/risk_controls.py`, each a transform of a base variant's
   held positions into a new logged variant, applied to every base in
   `config.risk.risk_control_base_variants`:
-  - (a) `vol_target`: `scale_t = min(target_vol / vol_{t−11..t}, max_leverage)`
+  - (a) `vol_target`: `scale_t = min(target_vol / vol_{t−12..t−1}, max_leverage)`
     with `vol` the annualised std (ddof 1) of the base's `r_net` over the
-    12 months ending at `t` (known at `t`); NaN until 12 months → scale 1;
-    positions at `t` multiplied by `scale_t`. Variant `<base>_voltarget`.
-  - (b) `dd_stop`: drawdown of the base's wealth index at `t`; if
+    12 returns **dated `t−12 … t−1`** (a return dated `t` is earned over
+    `t → t+1` and is not known at `t` — amendment C); NaN until 12 months →
+    scale 1; positions at `t` multiplied by `scale_t`. Variant
+    `<base>_voltarget`.
+  - (b) `dd_stop`: drawdown of the base's wealth index **through `r_{t−1}`**
+    (`Π_{s ≤ t−1} (1 + r_s)`, amendment C); if
     `< −dd_stop` the book is flat for months `t+1 … t+dd_reentry_months`
     (positions zero, turnover from closing counted), then re-enters at the
     base's positions. Variant `<base>_ddstop`.
@@ -1274,14 +1399,17 @@ and the two chart-5 pngs exist.
 
 **Test** `tests/test_risk_controls.py` (synthetic).
 - `test_vol_target_scale_formula_and_cap`.
-- `test_vol_target_uses_only_past_returns`: changing `r_{t+1}` does not
-  change `scale_t`.
+- `test_vol_target_uses_only_past_returns`: changing `r_t` (the return
+  dated `t`) does not change `scale_t`; changing `r_{t−1}` does.
 - `test_dd_stop_goes_flat_next_month_for_exactly_reentry_months`.
+- `test_dd_stop_uses_wealth_through_t_minus_1`: a drawdown breach that
+  first appears in `r_t` does not flatten positions at `t`; it flattens
+  them at `t+1`.
 - `test_rates_filter_expanding_percentile_no_lookahead`: appending months
   after `t` leaves the flag at `t` unchanged.
 - `test_attribution_2022_rows_sum_to_total`.
 
-**Done when** the five tests pass, six risk-control rows are in
+**Done when** the six tests pass, six risk-control rows are in
 `specifications.csv`, and `data/checks/attribution_2022_carry_hedged.csv`
 exists.
 
@@ -1344,7 +1472,7 @@ and the README block is the pasted table.
 
 | Quantity | Config key | Used in |
 |---|---|---|
-| countries, tenors, anchor tenor | `countries`, `tenors`, `short_tenor` | 1.8 onwards |
+| countries, tenors, flat short end | `countries`, `tenors`, `short_end` | 1.8, 1.9, 2.1, 4.1 |
 | coupon frequency | `coupon_frequency.<cc>` | 1.9, 2.1, 4.x |
 | windows | `sample.*` | 1.9, 5.3 |
 | NS/Svensson grid and fixed λ, min tenors | `nelson_siegel.*` | 2.2, 2.3 |
@@ -1352,7 +1480,7 @@ and the README block is the pasted table.
 | yield floor | `signal.yield_floor` | 5.1 |
 | duration budget, scope, minimum buckets | `weights.*` | 5.2 |
 | overlay entry/exit, budget, tenors | `overlay.*` | 5.4 |
-| funding rate kinds | `hedge.*` | 1.7, 1.8, 4.3, 5.5 |
+| funding rate kinds, EUR splice and legacy areas | `hedge.*` | 1.7, 4.1, 4.2, 4.3, 5.5 |
 | cost | `costs.cost_bp_per_duration_year` | 5.3 |
 | risk controls | `risk.*` | 6.2 |
 | chart decades | `report.chart1_decades` | 2.4 |

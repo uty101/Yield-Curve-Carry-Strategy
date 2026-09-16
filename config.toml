@@ -12,8 +12,9 @@
 base_currency = "USD"                 # issue #1 answer 1; FX is stored as units of base per unit of foreign
 countries = ["US", "GB", "DE", "JP", "CA", "FR"]   # IT dropped, session-1 correction 3: decisions/euro_curves.md
 tenors = [1, 2, 3, 5, 7, 10, 20, 30]  # standard tenor grid, years
-short_tenor = 0.25                    # anchor tenor for the funding rate on every curve (1.8): the BIS policy rate, an
-                                      # overnight rate placed at 0.25y, see decisions/short_anchor.md
+short_end = "flat"                    # below the shortest observed zero tenor the zero yield is flat from that tenor; this is a
+                                      # convention, not extrapolation, and is the only exception to rule 13, used only by
+                                      # bondmath and bootstrap (plan v2 amendment B; decisions/short_anchor.md)
 
 # coupon frequency per country, payments per year; used by the bootstrap (1.9)
 # and by every par-bond price/duration/convexity function (2.1)
@@ -71,6 +72,11 @@ overlay_tenors = [2, 10]              # the pair, years
 [hedge]
 funding_rate = "policy"               # default funding/hedge rate: BIS WS_CBPOL policy rate per currency (session-1 correction 2)
 funding_rate_robustness = "interbank_3m"  # robustness column: OECD 3-month interbank, FRED IR3TIB01{US,GB,JP,CA,EZ}M156N
+eur_splice = "1999-01-31"             # EUR funding: the national BIS policy rate (M.DE, M.FR) before this month end, M.XM from it (amendment D)
+
+[hedge.eur_legacy]                    # BIS WS_CBPOL area code of each euro country before eur_splice
+DE = "DE"
+FR = "FR"
 
 [costs]
 cost_bp_per_duration_year = 0.5       # bp per year of duration traded, applied to sum |delta(w*D)|

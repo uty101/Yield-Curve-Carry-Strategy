@@ -133,12 +133,19 @@ depend on (full table in `decisions/sources.md`, the FR/IT ruling in
   `BDF_API_KEY`, read from the environment only. Without a valid key the API
   returns 200 with zero rows — the fetch must assert on a non-empty body.
 - **Funding rate is the BIS policy rate** (`WS_CBPOL`, monthly) for USD, GBP,
-  JPY, CAD and the euro area (`XM`). It is an overnight rate placed at
-  `short_tenor = 0.25`; `decisions/short_anchor.md` says why and what it
-  touches. The OECD 3-month interbank series on FRED (`IR3TIB01*`, one series
-  type for all five currencies, USD included) are a robustness column only:
-  JPY starts 2002, GBP and EUR stop at 2026-01, and the interbank credit
-  spread in 2008 would read as carry.
+  JPY, CAD and the euro area (`XM`; the national BIS series `DE` and `FR`
+  before `hedge.eur_splice = 1999-01-31`). **It is never placed on a
+  curve**: it lives in `data/interim/funding.parquet`, joined by country and
+  date, and every bucket return is an excess return over it
+  (`r_excess_local = r_local − r_short_local/12`; the hedged return is that
+  excess return by covered interest parity, the unhedged one is
+  `r_local + Δln S − r_short_base/12`). Below the shortest observed zero
+  tenor the curve is flat (`short_end = "flat"`, the one exception to rule
+  13). `decisions/short_anchor.md` has the per-country short end and what
+  it does to the 1-year rolldown. The OECD 3-month interbank series on FRED
+  (`IR3TIB01*`, one series type for all five currencies, USD included) are a
+  robustness column only: JPY starts 2002, GBP and EUR stop at 2026-01, and
+  the interbank credit spread in 2008 would read as carry.
 - **FX is the FRED daily series** `DEXUSUK`, `DEXJPUS`, `DEXCAUS`, `DEXUSEU`,
   sampled at the last observation of the month like the curves, and
   normalised in the loader to units of base currency per unit of foreign
