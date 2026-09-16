@@ -5,6 +5,7 @@ the owner answers them (the Claude app reads and replies on GitHub).
         --body-file review/1.1.md --label review
     uv run python scripts/gh_issue.py comment 3 --body-file answer.md
     uv run python scripts/gh_issue.py read 3          # issue body + every comment, oldest first
+    uv run python scripts/gh_issue.py close 3 --body "Approved ..."  # comment, then close
     uv run python scripts/gh_issue.py list            # open issues
 
 The token comes from GITHUB_TOKEN if set, else from `git credential fill` for
@@ -115,6 +116,18 @@ def read(args: argparse.Namespace) -> None:
         page += 1
 
 
+def close(args: argparse.Namespace) -> None:
+    s = _session()
+    if args.body_file or args.body:
+        body = _read_body(args.body_file, args.body)
+        s.post(f"{API}/issues/{args.number}/comments", json={"body": body}).raise_for_status()
+    r = s.patch(
+        f"{API}/issues/{args.number}", json={"state": "closed", "state_reason": "completed"}
+    )
+    r.raise_for_status()
+    print(f"#{args.number} closed {r.json()['html_url']}")
+
+
 def list_issues(args: argparse.Namespace) -> None:
     s = _session()
     r = s.get(f"{API}/issues", params={"state": args.state, "per_page": 100})
@@ -144,6 +157,12 @@ def main(argv: list[str] | None = None) -> None:
     c = sub.add_parser("read", help="print an issue and all its comments")
     c.add_argument("number", type=int)
     c.set_defaults(fn=read)
+
+    e = sub.add_parser("close", help="optionally comment, then close an issue")
+    e.add_argument("number", type=int)
+    e.add_argument("--body-file")
+    e.add_argument("--body")
+    e.set_defaults(fn=close)
 
     d = sub.add_parser("list", help="list issues")
     d.add_argument("--state", default="open", choices=["open", "closed", "all"])
