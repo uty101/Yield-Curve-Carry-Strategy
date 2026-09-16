@@ -133,9 +133,12 @@ depend on (full table in `decisions/sources.md`, the FR/IT ruling in
   `BDF_API_KEY`, read from the environment only. Without a valid key the API
   returns 200 with zero rows — the fetch must assert on a non-empty body.
 - **Funding rate is the BIS policy rate** (`WS_CBPOL`, monthly) for USD, GBP,
-  JPY, CAD and the euro area (`XM`). The OECD 3-month interbank series on FRED
-  are a robustness column only: JPY starts 2002, GBP and EUR stop at 2026-01,
-  and the interbank credit spread in 2008 would read as carry.
+  JPY, CAD and the euro area (`XM`). It is an overnight rate placed at
+  `short_tenor = 0.25`; `decisions/short_anchor.md` says why and what it
+  touches. The OECD 3-month interbank series on FRED (`IR3TIB01*`, one series
+  type for all five currencies, USD included) are a robustness column only:
+  JPY starts 2002, GBP and EUR stop at 2026-01, and the interbank credit
+  spread in 2008 would read as carry.
 - **FX is the FRED daily series** `DEXUSUK`, `DEXJPUS`, `DEXCAUS`, `DEXUSEU`,
   sampled at the last observation of the month like the curves, and
   normalised in the loader to units of base currency per unit of foreign

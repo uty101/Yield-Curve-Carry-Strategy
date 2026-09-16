@@ -22,7 +22,7 @@ Bytes are the response body. Span is the first and last date token seen in the b
 | JP curve | MOF JGB current year | 200 | 1,332 | 2026/9/1 → 2026/9/15 | `https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme.csv` |
 | JP curve | MOF kickoff URL (moved) | 404 | 20,481 |  | `https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme_all.csv` |
 | CA curve | BoC zero-coupon curve (GET form -> csv) | 200 | 32,135 | 2026-07-31 → 2026-08-26 | `https://www.bankofcanada.ca/stats/results/csv?lookupPage=lookup_yield_curve.php&startRange=1986-01-01&searchRange=&dFrom=2026-08-01&dTo=2026-08-31&submit=Submit` |
-| CA curve | BoC Valet benchmark yields (fallback) | 200 | 407,520 | 2001-01-02 → 2026-09-14 | `https://www.bankofcanada.ca/valet/observations/group/bond_yields_benchmark/csv` |
+| CA curve | BoC Valet benchmark yields (fallback) | 200 | 407,583 | 2001-01-02 → 2026-09-15 | `https://www.bankofcanada.ca/valet/observations/group/bond_yields_benchmark/csv` |
 | FR curve | Banque de France Webstat TEC 10y daily (catalog) | 200 | 6,802 |  | `https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/fm-d-fr-eur-fr2-bb-frmoytec10-hsta` |
 | FR curve | Banque de France Webstat TEC 10y records (no key) | 200 | 33 |  | `https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/fm-d-fr-eur-fr2-bb-frmoytec10-hsta/records?limit=3` |
 | Euro composite | ECB euro AAA spot 10y — NOT USED | 200 | 3,159,845 | 2004-09-06 → 2026-09-15 | `https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y?format=csvdata` |
@@ -30,7 +30,8 @@ Bytes are the response body. Span is the first and last date token seen in the b
 | Euro composite | ECB euro all-issuers spot 10y — NOT USED | 200 | 3,192,373 | 2004-09-06 → 2026-09-15 | `https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_C.SV_C_YM.SR_10Y?format=csvdata` |
 | IT check (dropped) | ECB IRS Italy 10y (monthly, convergence rate) | 200 | 153,283 | 1991-03 → 2026-08 | `https://data-api.ecb.europa.eu/service/data/IRS/M.IT.L.L40.CI.0000.EUR.N.Z?format=csvdata` |
 | IT curve (dropped) | Banca d'Italia BDS (national) | 200 | 121,343 |  | `https://infostat.bancaditalia.it/inquiry/home?spyglass/taxo:CUBESET=/PUBBL_00/PUBBL_00_02_00&ep:LC=EN` |
-| Short robustness | FRED TB3MS (USD) | 200 | 17,849 | 1934-01-01 → 2026-08-01 | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=TB3MS` |
+| Short robustness | FRED IR3TIB01USM156N (USD) | 200 | 12,040 | 1964-06-01 → 2026-08-01 | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=IR3TIB01USM156N` |
+| Short — NOT USED | FRED TB3MS (USD T-bill) | 200 | 17,849 | 1934-01-01 → 2026-08-01 | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=TB3MS` |
 | Short robustness | FRED IR3TIB01GBM156N (GBP) | 200 | 15,956 | 1957-01-01 → 2026-01-01 | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=IR3TIB01GBM156N` |
 | Short robustness | FRED IR3TIB01JPM156N (JPY) | 200 | 5,621 | 2002-04-01 → 2026-07-01 | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=IR3TIB01JPM156N` |
 | Short robustness | FRED IR3TIB01CAM156N (CAD) | 200 | 19,641 | 1956-01-01 → 2026-08-01 | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=IR3TIB01CAM156N` |
@@ -238,8 +239,16 @@ _JS application, no CSV endpoint located_
 {"INQUIRYSCOPE":{"environmentId":"LIVE","communityId":"BANKITALIA","defaultCommunityId":"BANKITALIA","contextI
 ```
 
-### Short robustness — FRED TB3MS (USD)
-_robustness column only; monthly, 1934-_
+### Short robustness — FRED IR3TIB01USM156N (USD)
+_robustness column only; OECD 3m interbank, one series type for all 5 currencies_
+```
+observation_date,IR3TIB01USM156N
+1964-06-01,3.86
+1964-07-01,3.87
+```
+
+### Short — NOT USED — FRED TB3MS (USD T-bill)
+_replaced by IR3TIB01USM156N so the robustness column is one series type_
 ```
 observation_date,TB3MS
 1934-01-01,0.72

@@ -12,7 +12,8 @@
 base_currency = ""                    # DECISION 1 pending: "USD" or "GBP"
 countries = ["US", "GB", "DE", "JP", "CA", "FR"]   # IT dropped, session-1 correction 3: decisions/euro_curves.md
 tenors = [1, 2, 3, 5, 7, 10, 20, 30]  # standard tenor grid, years
-short_tenor = 0.25                    # 3-month rate, appended to every curve in 1.8
+short_tenor = 0.25                    # anchor tenor for the funding rate on every curve (1.8): the BIS policy rate, an
+                                      # overnight rate placed at 0.25y, see decisions/short_anchor.md
 
 # coupon frequency per country, payments per year; used by the bootstrap (1.9)
 # and by every par-bond price/duration/convexity function (2.1)
@@ -57,7 +58,7 @@ overlay_tenors = [2, 10]              # the pair, years
 
 [hedge]
 funding_rate = "policy"               # default funding/hedge rate: BIS WS_CBPOL policy rate per currency (session-1 correction 2)
-funding_rate_robustness = "interbank_3m"  # robustness column: OECD 3-month interbank (FRED IR3TIB01*, TB3MS for USD)
+funding_rate_robustness = "interbank_3m"  # robustness column: OECD 3-month interbank, FRED IR3TIB01{US,GB,JP,CA,EZ}M156N
 
 [costs]
 cost_bp_per_duration_year = 0.5       # bp per year of duration traded, applied to sum |delta(w*D)|
