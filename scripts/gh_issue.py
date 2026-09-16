@@ -1,7 +1,8 @@
 """Post and read GitHub issues on this repo, so reviews and questions live where
 the owner answers them (the Claude app reads and replies on GitHub).
 
-    uv run python scripts/gh_issue.py post --title "Review 1.1: US loader" \n        --body-file review/1.1.md --label review
+    uv run python scripts/gh_issue.py post --title "Review 1.1: US loader" \
+        --body-file review/1.1.md --label review
     uv run python scripts/gh_issue.py comment 3 --body-file answer.md
     uv run python scripts/gh_issue.py read 3          # issue body + every comment, oldest first
     uv run python scripts/gh_issue.py list            # open issues
