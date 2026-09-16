@@ -1,0 +1,70 @@
+# curvecarry configuration.
+#
+# Every number that affects a result lives in this file and nowhere else
+# (global rule 4). It is written in full in step 0.1; a later step may change
+# a default only if PLAN.md says so, and that change is a commit on its own
+# (global rule 14). Keys left as "" are decisions pending from session 1.
+#
+# Units: yields and rates are decimals (0.0425 = 4.25%). Tenors are years.
+# Durations are years. Costs are basis points. Windows are months.
+
+# ---------------------------------------------------------------- universe
+base_currency = ""                    # DECISION 1 pending: "USD" or "GBP"
+countries = ["US", "GB", "DE", "JP", "CA", "FR", "IT"]
+tenors = [1, 2, 3, 5, 7, 10, 20, 30]  # standard tenor grid, years
+short_tenor = 0.25                    # 3-month rate, appended to every curve in 1.8
+
+# coupon frequency per country, payments per year; used by the bootstrap (1.9)
+# and by every par-bond price/duration/convexity function (2.1)
+[coupon_frequency]
+US = 2
+GB = 2
+JP = 2
+CA = 2
+DE = 1
+FR = 1
+IT = 1
+
+[sample]
+strategy_start = ""                   # set in step 1.9 from data/checks/sample_window.txt (YYYY-MM-DD)
+strategy_end = "2026-08-31"           # last complete month at the time of writing (session 1, 2026-09-16)
+sample_min_countries = 5              # strategy_start = first month where >= this many countries ...
+sample_max_tenor = 10                 # ... have every tenor up to and including this one
+
+# ------------------------------------------------------------ curve models
+[nelson_siegel]
+ns_lambda_grid = [0.2, 1.5, 0.05]     # lambda grid: lo, hi, step (per year)
+ns_lambda_fixed = 0.7                 # Diebold-Li fixed lambda
+
+[pca]
+pca_min_months = 60                   # minimum months before an expanding-window PCA produces a score
+pca_z_window = 36                     # rolling window for the PC2 z-score (6.7)
+
+# ----------------------------------------------------------------- strategy
+[signal]
+yield_floor = 0.002                   # buckets with zero yield below 20 bp are excluded that month (brief 10)
+
+[weights]
+long_duration_budget = 5.0            # years of duration per unit capital in the long leg (brief 6.5)
+duration_neutral_scope = ""           # DECISION 3 pending: "book" or "country"
+
+[overlay]
+z_entry = 1.5                         # |z| beyond which a steepener/flattener is entered
+z_exit = 0.0                          # z level that closes a position (cross back through)
+overlay_duration_budget = 2.0         # years of duration in the long leg of the 2s10s pair
+overlay_tenors = [2, 10]              # the pair, years
+
+[hedge]
+hedge_tenor_months = ""               # DECISION 4 pending: 1 or 3
+
+[costs]
+cost_bp_per_duration_year = 0.5       # bp per year of duration traded, applied to sum |delta(w*D)|
+
+# -------------------------------------------------------- risk controls (6.2)
+[risk]
+target_vol = 0.05                     # annualised vol target for the vol-scaled variant
+vol_window_months = 12                # trailing window for realised vol
+max_leverage = 2.0                    # cap on the vol-target scalar
+dd_stop = 0.10                        # drawdown from peak that flattens the book
+dd_reentry_months = 3                 # months flat before re-entry after a stop
+rates_vol_pct = 0.90                  # expanding percentile of pooled PC1 12m vol above which the book is flat

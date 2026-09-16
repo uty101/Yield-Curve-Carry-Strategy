@@ -1,0 +1,32 @@
+# data: raw, interim and processed are rebuilt from the loaders; only the
+# manifest and the checks are committed
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/manifest.json
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+# data/checks/ is committed in full
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# notebooks
+notebooks/.ipynb_checkpoints/
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# secrets
+.env
