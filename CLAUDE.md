@@ -101,18 +101,34 @@ and `data/processed/` are empty and git-ignored except `data/raw/manifest.json`
 and everything in `data/checks/`, which are committed. Update this block
 in the step that first writes to each.
 
-Source facts learned in the probe that later steps depend on (full table in
-`decisions/sources.md`):
+Source facts learned in the probe and the session-1 review that later steps
+depend on (full table in `decisions/sources.md`, the FR/IT ruling in
+`decisions/euro_curves.md`):
 
+- **Six countries, not seven.** Italy is dropped: no national curve is
+  reachable, and the ECB euro-area composite curves are never labelled FR or
+  IT. France is the Banque de France TEC constant-maturity series (par, 1 to
+  30 years, daily); the records need the key in the environment variable
+  `BDF_API_KEY`, read from the environment only. Without a valid key the API
+  returns 200 with zero rows — the fetch must assert on a non-empty body.
+- **Funding rate is the BIS policy rate** (`WS_CBPOL`, monthly) for USD, GBP,
+  JPY, CAD and the euro area (`XM`). The OECD 3-month interbank series on FRED
+  are a robustness column only: JPY starts 2002, GBP and EUR stop at 2026-01,
+  and the interbank credit spread in 2008 would read as carry.
+- **FX is the FRED daily series** `DEXUSUK`, `DEXJPUS`, `DEXCAUS`, `DEXUSEU`,
+  sampled at the last observation of the month like the curves, and
+  normalised in the loader to units of base currency per unit of foreign
+  currency. The monthly-average `EX*` series are not used.
 - MOF's JGB file moved under `historical/`; the kickoff URL is 404.
 - Bundesbank Svensson parameters start 1997-08-01 (the published Svensson
   yields go back further; the parameters do not).
 - The Bank of Canada zero-coupon curve is a GET form, not a static file, and
   is published with a two-week lag; the Valet benchmark group is the fallback.
-- Banque de France Webstat has TEC 1–30 daily but the records need a free API
-  key; without it the response is 200 with zero rows, not an error.
-- FRED's OECD 3-month series for Japan starts 2002-04; BIS policy rates are
-  the long-history alternative.
+- The BoE `latest-yield-curve-data.zip` is not used; the month-end archive
+  (`glcnominalmonthedata.zip`) covers everything up to `strategy_end`.
+- **Two sample windows everywhere a result appears**: the 5-country window
+  from `strategy_start` and the 6-country window from `sample_full_start`
+  (the first month France is present). Both are set in step 1.9.
 
 ---
 
