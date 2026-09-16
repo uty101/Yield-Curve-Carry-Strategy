@@ -4,21 +4,54 @@ This file is the build specification. Work through it one step at a time.
 
 ## How to use this file
 
+**Sessions, not steps** (working rule from 2026-09-17). A session is a group
+of steps built in one go. The groups are fixed:
+
+| Session | Steps |
+|---|---|
+| 0 | 0.2, 0.3 |
+| 1 | 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7 (all loaders) |
+| 2 | 1.8, 1.9 and the gate |
+| 3 | 2.1, 2.2, 2.3, 2.4 |
+| 4 | 3.1, 3.2, 3.3 |
+| 5 | 4.1, 4.2, 4.3, 4.4 |
+| 6 | 5.1, 5.2, 5.3 |
+| 7 | 5.4, 5.5 |
+| 8 | 6.1, 6.2 |
+| 9 | 6.3, 6.4 |
+
 In Claude Code, from the repo root, say:
 
-> Read PLAN.md and CLAUDE.md. Do step 0.1 only. Stop when its "Done when"
-> condition is met, show me the test output and the review file.
+> Read PLAN.md and CLAUDE.md. Do Session N.
 
-Then `Do step 0.2 only`, and so on. Never a whole phase at once. Every step
-has exactly three parts — **Build**, **Test**, **Done when** — and "Done
-when" is always a test name or a file in `data/checks/` the owner can open.
+**Within a session.** Steps are built in order. Each step keeps its own
+commit (`Step X.Y: <one line>`) and its own `review/X.Y.md` from
+`review/TEMPLATE.md`, and its "Done when" must be met, with `make test` and
+`make lint` passing, before the next step starts. No review issue per
+step. If a step cannot meet its "Done when", the session stops there and
+reports; the step is not skipped and nothing past it is started. If a step
+needs a choice the plan does not make, the question is posted as an issue
+(label `decision`) and the session continues only with steps that do not
+depend on the answer; if every remaining step depends on it, the session
+stops. Never guess.
 
-At the end of every step the session runs `make test` and `make lint`,
-writes `review/X.Y.md` from `review/TEMPLATE.md`, commits on `main` with
-message `Step X.Y: <one line>`, pushes, posts the review as a GitHub issue
-titled `Review X.Y: <one line>` (label `review`, via
-`scripts/gh_issue.py`), shows the test output and the review file, and
-stops. One commit per step. No branches.
+**End of session.** Push, then post one issue titled `Session N review`
+(label `review`) containing: the steps built with their test counts; every
+deviation from the plan, stated in full; every open question; and for each
+step the "Reviewer reads" list from its review file. Then stop.
+
+**Review loop.** The owner reviews the whole session from the repo and
+replies with fixes. Each fix is one commit (`Session N fix: <one line>`);
+after the fixes the full suite is re-run and a comment on the session issue
+lists what changed; then stop. This repeats until the owner posts
+`Session N approved`. Only then is `Session N approved <date> (<commit>)`
+recorded in `CLAUDE.md` → Validation status, and only then does the next
+session start. A session is never started without the previous one's
+approval line in `CLAUDE.md`.
+
+Every step has exactly three parts — **Build**, **Test**, **Done when** —
+and "Done when" is always a test name or a file in `data/checks/` the owner
+can open. One commit per step. No branches.
 
 Written 2026-09-16 from the brief (`Project Outline/08_Yield_Curve_Carry.docx`),
 the kickoff, the session-1 review corrections and the answers in issue #1:
@@ -40,8 +73,8 @@ before 1999 is the national BIS policy rate, spliced at
 
 ## Global rules (apply to every step)
 
-1. One step per session. Run `make test` and `make lint`, write the review,
-   commit, push, post the review issue, stop.
+1. One session at a time; one commit and one review file per step; nothing
+   starts until the previous session is approved in `CLAUDE.md`.
 2. Yields are decimals everywhere inside the package (0.0425, never 4.25).
    Conversion from percent happens once, in the loader, and nowhere else.
 3. Never mix `par` and `zero` in one calculation. Any function that takes a

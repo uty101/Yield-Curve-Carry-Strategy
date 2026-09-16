@@ -18,13 +18,29 @@ mode; the decomposition in step 6.1 has to sum to the reported return to
 
 ## How a session runs
 
-One step per session. The owner says `Do step X.Y only`. The session does
-that step as written in `PLAN.md`, runs `make test` and `make lint`, writes
-`review/X.Y.md` from `review/TEMPLATE.md`, commits on `main` with message
-`Step X.Y: <one line>`, pushes, shows the test output and the review file,
-and stops. Never two steps. Never the next step because it "makes sense".
-If a step cannot be done as written, stop and say why. If a step needs a
-choice that neither `PLAN.md` nor `config.toml` makes, stop and ask.
+**Sessions, not steps** (rule from 2026-09-17; the full text is in
+`PLAN.md` → "How to use this file"). A session is a fixed group of steps
+built in one go: 0 = {0.2, 0.3}; 1 = {1.1–1.7}; 2 = {1.8, 1.9, gate};
+3 = {2.1–2.4}; 4 = {3.1–3.3}; 5 = {4.1–4.4}; 6 = {5.1–5.3}; 7 = {5.4, 5.5};
+8 = {6.1, 6.2}; 9 = {6.3, 6.4}. The owner says `Do Session N`.
+
+Within a session the steps are built in order; each keeps its own commit
+`Step X.Y: <one line>` and its own `review/X.Y.md`, and its "Done when",
+`make test` and `make lint` must pass before the next step starts. No
+review issue per step. A step that cannot meet its "Done when" stops the
+session there; it is not skipped. A step that needs a choice the plan does
+not make gets a `decision` issue, and the session continues only with steps
+that do not depend on the answer. Never guess.
+
+At the end: push, post one issue `Session N review` (label `review`) with
+the steps built and their test counts, every deviation from the plan in
+full, every open question, and each step's "Reviewer reads" list; stop. The
+owner replies with fixes; each fix is one commit `Session N fix: <one line>`,
+then the full suite is re-run and a comment on the session issue lists what
+changed; stop. Repeat until the owner posts `Session N approved`; only then
+record `Session N approved <date> (<commit>)` under Validation status below
+and start the next session. **A session is never started without the
+previous one's approval line in this file.**
 
 **Everything the owner must read or answer goes on GitHub as an issue**, not
 only in the terminal — the owner reviews and replies from the Claude app,
@@ -32,18 +48,18 @@ which reads GitHub. Use `scripts/gh_issue.py` (token from the git credential
 store or `GITHUB_TOKEN`; never printed, never in a file):
 
 ```bash
-uv run python scripts/gh_issue.py post --title "Review X.Y: <one line>" --body-file review/X.Y.md --label review
-uv run python scripts/gh_issue.py post --title "Question X.Y: <one line>" --body-file q.md --label question
+uv run python scripts/gh_issue.py post --title "Session N review" --body-file s.md --label review
+uv run python scripts/gh_issue.py post --title "Question X.Y: <one line>" --body-file q.md --label decision
 uv run python scripts/gh_issue.py read <n>     # the owner's answers arrive as comments
 uv run python scripts/gh_issue.py list
 ```
 
-At the end of every step: post the review file as an issue titled
-`Review X.Y: ...` after the push, and put the issue URL in the terminal
-summary. When a step needs a decision: post it as a `question` issue with the
-recommendation and one reason per option, then stop. At the start of every
-session: `list`, and `read` any issue with new comments before doing
-anything — an answer on GitHub counts as the owner's answer.
+At the end of every session: post the `Session N review` issue after the
+push and put its URL in the terminal summary. When a step needs a decision:
+post it as a `decision` issue with the recommendation and one reason per
+option. At the start of every session: `list`, and `read` any issue with new
+comments before doing anything — an answer on GitHub counts as the owner's
+answer.
 
 ---
 
@@ -56,7 +72,7 @@ to make a run pass.
 
 | # | Invariant | Test |
 |---|---|---|
-| 1 | One step per session: `make test`, `make lint`, review, commit, push, stop. | review |
+| 1 | One session at a time; one commit and one review file per step; nothing starts until the previous session is approved in `CLAUDE.md` → Validation status. | review (the approval line) |
 | 2 | Yields are **decimals** everywhere inside the package (0.0425, never 4.25). Conversion from percent happens once, in the loader, and nowhere else. Every loader test fails on a yield above 0.5 or below -0.05. | pending 1.1–1.7 (one `test_units_*` per loader) |
 | 3 | `par` and `zero` are never mixed in one calculation. Any function that takes a curve asserts on `curve_type`. | pending 1.9 / 2.1 |
 | 4 | Every number that affects a result comes from `config.toml`. Nothing in `src/` reads a knob that is not there. | review |
