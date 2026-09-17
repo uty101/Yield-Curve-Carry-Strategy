@@ -88,5 +88,14 @@
     "sha256": "eaade8f6da57b880a8c090d9e112229fdd90159f3c0f30907f50cf02ac1a939b",
     "bytes": 206321,
     "fetched_at": "2026-09-17T13:28:16+00:00"
+  },
+  {
+    "source": "boe",
+    "name": "glcnominalmonthedata",
+    "path": "data/raw/boe/glcnominalmonthedata_20260917.zip",
+    "url": "https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-curves/glcnominalmonthedata.zip",
+    "sha256": "98856ebb948729c6aa4f8d40df8553c604c9d5f7c2a69ce443f2f5daef5c69b6",
+    "bytes": 2563251,
+    "fetched_at": "2026-09-17T13:32:33+00:00"
   }
 ]
