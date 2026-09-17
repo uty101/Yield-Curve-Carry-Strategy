@@ -178,5 +178,113 @@
     "sha256": "374df8ecb35d7a3088163d5112beb1745b075489d2cfeba5235fce98f4c986a3",
     "bytes": 1433,
     "fetched_at": "2026-09-17T13:44:29+00:00"
+  },
+  {
+    "source": "boc",
+    "name": "zero_curve",
+    "path": "data/raw/boc/zero_curve_20260917.csv",
+    "url": "https://www.bankofcanada.ca/stats/results/csv?lookupPage=lookup_yield_curve.php&startRange=1986-01-01&searchRange=all&submit=Submit",
+    "sha256": "8aa670c0bd2fb53b490691c394b6f0727a95bd3cea4bbfbedb3caac01139b934",
+    "bytes": 16974926,
+    "fetched_at": "2026-09-17T13:48:20+00:00"
+  },
+  {
+    "source": "boc",
+    "name": "benchmark",
+    "path": "data/raw/boc/benchmark_20260917.csv",
+    "url": "https://www.bankofcanada.ca/valet/observations/group/bond_yields_benchmark/csv",
+    "sha256": "3613f08ed7404bb11bd911a7875b6a9de06ab56d46862d4b1b2387e697ec66f2",
+    "bytes": 407646,
+    "fetched_at": "2026-09-17T13:48:21+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec1",
+    "path": "data/raw/bdf/tec1_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC1.HSTA\"",
+    "sha256": "1b29d37f97cc7bca48389f9da0a720d96fc0e47d07af2bb1f77b195f24785cb4",
+    "bytes": 3373986,
+    "fetched_at": "2026-09-17T13:54:03+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec2",
+    "path": "data/raw/bdf/tec2_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC2.HSTA\"",
+    "sha256": "748ec9f8dddd30caba1ce93da9001119453dcb5a522c0099972ca00525433bd2",
+    "bytes": 3389856,
+    "fetched_at": "2026-09-17T13:54:08+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec3",
+    "path": "data/raw/bdf/tec3_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC3.HSTA\"",
+    "sha256": "479cf5b1f98e4a73ed45797bc2a4c0ddbae8dcdfbc7c4996e2ceb84adc156181",
+    "bytes": 3389809,
+    "fetched_at": "2026-09-17T13:54:11+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec5",
+    "path": "data/raw/bdf/tec5_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC5.HSTA\"",
+    "sha256": "fb91aecd708e3c6f97c75ad685428d23fe7d965606399f0bd86ec731063f3919",
+    "bytes": 3389330,
+    "fetched_at": "2026-09-17T13:54:15+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec7",
+    "path": "data/raw/bdf/tec7_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC7.HSTA\"",
+    "sha256": "a0695d0a67d1a132c94dac9bcde88ab40f2ac4b3a54be2bc7d5833707d765c45",
+    "bytes": 3388741,
+    "fetched_at": "2026-09-17T13:54:20+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec10",
+    "path": "data/raw/bdf/tec10_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC10.HSTA\"",
+    "sha256": "14612db58d9ad1d8bb44a4b98ec9df7b3451f6aa9525a5b9493f933846f4d170",
+    "bytes": 3412334,
+    "fetched_at": "2026-09-17T13:54:26+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec15",
+    "path": "data/raw/bdf/tec15_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC15.HSTA\"",
+    "sha256": "bd98092ecff3e79010e70f41992baf619558876cfd4efcf7b4f4b7c9548f9e2c",
+    "bytes": 3412041,
+    "fetched_at": "2026-09-17T13:54:29+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec20",
+    "path": "data/raw/bdf/tec20_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC20.HSTA\"",
+    "sha256": "13538a2e6f067605549efdc9ce62930a3a8ad8565a0aad4f526b468e832ac342",
+    "bytes": 3411845,
+    "fetched_at": "2026-09-17T13:54:34+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec25",
+    "path": "data/raw/bdf/tec25_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC25.HSTA\"",
+    "sha256": "9b46c542b3167592d7016359a7a45250c5a0062864a527622cbaa9f95cc29d40",
+    "bytes": 3104607,
+    "fetched_at": "2026-09-17T13:54:38+00:00"
+  },
+  {
+    "source": "bdf",
+    "name": "tec30",
+    "path": "data/raw/bdf/tec30_20260917.csv",
+    "url": "https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key=\"FM.D.FR.EUR.FR2.BB.FRMOYTEC30.HSTA\"",
+    "sha256": "64b9b49b0479aec29a7f47e4a0a89d62822bd0bf9424492154cd319d02113b65",
+    "bytes": 3113985,
+    "fetched_at": "2026-09-17T13:54:41+00:00"
   }
 ]

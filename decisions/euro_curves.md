@@ -36,8 +36,16 @@ API returns **HTTP 200 with zero records**, not an error, so the fetch
 asserts on a non-empty body and refuses to write an empty file to
 `data/raw/`.
 
-First available date is not yet known (it is behind the key); it is recorded
-in `data/checks/coverage.csv` by step 1.6 and it sets `sample_full_start`.
+**Found in step 1.6 (2026-09-17):** the per-tenor catalog datasets above are
+empty shells (`has_records: false`); the observations live in the Webstat
+catalog dataset `observations`, filtered by series key, e.g.
+`GET https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key="FM.D.FR.EUR.FR2.BB.FRMOYTEC10.HSTA"`
+with the key in the `Authorization: Apikey` header (that dataset 404s without
+a key). Export format: semicolon csv with `series_key, time_period, obs_value,
+obs_status` (status `M` rows carry no value: non-trading days). **First
+observation 2004-11-03 for TEC 1–20, 2006-10-24 for TEC 25 and 30**, daily to
+the present; so `sample_full_start` is no earlier than 2004-11-30, recorded in
+`data/checks/coverage.csv`.
 
 ## Italy — dropped
 
