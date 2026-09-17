@@ -75,7 +75,7 @@ to make a run pass.
 | # | Invariant | Test |
 |---|---|---|
 | 1 | One session at a time; one commit and one review file per step; nothing starts until the previous session is approved in `CLAUDE.md` → Validation status. | review (the approval line) |
-| 2 | Yields are **decimals** everywhere inside the package (0.0425, never 4.25). Conversion from percent happens once, in the loader, and nowhere else. Every loader test fails on a yield above 0.5 or below -0.05. | pending 1.1–1.7 (one `test_units_*` per loader) |
+| 2 | Yields are **decimals** everywhere inside the package (0.0425, never 4.25). Conversion from percent happens once, in the loader, and nowhere else. Every loader test fails on a yield above 0.5 or below -0.05. | `test_units_us` (1.1); one `test_units_<cc>` per loader as each lands; `validate_curve` asserts both bounds |
 | 3 | `par` and `zero` are never mixed in one calculation. Any function that takes a curve asserts on `curve_type`. | pending 1.9 / 2.1 |
 | 4 | Every number that affects a result comes from `config.toml`. Nothing in `src/` reads a knob that is not there. | review |
 | 5 | Raw files are never overwritten; every fetch appends to `data/raw/manifest.json` (URL, sha256, bytes, fetched_at, source). A re-fetch gets a new filename with the fetch date. | `test_second_fetch_to_existing_path_raises`, `test_refetch_gets_dated_filename` |
@@ -108,7 +108,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (20 tests after 0.3)
+uv run pytest -q                                       # make test (28 tests after 1.1)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build    # steps 1.8-1.9
@@ -135,10 +135,11 @@ uv run curvecarry report   # step 6.4
 
 ### Data state on disk
 
-Nothing fetched yet (session 1, 2026-09-16). `data/raw/`, `data/interim/`
-and `data/processed/` are empty and git-ignored except `data/raw/manifest.json`
-and everything in `data/checks/`, which are committed. Update this block
-in the step that first writes to each.
+`data/raw/` is git-ignored except `manifest.json`; `data/interim/` and
+`data/processed/` are git-ignored; everything in `data/checks/` is committed.
+Fetched so far (2026-09-17): `data/raw/fred/` — the 10 US DGS series (1.1).
+`data/interim/curves_us.parquet` is built. Re-create with
+`uv run curvecarry fetch --all && uv run curvecarry build --all`.
 
 Source facts learned in the probe and the session-1 review that later steps
 depend on (full table in `decisions/sources.md`, the FR/IT ruling in

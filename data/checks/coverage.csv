@@ -1,0 +1,11 @@
+country,tenor_years,curve_type,stage,first_date,last_date,months_present,months_missing,gaps
+US,0.25,par,observed,1981-09-30,2026-09-30,541,0,
+US,0.5,par,observed,1981-09-30,2026-09-30,541,0,
+US,1.0,par,observed,1962-01-31,2026-09-30,777,0,
+US,2.0,par,observed,1976-06-30,2026-09-30,604,0,
+US,3.0,par,observed,1962-01-31,2026-09-30,777,0,
+US,5.0,par,observed,1962-01-31,2026-09-30,777,0,
+US,7.0,par,observed,1969-07-31,2026-09-30,687,0,
+US,10.0,par,observed,1962-01-31,2026-09-30,777,0,
+US,20.0,par,observed,1962-01-31,2026-09-30,696,81,1987-01..1993-09
+US,30.0,par,observed,1977-02-28,2026-09-30,596,0,

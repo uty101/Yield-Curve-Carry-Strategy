@@ -1,1 +1,92 @@
-[]
+[
+  {
+    "source": "fred",
+    "name": "DGS3MO",
+    "path": "data/raw/fred/DGS3MO_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3MO",
+    "sha256": "bbac0b34001201495cbf24dc797d68375400a0c6e311bc4a6bc35412598e278e",
+    "bytes": 186451,
+    "fetched_at": "2026-09-17T13:28:13+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS6MO",
+    "path": "data/raw/fred/DGS6MO_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS6MO",
+    "sha256": "2a6a4da21b847ee08f846c6a6f5f4ce26a12d991d40d8cd824859c651bb936c9",
+    "bytes": 186507,
+    "fetched_at": "2026-09-17T13:28:14+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS1",
+    "path": "data/raw/fred/DGS1_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS1",
+    "sha256": "58de18cedd5fe256fa3e33690d4d66f0bc2950409ce589c41d9a456371310079",
+    "bytes": 268349,
+    "fetched_at": "2026-09-17T13:28:14+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS2",
+    "path": "data/raw/fred/DGS2_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2",
+    "sha256": "108f79934f14b389881e229cbcd5b7a7e3c53f5eb08fa4e4fcbd84d2a39b0cc7",
+    "bytes": 208900,
+    "fetched_at": "2026-09-17T13:28:14+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS3",
+    "path": "data/raw/fred/DGS3_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3",
+    "sha256": "6b27e09c16246107b3d203566fd9b0808b1ae55cf1ba46e10dbef375cc998322",
+    "bytes": 268448,
+    "fetched_at": "2026-09-17T13:28:15+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS5",
+    "path": "data/raw/fred/DGS5_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS5",
+    "sha256": "a8a8b2ba6f099a7099f9372e0f97d560cfcc3db3e04d34c8781e896c142d9cca",
+    "bytes": 268553,
+    "fetched_at": "2026-09-17T13:28:15+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS7",
+    "path": "data/raw/fred/DGS7_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS7",
+    "sha256": "77eb0a1d28b3ca767290734bc2fdea40ad98f97568050145bc6a4b8d19f1e8ec",
+    "bytes": 237747,
+    "fetched_at": "2026-09-17T13:28:15+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS10",
+    "path": "data/raw/fred/DGS10_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10",
+    "sha256": "c4bd527f5b92c7e536808a0189a3e038a44c6850b2cd5124ac9016be5eecaaf6",
+    "bytes": 268727,
+    "fetched_at": "2026-09-17T13:28:15+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS20",
+    "path": "data/raw/fred/DGS20_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS20",
+    "sha256": "99a91c5dde8ea33cf16adf94ff45d0d3312a2bda05794cc4df4ba0d600275320",
+    "bytes": 261996,
+    "fetched_at": "2026-09-17T13:28:16+00:00"
+  },
+  {
+    "source": "fred",
+    "name": "DGS30",
+    "path": "data/raw/fred/DGS30_20260917.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS30",
+    "sha256": "eaade8f6da57b880a8c090d9e112229fdd90159f3c0f30907f50cf02ac1a939b",
+    "bytes": 206321,
+    "fetched_at": "2026-09-17T13:28:16+00:00"
+  }
+]
