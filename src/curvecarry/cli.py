@@ -14,7 +14,7 @@ import sys
 from curvecarry import config
 
 # loader modules by their CLI name; a name is added by the step that builds it
-LOADERS: list[str] = ["us", "gb", "de"]
+LOADERS: list[str] = ["us", "gb", "de", "jp"]
 NOT_BUILT = {"run": "step 5.3", "report": "step 6.4"}
 
 

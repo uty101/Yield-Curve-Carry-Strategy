@@ -30,12 +30,12 @@ def fixture_name(raw: Path) -> str:
 
 
 def trim_csv(raw: Path, out: Path, header_lines: int) -> int:
-    with open(raw, encoding="utf-8-sig", newline="") as fh:
-        lines = fh.readlines()
+    """Byte-for-byte: the source's encoding, BOM and line endings are kept as they are
+    (the MOF file carries a Shift-JIS note line; the loader, not the trimmer, decodes)."""
+    lines = raw.read_bytes().splitlines(keepends=True)
     keep = lines[: header_lines + N_DATA_ROWS]
     out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w", encoding="utf-8", newline="") as fh:
-        fh.writelines(keep)
+    out.write_bytes(b"".join(keep))
     return max(len(keep) - header_lines, 0)
 
 

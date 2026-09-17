@@ -160,5 +160,23 @@
     "sha256": "87125c78ff1d106a8d5965b822e652477c7a99756f34e3fe57b66753a77e469b",
     "bytes": 230829,
     "fetched_at": "2026-09-17T13:38:15+00:00"
+  },
+  {
+    "source": "mof",
+    "name": "jgbcme_all",
+    "path": "data/raw/mof/jgbcme_all_20260917.csv",
+    "url": "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/historical/jgbcme_all.csv",
+    "sha256": "997a8f95dc20c884d506c627ac075b1e93a357410094058ac19f3effead2e353",
+    "bytes": 1193668,
+    "fetched_at": "2026-09-17T13:44:29+00:00"
+  },
+  {
+    "source": "mof",
+    "name": "jgbcme",
+    "path": "data/raw/mof/jgbcme_20260917.csv",
+    "url": "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme.csv",
+    "sha256": "374df8ecb35d7a3088163d5112beb1745b075489d2cfeba5235fce98f4c986a3",
+    "bytes": 1433,
+    "fetched_at": "2026-09-17T13:44:29+00:00"
   }
 ]
