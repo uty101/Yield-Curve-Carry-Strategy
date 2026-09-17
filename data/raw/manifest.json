@@ -97,5 +97,68 @@
     "sha256": "98856ebb948729c6aa4f8d40df8553c604c9d5f7c2a69ce443f2f5daef5c69b6",
     "bytes": 2563251,
     "fetched_at": "2026-09-17T13:32:33+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "B0",
+    "path": "data/raw/bundesbank/B0_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.B0.EUR.S1311.B.A604._Z.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "a7e771021c849d3299d4d5d805161cdca2008dcfda1bf4d12adcf24734d6cb23",
+    "bytes": 252163,
+    "fetched_at": "2026-09-17T13:38:09+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "B1",
+    "path": "data/raw/bundesbank/B1_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.B1.EUR.S1311.B.A604._Z.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "ebb7e8ce71530ef2e4ba64d3dd8c8280a2c0c7a7b3a4677455b0b313c124426e",
+    "bytes": 258661,
+    "fetched_at": "2026-09-17T13:38:10+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "B2",
+    "path": "data/raw/bundesbank/B2_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.B2.EUR.S1311.B.A604._Z.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "2aa59621ee0d124865a75c89b777a74741ba20f4a092fe574ca9984fc490a870",
+    "bytes": 259082,
+    "fetched_at": "2026-09-17T13:38:11+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "B3",
+    "path": "data/raw/bundesbank/B3_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.B3.EUR.S1311.B.A604._Z.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "cef7f49d2d9c7a9c1cd958cfd2d38f876cb4c30c20b8b5365921c249f5c04f0e",
+    "bytes": 258661,
+    "fetched_at": "2026-09-17T13:38:12+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "T1",
+    "path": "data/raw/bundesbank/T1_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.T1.EUR.S1311.B.A604._Z.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "569f22be128fc8768ee3967385cbe3c3e036c015072f7d4f11025c0cab3c8fc8",
+    "bytes": 252694,
+    "fetched_at": "2026-09-17T13:38:13+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "T2",
+    "path": "data/raw/bundesbank/T2_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.T2.EUR.S1311.B.A604._Z.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "38d84aa49bf15bea2d9723cfddd7456f3061bf99ee455a2aff1652aad1c77f24",
+    "bytes": 252967,
+    "fetched_at": "2026-09-17T13:38:14+00:00"
+  },
+  {
+    "source": "bundesbank",
+    "name": "Y10",
+    "path": "data/raw/bundesbank/Y10_20260917.csv",
+    "url": "https://api.statistiken.bundesbank.de/rest/download/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?format=csv&lang=en",
+    "sha256": "87125c78ff1d106a8d5965b822e652477c7a99756f34e3fe57b66753a77e469b",
+    "bytes": 230829,
+    "fetched_at": "2026-09-17T13:38:15+00:00"
   }
 ]
