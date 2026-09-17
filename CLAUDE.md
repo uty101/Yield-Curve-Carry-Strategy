@@ -188,4 +188,5 @@ Empty at the start. Each gate writes one dated line here when it passes.
 | Gate | Date | Result |
 |---|---|---|
 | PLAN.md v2 approved by owner | 2026-09-16 | PLAN.md v2 approved by owner 2026-09-16 (commit 2c6040b), issue #2 |
+| Session 0 (0.2, 0.3) | 2026-09-17 | Session 0 approved 2026-09-17 (142a14e), issue #6 |
 | Phase 1 gate: `coverage.csv` and `par_zero_gap.csv` reviewed; `strategy_start` set | — | — |
