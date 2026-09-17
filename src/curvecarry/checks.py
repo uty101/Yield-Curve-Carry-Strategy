@@ -2,8 +2,9 @@
 
 ``coverage.csv``: one row per ``(country, tenor_years, curve_type, stage)``
 with first and last date, months present, months missing between them and
-the runs of two or more missing months. Rows for the same ``(country, stage)``
-are replaced on each write; every other row is kept.
+the runs of two or more missing months. Rows for the same
+``(country, curve_type, stage)`` are replaced on each write; every other row
+is kept.
 """
 
 from __future__ import annotations
@@ -70,13 +71,19 @@ def coverage_rows(df: pd.DataFrame, stage: str) -> pd.DataFrame:
 
 
 def write_coverage(df: pd.DataFrame, stage: str, path: Path = COVERAGE) -> pd.DataFrame:
-    """Replace the rows for ``(country, stage)`` present in ``df``; keep all others."""
+    """Replace the rows for ``(country, curve_type, stage)`` present in ``df``; keep all others.
+
+    The key includes ``curve_type`` so that the funding rows of step 1.7
+    (``curve_type = funding_*``, keyed by country) never displace a country's
+    curve rows.
+    """
     new = coverage_rows(df, stage)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and path.stat().st_size > 0:
         old = pd.read_csv(path, dtype={"gaps": str}, keep_default_na=False)
-        drop = set(zip(new["country"], new["stage"], strict=True))
-        keep = old[[(c, s) not in drop for c, s in zip(old["country"], old["stage"], strict=True)]]
+        drop = set(zip(new["country"], new["curve_type"], new["stage"], strict=True))
+        keys = zip(old["country"], old["curve_type"], old["stage"], strict=True)
+        keep = old[[k not in drop for k in keys]]
         out = pd.concat([keep, new], ignore_index=True)
     else:
         out = new
