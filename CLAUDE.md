@@ -30,7 +30,9 @@ Within a session the steps are built in order; each keeps its own commit
 review issue per step. A step that cannot meet its "Done when" stops the
 session there; it is not skipped. A step that needs a choice the plan does
 not make gets a `decision` issue, and the session continues only with steps
-that do not depend on the answer. Never guess.
+that do not depend on the answer. Never guess. When a decision issue changes
+a step, the plan text is amended in the same session, before the session
+review is posted.
 
 At the end: push, post one issue `Session N review` (label `review`) with
 the steps built and their test counts, every deviation from the plan in

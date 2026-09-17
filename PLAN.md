@@ -33,7 +33,8 @@ reports; the step is not skipped and nothing past it is started. If a step
 needs a choice the plan does not make, the question is posted as an issue
 (label `decision`) and the session continues only with steps that do not
 depend on the answer; if every remaining step depends on it, the session
-stops. Never guess.
+stops. Never guess. When a decision issue changes a step, the plan text is
+amended in the same session, before the session review is posted.
 
 **End of session.** Push, then post one issue titled `Session N review`
 (label `review`) containing: the steps built with their test counts; every
@@ -243,14 +244,21 @@ with a header and no rows.
   - `write_raw(content: bytes, path: Path, url: str, source: str, manifest: Path = Path("data/raw/manifest.json")) -> dict`:
     raises `FileExistsError` if `path` exists (never overwrite); writes the
     bytes; appends `{"source", "name", "path", "url", "sha256", "bytes", "fetched_at"}`
-    to the manifest list (created if absent); returns the entry.
+    to the manifest list (created if absent); returns the entry. `name` is
+    the path stem with its `_YYYYMMDD` suffix removed (the inverse of
+    `raw_path`); a path without that suffix is refused with `ValueError`
+    (issue #4).
   - `fetch_bytes(url: str, *, params: dict | None = None, headers: dict | None = None, timeout: int = 180) -> bytes`:
     one `requests.get`, browser User-Agent, `raise_for_status`, and raises
     `RuntimeError("empty body")` if `len(content) == 0`. This is the only
     place `requests` is called in the package.
-  - `latest_raw(source: str, name: str, root=...) -> Path`: the newest file
-    matching `name_*.ext`; raises `FileNotFoundError` with the `fetch`
-    command to run.
+  - `latest_raw(source: str, name: str, root=...) -> Path`: globs
+    `name_*.*` under `root/source` (any extension), keeps only files whose
+    stem is exactly `name_<YYYYMMDD>`, and returns the one with the newest
+    `YYYYMMDD` in its filename — never by mtime; raises `ValueError` naming
+    the extensions if the matches carry more than one extension; raises
+    `FileNotFoundError` with the `fetch` command to run when there is none
+    (issue #4).
 - `data/raw/manifest.json` committed as `[]`.
 
 **Test** `tests/test_manifest.py` (all in `tmp_path`, no network)
@@ -260,9 +268,15 @@ with a header and no rows.
   `hashlib.sha256(content).hexdigest()`, `bytes == len(content)`.
 - `test_refetch_gets_dated_filename`: `raw_path` for two dates gives two
   different paths.
-- `test_latest_raw_picks_newest`: two dated files → the later one.
+- `test_latest_raw_picks_newest`: two dated files → the later date, with
+  the newer date written first so mtime would give the wrong answer.
+- `test_latest_raw_refuses_mixed_extensions`: a `.csv` and a `.zip` for the
+  same name → `ValueError` naming both extensions (issue #4).
+- `test_manifest_name_round_trips_raw_path`: for several
+  `(source, name, ext)`, `write_raw(raw_path(...))` records exactly `name`;
+  an undated path is refused (issue #4).
 
-**Done when** the four tests pass and `data/raw/manifest.json` is `[]`.
+**Done when** the six tests pass and `data/raw/manifest.json` is `[]`.
 
 ## Step 0.3 — Review template guard
 
