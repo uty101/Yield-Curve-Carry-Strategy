@@ -108,7 +108,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (74 tests after 1.7)
+uv run pytest -q                                       # make test (89 tests after the Session 1 fixes)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build    # steps 1.8-1.9

@@ -506,22 +506,28 @@ dates for 20, 25, 30, 40.
 ## Step 1.6 — France: Banque de France TEC constant-maturity yields
 
 **Build**
-- `src/curvecarry/loaders/fr.py`. Ten datasets on Webstat,
-  `fm-d-fr-eur-fr2-bb-frmoytec<N>-hsta` for `N ∈ {1,2,3,5,7,10,15,20,25,30}`,
-  CSV export
-  `https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/<id>/exports/csv`
-  with the key sent as the `apikey` query parameter (or the header the API
-  documents; the step records which). Raw `data/raw/bdf/tec<N>_<date>.csv`,
-  source `bdf`.
+- `src/curvecarry/loaders/fr.py`. Ten daily series on Webstat,
+  `FM.D.FR.EUR.FR2.BB.FRMOYTEC<N>.HSTA` for `N ∈ {1,2,3,5,7,10,15,20,25,30}`,
+  read from the Explore API catalog dataset **`observations`** filtered by
+  series key (amended 2026-09-22 after step 1.6 found the per-tenor catalog
+  datasets `fm-d-fr-eur-fr2-bb-frmoytec<N>-hsta` to be empty shells,
+  `has_records: false`, with and without the key):
+  `GET https://webstat.banque-france.fr/api/explore/v2.1/catalog/datasets/observations/exports/csv?where=series_key="FM.D.FR.EUR.FR2.BB.FRMOYTEC<N>.HSTA"`
+  with the key sent as the `Authorization: Apikey <key>` header (never as a
+  query parameter, so it is never in a URL, the manifest or a log; the
+  `observations` dataset returns 404 without it). Raw
+  `data/raw/bdf/tec<N>_<date>.csv`, source `bdf`; the manifest URL carries
+  the `where` clause and nothing else.
   - `fetch(cfg)`: key from `os.environ["BDF_API_KEY"]` only — raises
     `RuntimeError("BDF_API_KEY not set")` otherwise; never reads a file for
     it; never logs it. **The API returns HTTP 200 with zero rows when the
     key is missing or invalid**, so `fetch` counts data rows in the body and
     raises `RuntimeError("empty export")` rather than writing an empty raw
     file.
-  - `parse(paths)`: the export's date and value columns (names fixed by the
-    step from the real file and written into the module), `/ 100`, long
-    frame `obs_date, tenor_years, yield`.
+  - `parse(paths)`: the export is a semicolon csv with `series_key,
+    time_period, obs_value, obs_status` (status `M` rows carry no value:
+    non-trading days, dropped); one series per file, its tenor read from
+    the key; `/ 100`; long frame `obs_date, tenor_years, yield`.
   - `load(cfg)`: `month_end_sample` → `country = "FR"`, `curve_type = "par"`
     (TEC is the yield of a hypothetical par OAT of constant maturity;
     coupon frequency 1 from `config.toml`). Keep all ten tenors. Coverage
