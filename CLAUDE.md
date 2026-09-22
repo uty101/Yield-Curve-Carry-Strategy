@@ -18,11 +18,22 @@ mode; the decomposition in step 6.1 has to sum to the reported return to
 
 ## How a session runs
 
-**Sessions, not steps** (rule from 2026-09-17; the full text is in
-`PLAN.md` → "How to use this file"). A session is a fixed group of steps
-built in one go: 0 = {0.2, 0.3}; 1 = {1.1–1.7}; 2 = {1.8, 1.9, gate};
-3 = {2.1–2.4}; 4 = {3.1–3.3}; 5 = {4.1–4.4}; 6 = {5.1–5.3}; 7 = {5.4, 5.5};
-8 = {6.1, 6.2}; 9 = {6.3, 6.4}. The owner says `Do Session N`.
+**Sessions, not steps** (rule from 2026-09-17, renumbered 2026-09-22; the
+full text is in `PLAN.md` → "How to use this file"). **Session N is Phase N:
+all of that phase's steps, and nothing else.**
+
+| Session | Steps |
+|---|---|
+| 0 | 0.1, 0.2, 0.3 |
+| 1 | 1.1 to 1.9 and the gate |
+| 2 | 2.1, 2.2, 2.3, 2.4 |
+| 3 | 3.1, 3.2, 3.3 |
+| 4 | 4.1, 4.2, 4.3, 4.4 |
+| 5 | 5.1, 5.2, 5.3, 5.4, 5.5 |
+| 6 | 6.1, 6.2, 6.3, 6.4 |
+
+The owner says `Do Session N`. Phase 1 was built in two parts under the old
+numbering; its commits and issues keep their original titles.
 
 Within a session the steps are built in order; each keeps its own commit
 `Step X.Y: <one line>` and its own `review/X.Y.md`, and its "Done when",
@@ -74,7 +85,7 @@ to make a run pass.
 
 | # | Invariant | Test |
 |---|---|---|
-| 1 | One session at a time; one commit and one review file per step; nothing starts until the previous session is approved in `CLAUDE.md` → Validation status. | review (the approval line) |
+| 1 | **Session N = Phase N**, all of its steps and nothing else (0 = 0.1-0.3; 1 = 1.1-1.9 + gate; 2 = 2.1-2.4; 3 = 3.1-3.3; 4 = 4.1-4.4; 5 = 5.1-5.5; 6 = 6.1-6.4). One session at a time; one commit and one review file per step; nothing starts until the previous session is approved in `CLAUDE.md` → Validation status. | review (the approval line) |
 | 2 | Yields are **decimals** everywhere inside the package (0.0425, never 4.25). Conversion from percent happens once, in the loader, and nowhere else. Every loader test fails on a yield above 0.5 or below -0.05. | `test_units_us`, `test_units_gb`, `test_units_de`, `test_units_jp`, `test_units_fr`; one `test_units_<cc>` per loader as each lands; `validate_curve` asserts both bounds |
 | 3 | `par` and `zero` are never mixed in one calculation. Any function that takes a curve asserts on `curve_type`. | pending 1.9 / 2.1 |
 | 4 | Every number that affects a result comes from `config.toml`. Nothing in `src/` reads a knob that is not there. | review |
@@ -108,7 +119,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (117 tests after Session 2)
+uv run pytest -q                                       # make test (117 tests after Session 1 part B)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet
@@ -206,9 +217,10 @@ Empty at the start. Each gate writes one dated line here when it passes.
 | Gate | Date | Result |
 |---|---|---|
 | PLAN.md v2 approved by owner | 2026-09-16 | PLAN.md v2 approved by owner 2026-09-16 (commit 2c6040b), issue #2 |
-| Session 0 (0.2, 0.3) | 2026-09-17 | Session 0 approved 2026-09-17 (142a14e), issue #6 |
-| Session 1 (1.1–1.7, all loaders) | 2026-09-22 | Session 1 approved 2026-09-22 (ccd656f), issue #9 |
-| Session 2 (1.8, 1.9, gate) | 2026-09-22 | Session 2 approved 2026-09-22 (48324a1), issue #11 |
+| Session 0 (0.1, 0.2, 0.3) | 2026-09-17 | Session 0 approved 2026-09-17 (142a14e), issue #6 |
+| Session 1, part A (1.1–1.7, all loaders) | 2026-09-22 | Session 1 part A approved 2026-09-22 (ccd656f), issue #9 |
+| Session 1, part B (1.8, 1.9, gate) | 2026-09-22 | Session 1 part B approved 2026-09-22 (48324a1), issue #11 |
+| Session 1 (1.1–1.9 and the gate) | 2026-09-22 | Session 1 approved 2026-09-22 (2151a99): Phase 1 complete, both parts approved |
 | Phase 1 gate: `coverage.csv` and `par_zero_gap.csv` reviewed; `strategy_start` set | 2026-09-22 | Phase 1 gate passed: `strategy_start` 1997-08-31, `sample_full_start` 2004-11-30; bootstrap verified on the GSW par curve (max 1.4 bp); no bootstrap drops on or after `strategy_start` |
 
 Note on the gate: pre-1997 US 30y zero/par gaps straddle the
@@ -219,6 +231,6 @@ closest pair is 1985-05 at 99.5 bp kept against the same 1982-03 dropped
 long-end rules"). Which side of the line a 1981–82 month falls on is
 therefore close to arbitrary. No month on or after `strategy_start` is
 anywhere near it (the largest is 68.7 bp, US 2003-07 at 20y), so nothing in
-the strategy sample turns on the threshold. **To be revisited in the Session
-4 PCA stability review**, where the pre-1997 months enter the
+the strategy sample turns on the threshold. **To be revisited in the Session 3
+PCA stability review**, where the pre-1997 months enter the
 expanding-window fits.

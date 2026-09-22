@@ -384,7 +384,7 @@ observation_date,EXUSEU
 1999-02-01,1.1203
 ```
 
-## Bootstrap long-end rules (Session 2 fix 2, 2026-09-22)
+## Bootstrap long-end rules (Session 1 part B fix 2, 2026-09-22)
 
 ### The node gap
 
@@ -395,7 +395,7 @@ in 1993-10). In those months the observed US par nodes are 0.25 (from
 every coupon date between 10 and 30 years would come from a straight
 line over a 20-year gap, and the 1992-09/10 30-year zero it produced was
 +129/+145 bp from the Fed's GSW fit (issue #11). Rule, from the owner's
-Session 2 review: **the bootstrap for a (country, date) runs only to the
+Session 1 part B review: **the bootstrap for a (country, date) runs only to the
 longest observed par tenor `T` such that no two consecutive observed par
 nodes up to `T` are at most `config.bootstrap_max_node_gap_years` (10)
 apart.** Tenors beyond `T` are absent from `curves_zero.parquet` (rule
@@ -408,7 +408,7 @@ at 20 because DGS30 is absent, not because of this rule).
 
 ### The zero-versus-par rule, and the forward rule it replaced (fix round 2, 2026-09-22)
 
-**Withdrawn: the 1-year forward rule.** Session 2 fix 3 dropped a month's
+**Withdrawn: the 1-year forward rule.** Session 1 part B fix 3 dropped a month's
 long end from the first coupon-grid tenor whose 1-year forward rate
 `DF(t−1)/DF(t) − 1` was more than 300 bp from the par yield at the same
 tenor. It was wrong twice over:

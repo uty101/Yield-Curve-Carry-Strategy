@@ -5,13 +5,13 @@ Inside the package a zero yield `z` at tenor `t` means `DF(t) = (1 + z)^(-t)`
 the source's stated convention from the source's own documentation, records
 it here with the quote, and converts once, in `parse`. Par yields (US, JP,
 FR) are quoted with the country's coupon frequency and are not converted
-(their sources' statements are in "Par yields" below, Session 2).
+(their sources' statements are in "Par yields" below, Session 1 part B).
 
 | Country | Source | Stated convention | Conversion in the loader | Recorded in step |
 |---|---|---|---|---|
 | GB | Bank of England, nominal government spot curve (`glcnominalmonthedata.zip`) | **Continuously compounded, quoted on an annual basis** | `z = exp(r) − 1` | 1.2 |
 | DE | Deutsche Bundesbank, Svensson parameters for listed Federal securities (`BBSIS`) | **Annually (discretely) compounded** spot rates | none | 1.3 |
-| CA | Bank of Canada, zero-coupon yield curve (`lookup_yield_curve.php`, decimals) | **Continuously compounded** zero rates | `z = exp(r) − 1` | 1.5 (Session 1 fix, issue #8) |
+| CA | Bank of Canada, zero-coupon yield curve (`lookup_yield_curve.php`, decimals) | **Continuously compounded** zero rates | `z = exp(r) − 1` | 1.5 (Session 1 part A fix, issue #8) |
 
 ## GB — Bank of England
 
@@ -118,7 +118,7 @@ convention is taken from the stated definition above, not from this table.
 
 ## Par yields
 
-Written 2026-09-22 (Session 2, amendment 2) before the bootstrap in step
+Written 2026-09-22 (Session 1 part B, amendment 2) before the bootstrap in step
 1.9 was built. Each par source's own statement of how its series is quoted,
 and the conversion the bootstrap makes from it. Inside the package a par
 yield stays as quoted (decimal, the country's coupon frequency
@@ -160,7 +160,7 @@ inputs are "bid discount rates corresponding to their bond equivalent
 yields". So `DGS<n>` is the semiannual bond-equivalent par yield;
 `coupon_frequency.US = 2`, no conversion before the bootstrap. The
 0.25-year point is a bill's bond-equivalent yield, not a coupon bond; it
-is off the semiannual coupon grid (Session 2 decision issue).
+is off the semiannual coupon grid (Session 1 part B decision issue).
 
 ### FR — Banque de France CNO-TEC (Taux de l'Échéance Constante)
 
@@ -271,7 +271,7 @@ the reason `data/checks/par_zero_gap.csv` should be read as par-to-zero
 *of the quoted series*, not of a true par curve. The US series has no such
 approximation: Treasury publishes a par curve.
 
-### GSW check curve (Session 2, amendment 3)
+### GSW check curve (Session 1 part B, amendment 3)
 
 The Federal Reserve's `feds200628.csv` header states, for the series
 used: "Zero-coupon yield, Continuously Compounded, SVENYXX". The loader

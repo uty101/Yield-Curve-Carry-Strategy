@@ -37,7 +37,7 @@ and stops at 2026-01 for GBP and EUR.
 
 ## Gaps in the BIS policy rate: filled from the OECD immediate rate, labelled
 
-Owner's rule, Session 1 review, 2026-09-22. The BIS `WS_CBPOL` series for
+Owner's rule, Session 1 part A review, 2026-09-22. The BIS `WS_CBPOL` series for
 Japan has no value for **116 months**, in three windows — the periods with
 no stated target (zero interest rate policy, quantitative easing, QQE):
 

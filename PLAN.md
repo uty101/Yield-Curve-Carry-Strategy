@@ -4,21 +4,23 @@ This file is the build specification. Work through it one step at a time.
 
 ## How to use this file
 
-**Sessions, not steps** (working rule from 2026-09-17). A session is a group
-of steps built in one go. The groups are fixed:
+**Sessions, not steps** (working rule from 2026-09-17; renumbered
+2026-09-22). **Session N is Phase N: all of that phase's steps, and nothing
+else.** The groups are fixed:
 
 | Session | Steps |
 |---|---|
-| 0 | 0.2, 0.3 |
-| 1 | 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7 (all loaders) |
-| 2 | 1.8, 1.9 and the gate |
-| 3 | 2.1, 2.2, 2.3, 2.4 |
-| 4 | 3.1, 3.2, 3.3 |
-| 5 | 4.1, 4.2, 4.3, 4.4 |
-| 6 | 5.1, 5.2, 5.3 |
-| 7 | 5.4, 5.5 |
-| 8 | 6.1, 6.2 |
-| 9 | 6.3, 6.4 |
+| 0 | 0.1, 0.2, 0.3 |
+| 1 | 1.1 to 1.9 and the gate |
+| 2 | 2.1, 2.2, 2.3, 2.4 |
+| 3 | 3.1, 3.2, 3.3 |
+| 4 | 4.1, 4.2, 4.3, 4.4 |
+| 5 | 5.1, 5.2, 5.3, 5.4, 5.5 |
+| 6 | 6.1, 6.2, 6.3, 6.4 |
+
+Phase 1 was built in two parts under the old numbering (1.1-1.7, then 1.8,
+1.9 and the gate) and its commits and issues keep their original titles;
+`CLAUDE.md` → Validation status records both parts.
 
 In Claude Code, from the repo root, say:
 
@@ -324,7 +326,7 @@ last with no observation), `gaps` (`;`-joined `YYYY-MM..YYYY-MM` runs of
 others kept. Loader steps write `stage = observed`; 1.8 writes
 `stage = harmonised`.
 
-`data/checks/sample_day_mismatch.csv` (Session 1 review, 2026-09-22) is the
+`data/checks/sample_day_mismatch.csv` (Session 1 part A review, 2026-09-22) is the
 sampling rule's footprint: every curve loader writes, per `(country, month)`,
 the latest `obs_date` any tenor was sampled on, the number of standard
 tenors present, the number of those sampled on an earlier day and which
@@ -580,7 +582,7 @@ first date.
     series of its currency (`EZ` for EUR; nothing before 1994-01 and
     nothing national — the robustness column is one series type).
     A missing `interbank_3m` rate is a missing row, never filled.
-  - **Policy-rate gaps (Session 1 review, 2026-09-22):** the BIS JP series
+  - **Policy-rate gaps (Session 1 part A review, 2026-09-22):** the BIS JP series
     has no value for 116 months (1999-03..2000-07, 2001-04..2006-02,
     2013-05..2016-08). For `policy`, any month inside the BIS series' span
     with no BIS value is filled from the OECD immediate (overnight call)
@@ -668,7 +670,7 @@ coverage rows and `data/checks/funding_fill.csv`.
     tenors.
   - Dates: the panel index is the union of month ends across countries; a
     country-month absent in the source is absent here (no forward fill).
-  - **Partial month (Session 2 amendment, 2026-09-22):** `build` keeps
+  - **Partial month (Session 1 part B amendment, 2026-09-22):** `build` keeps
     only months `<= config.sample.strategy_end` in
     `data/processed/curves.parquet` (and therefore in
     `curves_zero.parquet`). `data/interim/` is unchanged and still carries
@@ -693,7 +695,7 @@ coverage rows and `data/checks/funding_fill.csv`.
   `config.tenors`.
 - `test_one_curve_type_per_country_month`.
 - `test_no_forward_fill`: a missing month stays missing.
-- `test_panel_stops_at_strategy_end` (Session 2 amendment): a synthetic
+- `test_panel_stops_at_strategy_end` (Session 1 part B amendment): a synthetic
   panel with months after `strategy_end` keeps none of them; the month
   equal to `strategy_end` is kept.
 
@@ -703,7 +705,7 @@ coverage rows and `data/checks/funding_fill.csv`.
 ## Step 1.9 — Par to zero, the two sample windows, the gate
 
 **Build**
-- **Par conventions first (Session 2 amendment, 2026-09-22).** Before the
+- **Par conventions first (Session 1 part B amendment, 2026-09-22).** Before the
   bootstrap is built, `decisions/compounding.md` gets a section "Par
   yields" quoting each source's own statement of how its par series is
   quoted: US FRED constant maturity (Treasury par yield curve,
@@ -727,7 +729,7 @@ coverage rows and `data/checks/funding_fill.csv`.
     `z = (1 + c/freq)^freq − 1`). For later `t_k`:
     `DF_k = (1 − (c_k/freq) · Σ_{j<k} DF_j) / (1 + c_k/freq)`, `z_k = DF_k^(−1/t_k) − 1`.
     Returns the zero curve **at every coupon-grid point `t_k` inside
-    `[T_min, T_max]`** as `Curve(curve_type="zero")` (Session 2 fix 1,
+    `[T_min, T_max]`** as `Curve(curve_type="zero")` (Session 1 part B fix 1,
     issue #10 A, answer a, 2026-09-22: the plan's earlier "observed par
     tenors plus the 8 standard tenors" cannot reprice a 20y or 30y bond
     within 0.005 — the zeros between 10, 20 and 30 would be re-interpolated
@@ -744,7 +746,7 @@ coverage rows and `data/checks/funding_fill.csv`.
     point that was not an observed par tenor. Phase 2 fits use
     `standard == True` only; `Curve.from_panel` keeps every row of a
     bootstrapped month (its grid is the curve).
-  - **No bootstrap across a wide node gap (Session 2 fix 2, 2026-09-22).**
+  - **No bootstrap across a wide node gap (Session 1 part B fix 2, 2026-09-22).**
     For a par country the bootstrap for a `(country, date)` runs only to
     the longest observed par tenor `T` such that no two consecutive
     observed par nodes up to `T` are more than
@@ -754,7 +756,7 @@ coverage rows and `data/checks/funding_fill.csv`.
     removes the 20y and 30y zeros for 1987-01..1993-09 (DGS20 unpublished;
     the 1.8 panel's interpolated 20y is not a node). Recorded in
     `decisions/sources.md` → "Bootstrap node-gap rule".
-  - **Ill-conditioned long end (Session 2 fix 3, 2026-09-22; the rule was
+  - **Ill-conditioned long end (Session 1 part B fix 3, 2026-09-22; the rule was
     replaced in fix round 2, same date).** After bootstrapping each
     `(country, date)` (to the node-gap `T`), if
     `|zero(T) − par(T)| > config.bootstrap_zero_par_tolerance_bp` (100) at
@@ -776,7 +778,7 @@ coverage rows and `data/checks/funding_fill.csv`.
     months dropped by country, decade and reason, how many fall on or
     after `strategy_start`, and the threshold band that leaves them
     unaffected.
-  - **US bootstrap check (Session 2 amendment, 2026-09-22).**
+  - **US bootstrap check (Session 1 part B amendment, 2026-09-22).**
     `src/curvecarry/loaders/gsw.py` fetches the Federal Reserve's
     Gürkaynak–Sack–Wright zero curve,
     `https://www.federalreserve.gov/data/yield-curve-tables/feds200628.csv`,
@@ -789,7 +791,7 @@ coverage rows and `data/checks/funding_fill.csv`.
     A check, not a test gate; its distribution is reported in the session
     review. `tests/fixtures/gsw/feds200628.csv` (header + 50 rows) and
     `test_gsw_units_and_compounding`.
-  - **GSW diagnostics, reported only (Session 2 fix 4, 2026-09-22; no rule
+  - **GSW diagnostics, reported only (Session 1 part B fix 4, 2026-09-22; no rule
     changes).** `gsw.parse_par` reads the GSW par yields `SVENPYnn`
     (coupon-equivalent — the CMT basis — so `/ 100` and nothing else) to
     `data/interim/gsw_us_par.parquet`; `test_gsw_par_units`. `build` also
@@ -816,20 +818,21 @@ coverage rows and `data/checks/funding_fill.csv`.
   (2% at 1 to 5% at 30, and again with 0.25 and 0.5 observed) bootstrapped,
   then each observed par bond priced
   off the returned zero curve (`bondmath` is 2.1; this test uses a local
-  cashflow-sum helper in the test file) is within 1e-9 of 100 (Session 2
-  fix 1: the returned curve is the coupon grid, so the bound is exact).
-- `test_bill_zero_is_money_market_identity` (Session 2 fix 1, #10 B): with
+  cashflow-sum helper in the test file) is within 1e-9 of 100 (Session 1
+  part B fix 1: the returned curve is the coupon grid, so the bound is
+  exact).
+- `test_bill_zero_is_money_market_identity` (Session 1 part B fix 1, #10 B): with
   0.25 observed at yield `c`, the returned 0.25 zero is
   `(1 + c·0.25)^4 − 1`, not `(1 + c/2)^2 − 1`, and every other zero is
   unchanged from the curve without the 0.25 point.
 - `test_zero_source_passes_through`: a `zero` input is returned identical.
 - `test_par_assertion`: passing a `zero` curve raises `AssertionError`.
 - `test_no_tenor_beyond_longest_par`: par curve to 10y gives no 20 or 30.
-- `test_no_bootstrap_across_wide_node_gap` (Session 2 fix 2): nodes
+- `test_no_bootstrap_across_wide_node_gap` (Session 1 part B fix 2): nodes
   {1, 2, 3, 5, 7, 10, 30} give no zero beyond 10; nodes
   {1, 2, 3, 5, 7, 10, 20, 30} give all; a gap of exactly 10 years is
   allowed; the zeros to 10y are identical with and without the cut.
-- `test_ill_conditioned_long_end_is_dropped` (Session 2 fix round 2): a
+- `test_ill_conditioned_long_end_is_dropped` (Session 1 part B fix round 2): a
   flat 15% par curve keeps every tenor (the zero is 56 bp above par at
   every tenor, from semiannual compounding alone); the same curve with a
   10 bp kink down in the 20y par yield keeps the 20y (33 bp) and drops
@@ -838,7 +841,7 @@ coverage rows and `data/checks/funding_fill.csv`.
   (64 bp at 30y), while one rising 2.0% is 105.6 bp at 30y and does drop
   it (recorded, not tuned around); a tenor ≥ 10y that is not an observed
   par node is never checked.
-- `test_node_gap_and_zero_par_rows` (Session 2 fix round 2): a node-gap
+- `test_node_gap_and_zero_par_rows` (Session 1 part B fix round 2): a node-gap
   cut writes one `node_gap` row naming the first grid tenor beyond the
   cutoff, with `zero`, `par` and `gap_bp` blank.
 - `test_short_stub_is_flat_at_shortest_par`: with tenors from 1y and
@@ -856,7 +859,7 @@ exist, and `config.toml` has both dates.
 `data/checks/par_zero_gap.csv` and the two dates before any Phase 2 step
 is started. The pass is recorded in `CLAUDE.md` → Validation status.
 
-**Session 2 review issue (amendment, 2026-09-22)** must contain, besides
+**Session 1 part B review issue (amendment, 2026-09-22)** must contain, besides
 the usual sections:
 - `strategy_start` and `sample_full_start`, and for each country the
   first month it has all standard tenors ≤ 10y.
@@ -1675,8 +1678,8 @@ and the README block is the pasted table.
 | Quantity | Config key | Used in |
 |---|---|---|
 | countries, tenors, flat short end | `countries`, `tenors`, `short_end` | 1.8, 1.9, 2.1, 4.1 |
-| bootstrap node gap | `bootstrap_max_node_gap_years` | 1.9 (Session 2 fix 2) |
-| bootstrap zero-vs-par tolerance | `bootstrap_zero_par_tolerance_bp` | 1.9 (Session 2 fix round 2; replaced `bootstrap_forward_tolerance_bp`) |
+| bootstrap node gap | `bootstrap_max_node_gap_years` | 1.9 (Session 1 part B fix 2) |
+| bootstrap zero-vs-par tolerance | `bootstrap_zero_par_tolerance_bp` | 1.9 (Session 1 part B fix round 2; replaced `bootstrap_forward_tolerance_bp`) |
 | coupon frequency | `coupon_frequency.<cc>` | 1.9, 2.1, 4.x |
 | windows | `sample.*` | 1.9, 5.3 |
 | NS/Svensson grid and fixed λ, min tenors | `nelson_siegel.*` | 2.2, 2.3 |
