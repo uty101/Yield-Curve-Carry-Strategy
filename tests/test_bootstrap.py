@@ -242,6 +242,54 @@ def test_gsw_units_and_compounding() -> None:
     assert first[first["tenor_years"] > 7]["yield"].isna().all() and not (daily["yield"] == 0).any()
 
 
+def test_gsw_par_units() -> None:
+    """SVENPY is percent on the coupon-equivalent (CMT) basis: / 100 and nothing else."""
+    par = gsw.parse_par([Path("tests/fixtures/gsw/feds200628.csv")])
+    assert par["yield"].dropna().between(-0.05, 0.5).all() and par["yield"].max() > 0.001
+    raw = pd.read_csv("tests/fixtures/gsw/feds200628.csv", skiprows=9, na_values=["NA"]).iloc[0]
+    got = par[(par["obs_date"] == pd.Timestamp(raw["Date"])) & (par["tenor_years"] == 1.0)]
+    assert got["yield"].item() == pytest.approx(raw["SVENPY01"] / 100.0, abs=1e-15)
+    assert set(par["tenor_years"]) == set(float(k) for k in range(1, 31))
+    # the par yield sits below the zero yield's annual-compounded value only by the coupon
+    # effect; on the first row both are ~3%: the two parsers read different columns
+    zero = gsw.parse([Path("tests/fixtures/gsw/feds200628.csv")])
+    z1 = zero[(zero["obs_date"] == pd.Timestamp(raw["Date"])) & (zero["tenor_years"] == 1.0)]
+    assert got["yield"].item() != z1["yield"].item()
+    assert abs(got["yield"].item() - z1["yield"].item()) < 0.002
+
+
+def test_gsw_diagnostics_shapes() -> None:
+    """Fix 4: the two GSW diagnostics have the columns and signs they claim; on a flat GSW
+    par curve the bootstrap reproduces the GSW zero exactly."""
+    t = np.array(STANDARD)
+    panel = pd.DataFrame(
+        [(D, "US", tt, 0.03, "par", "fred", tt == 2.0, True) for tt in t],
+        columns=[*base.CURVE_COLUMNS, "interpolated", "standard"],
+    )
+    gsw_par = pd.DataFrame({"date": [D] * 30, "tenor_years": np.arange(1, 31.0), "yield": 0.03})
+    z_flat = (1 + 0.03 / 2) ** 2 - 1
+    gsw_zero = pd.DataFrame({"date": [D] * 30, "tenor_years": np.arange(1, 31.0), "yield": z_flat})
+    a = bootstrap.us_par_vs_gsw(panel, gsw_par)
+    assert list(a.columns) == [
+        "date",
+        "tenor_years",
+        "par_cmt",
+        "par_gsw",
+        "diff_bp",
+        "interpolated",
+    ]
+    assert a["tenor_years"].tolist() == [2.0, 5.0, 10.0, 30.0]
+    assert (a["diff_bp"] == 0).all() and a["interpolated"].tolist() == [True, False, False, False]
+    b = bootstrap.bootstrap_on_gsw(gsw_par, gsw_zero, 2)
+    assert list(b.columns) == ["date", "tenor_years", "zero_bootstrap_gsw", "zero_gsw", "diff_bp"]
+    assert b["tenor_years"].tolist() == [2.0, 5.0, 10.0, 30.0]
+    assert np.abs(b["diff_bp"]).max() < 1e-9
+    # a GSW month whose fit stops at 7y (1961): no 10y or 30y row
+    short = gsw_par.copy()
+    short.loc[short["tenor_years"] > 7, "yield"] = np.nan
+    assert bootstrap.bootstrap_on_gsw(short, gsw_zero, 2)["tenor_years"].tolist() == [2.0, 5.0]
+
+
 def test_par_zero_gap_and_gsw_check_shapes() -> None:
     cfg = config.load()
     t = np.array(STANDARD)

@@ -800,6 +800,21 @@ coverage rows and `data/checks/funding_fill.csv`.
     A check, not a test gate; its distribution is reported in the session
     review. `tests/fixtures/gsw/feds200628.csv` (header + 50 rows) and
     `test_gsw_units_and_compounding`.
+  - **GSW diagnostics, reported only (Session 2 fix 4, 2026-09-22; no rule
+    changes).** `gsw.parse_par` reads the GSW par yields `SVENPYnn`
+    (coupon-equivalent — the CMT basis — so `/ 100` and nothing else) to
+    `data/interim/gsw_us_par.parquet`; `test_gsw_par_units`. `build` also
+    writes, to `strategy_end`: (a) `data/checks/us_par_vs_gsw.csv` —
+    `date, tenor_years, par_cmt, par_gsw, diff_bp, interpolated` at 2, 5,
+    10 and 30 years every month both exist (the input difference, apart
+    from the bootstrap); (b) `data/checks/bootstrap_on_gsw.csv` — the GSW
+    par curve at every integer tenor the fit reaches, `freq = 2`, through
+    `bootstrap_grid` (no node-gap or forward rule) against the GSW zeros
+    (`exp(z) − 1`) at the same four tenors: `date, tenor_years,
+    zero_bootstrap_gsw, zero_gsw, diff_bp` (the bootstrap's own error on a
+    smooth curve). `test_gsw_diagnostics_shapes`. The fix comment
+    summarises (a) per tenor since 2000 and by decade (mean, sd, p5, p95)
+    and (b) per tenor (mean, max absolute diff in bp).
 - CLI `build --step zero`.
 
 **Test** `tests/test_bootstrap.py` (synthetic).
@@ -839,7 +854,7 @@ coverage rows and `data/checks/funding_fill.csv`.
 - `test_sample_window_rule`: a synthetic coverage panel with a known first
   5-of-6 month and first 6-of-6 month gives those two dates.
 
-**Done when** the eleven tests pass, `data/checks/par_zero_gap.csv`,
+**Done when** the thirteen tests pass, `data/checks/par_zero_gap.csv`,
 `data/checks/us_zero_vs_gsw.csv` and `data/checks/sample_window.txt`
 exist, and `config.toml` has both dates.
 

@@ -39,6 +39,14 @@ tuned), the zeros at that ``t_k`` and beyond are dropped for that month.
 dropped at 300 bp (blank if none), the worst forward, the par yield at
 that point, and the first tenor that 200 bp would have dropped.
 
+**GSW diagnostics, reported only** (Session 2 fix 4): ``us_par_vs_gsw.csv``
+— the CMT par yield minus the GSW par yield (``SVENPY``, coupon-equivalent,
+the same basis) at 2, 5, 10 and 30 years every month both exist, so the
+input difference can be read apart from the bootstrap; ``bootstrap_on_gsw.csv``
+— the GSW par curve (every integer tenor the fit reaches, ``freq = 2``)
+put through ``bootstrap_grid`` and compared with the GSW zeros at the same
+four tenors: the bootstrap's own error on a smooth curve it did not build.
+
 ``build(cfg)`` → ``data/processed/curves_zero.parquet`` (the panel schema
 plus ``bootstrapped``; a bootstrapped month carries its whole coupon grid,
 ``standard`` marks the 8 standard tenors and ``interpolated`` marks a tenor
@@ -280,6 +288,48 @@ def us_zero_vs_gsw(zero: pd.DataFrame, gsw: pd.DataFrame) -> pd.DataFrame:
     return m.sort_values(key).reset_index(drop=True)
 
 
+def us_par_vs_gsw(panel: pd.DataFrame, gsw_par: pd.DataFrame) -> pd.DataFrame:
+    """``date, tenor_years, par_cmt, par_gsw, diff_bp, interpolated`` at 2, 5, 10, 30y, both
+    present (fix 4a). ``interpolated`` is the CMT panel's flag (US 2y before 1976-06)."""
+    us = panel[
+        (panel["country"] == "US")
+        & (panel["curve_type"] == "par")
+        & panel["tenor_years"].isin(GSW_TENORS)
+    ]
+    g = gsw_par[gsw_par["tenor_years"].isin(GSW_TENORS)].dropna(subset=["yield"])
+    key = ["date", "tenor_years"]
+    m = us[[*key, "yield", "interpolated"]].merge(
+        g[[*key, "yield"]], on=key, suffixes=("_cmt", "_gsw")
+    )
+    m = m.rename(columns={"yield_cmt": "par_cmt", "yield_gsw": "par_gsw"})
+    m["diff_bp"] = (m["par_cmt"] - m["par_gsw"]) * 1e4
+    cols = [*key, "par_cmt", "par_gsw", "diff_bp", "interpolated"]
+    return m[cols].sort_values(key).reset_index(drop=True)
+
+
+def bootstrap_on_gsw(gsw_par: pd.DataFrame, gsw_zero: pd.DataFrame, freq: int) -> pd.DataFrame:
+    """``date, tenor_years, zero_bootstrap_gsw, zero_gsw, diff_bp`` at 2, 5, 10, 30y (fix 4b):
+    the GSW par curve — every integer tenor the fit reaches that month — through
+    ``bootstrap_grid`` (no node-gap or forward rule), against the GSW zeros."""
+    rows = []
+    for date, m in gsw_par.dropna(subset=["yield"]).groupby("date", sort=True):
+        m = m.sort_values("tenor_years")
+        if len(m) < 2:
+            continue
+        par = Curve(m["tenor_years"].to_numpy(), m["yield"].to_numpy(), "par", "US", date)
+        grid, _, z = bootstrap_grid(par, freq)
+        for t in GSW_TENORS:
+            hit = np.isclose(grid, t)
+            if hit.any():
+                rows.append((date, float(t), float(z[hit][0])))
+    b = pd.DataFrame(rows, columns=["date", "tenor_years", "zero_bootstrap_gsw"])
+    g = gsw_zero[gsw_zero["tenor_years"].isin(GSW_TENORS)].dropna(subset=["yield"])
+    key = ["date", "tenor_years"]
+    out = b.merge(g[[*key, "yield"]].rename(columns={"yield": "zero_gsw"}), on=key)
+    out["diff_bp"] = (out["zero_bootstrap_gsw"] - out["zero_gsw"]) * 1e4
+    return out.sort_values(key).reset_index(drop=True)
+
+
 def sample_window(zero: pd.DataFrame, cfg: dict) -> tuple[pd.Timestamp, pd.Timestamp, pd.DataFrame]:
     """(strategy_start, sample_full_start, per-country first month with all tenors <= 10y).
 
@@ -331,8 +381,15 @@ def build(cfg: dict, processed: Path = PROCESSED, interim: Path = base.INTERIM) 
         raise FileNotFoundError(
             f"{gsw_path}: run `curvecarry fetch --source gsw; build --step gsw`"
         )
-    us_zero_vs_gsw(zero, pd.read_parquet(gsw_path)).to_csv(
-        checks.US_ZERO_VS_GSW, index=False, lineterminator="\n"
+    end = pd.Timestamp(cfg["sample"]["strategy_end"])  # the partial month stays in interim
+    gsw_zero = pd.read_parquet(gsw_path)
+    gsw_zero = gsw_zero[gsw_zero["date"] <= end]
+    gsw_par = pd.read_parquet(Path(interim) / "gsw_us_par.parquet")
+    gsw_par = gsw_par[gsw_par["date"] <= end]
+    us_zero_vs_gsw(zero, gsw_zero).to_csv(checks.US_ZERO_VS_GSW, index=False, lineterminator="\n")
+    us_par_vs_gsw(panel, gsw_par).to_csv(checks.US_PAR_VS_GSW, index=False, lineterminator="\n")
+    bootstrap_on_gsw(gsw_par, gsw_zero, int(cfg["coupon_frequency"]["US"])).to_csv(
+        checks.BOOTSTRAP_ON_GSW, index=False, lineterminator="\n"
     )
     start, full, table = sample_window(zero, cfg)
     lines = [
