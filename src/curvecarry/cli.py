@@ -5,6 +5,7 @@ uv run curvecarry build --step us          # raw -> data/interim/curves_us.parqu
 uv run curvecarry build --step harmonise    # 1.8: interim curves -> data/processed/curves.parquet
 uv run curvecarry build --step zero         # 1.9: par -> zero, curves_zero.parquet, sample window
 uv run curvecarry build --step ns           # 2.2: ns_params.parquet, ns_fitted.parquet, fit checks
+uv run curvecarry build --step svensson     # 2.3: sv_params.parquet, svensson_vs_bundesbank.csv
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -23,6 +24,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "harmonise": ("curvecarry.harmonise", "build"),
     "zero": ("curvecarry.bootstrap", "build"),
     "ns": ("curvecarry.nelson_siegel", "build"),
+    "svensson": ("curvecarry.svensson", "build"),
 }
 NOT_BUILT = {"run": "step 5.3", "report": "step 6.4"}
 
