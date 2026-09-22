@@ -5,6 +5,12 @@ with first and last date, months present, months missing between them and
 the runs of two or more missing months. Rows for the same
 ``(country, curve_type, stage)`` are replaced on each write; every other row
 is kept.
+
+``sample_day_mismatch.csv`` (Session 1 fix, 2026-09-22): one row per
+``(country, month)`` with the latest ``obs_date`` any tenor was sampled on
+and the number of standard tenors (``config.tenors``) sampled on an earlier
+day — the per-tenor sampling rule's footprint. Rows for a country are
+replaced on each write. A check only; the sampling rule is unchanged.
 """
 
 from __future__ import annotations
@@ -16,6 +22,15 @@ import pandas as pd
 CHECKS = Path("data/checks")
 COVERAGE = CHECKS / "coverage.csv"
 FUNDING_FILL = CHECKS / "funding_fill.csv"  # written by loaders.short_rates.load (Session 1 fix)
+SAMPLE_DAY = CHECKS / "sample_day_mismatch.csv"  # written by every curve loader (Session 1 fix)
+SAMPLE_DAY_COLUMNS = [
+    "country",
+    "date",
+    "latest_obs_date",
+    "n_standard_tenors",
+    "n_earlier",
+    "earlier_tenors",
+]
 COVERAGE_COLUMNS = [
     "country",
     "tenor_years",
@@ -69,6 +84,51 @@ def coverage_rows(df: pd.DataFrame, stage: str) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows, columns=COVERAGE_COLUMNS)
+
+
+def sample_day_rows(daily: pd.DataFrame, country: str, standard: list[float]) -> pd.DataFrame:
+    """Per month: the latest ``obs_date`` any tenor was sampled on, and how many of the
+    standard tenors were sampled on an earlier day (a tenor whose last print of the
+    month is not the month's last print). ``daily`` has ``obs_date, tenor_years, yield``."""
+    d = daily.dropna(subset=["yield"]).copy()
+    d["obs_date"] = pd.to_datetime(d["obs_date"])
+    d["date"] = (d["obs_date"] + pd.offsets.MonthEnd(0)).dt.normalize()
+    sampled = d.groupby(["date", "tenor_years"], as_index=False)["obs_date"].max()
+    rows = []
+    for date, g in sampled.groupby("date"):
+        latest = g["obs_date"].max()
+        std = g[g["tenor_years"].isin([float(t) for t in standard])]
+        earlier = std[std["obs_date"] < latest]
+        rows.append(
+            {
+                "country": country,
+                "date": date.date().isoformat(),
+                "latest_obs_date": latest.date().isoformat(),
+                "n_standard_tenors": len(std),
+                "n_earlier": len(earlier),
+                "earlier_tenors": ";".join(
+                    f"{t:g}@{o.date().isoformat()}"
+                    for t, o in zip(earlier["tenor_years"], earlier["obs_date"], strict=True)
+                ),
+            }
+        )
+    return pd.DataFrame(rows, columns=SAMPLE_DAY_COLUMNS)
+
+
+def write_sample_day(
+    daily: pd.DataFrame, country: str, standard: list[float], path: Path = SAMPLE_DAY
+) -> pd.DataFrame:
+    """Replace the rows for ``country`` in ``sample_day_mismatch.csv``; keep every other country."""
+    new = sample_day_rows(daily, country, standard)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and path.stat().st_size > 0:
+        old = pd.read_csv(path, dtype=str, keep_default_na=False)
+        out = pd.concat([old[old["country"] != country], new.astype(str)], ignore_index=True)
+    else:
+        out = new.astype(str)
+    out = out.sort_values(["country", "date"]).reset_index(drop=True)
+    out.to_csv(path, index=False, lineterminator="\n")
+    return out
 
 
 def write_coverage(df: pd.DataFrame, stage: str, path: Path = COVERAGE) -> pd.DataFrame:

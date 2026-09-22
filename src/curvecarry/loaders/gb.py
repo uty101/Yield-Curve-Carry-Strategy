@@ -119,8 +119,10 @@ def latest_paths() -> list[Path]:
 
 
 def load(cfg: dict) -> pd.DataFrame:
-    monthly = to_monthly(parse(latest_paths()))
+    archive = parse(latest_paths())  # monthly already: one obs_date per month, every tenor
+    monthly = to_monthly(archive)
     df = base.validate_curve(base.to_curveframe(monthly, COUNTRY, CURVE_TYPE, SOURCE))
     base.write_interim(df, COUNTRY)
     checks.write_coverage(df, "observed")
+    checks.write_sample_day(archive, COUNTRY, cfg["tenors"])
     return df

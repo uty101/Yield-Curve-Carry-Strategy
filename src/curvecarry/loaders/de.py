@@ -111,10 +111,12 @@ def latest_paths() -> list[Path]:
 def load(cfg: dict) -> pd.DataFrame:
     paths = latest_paths()
     params = parse_params(paths)
-    monthly = base.month_end_sample(reconstruct(params))
+    daily = reconstruct(params)
+    monthly = base.month_end_sample(daily)
     df = base.validate_curve(base.to_curveframe(monthly, COUNTRY, CURVE_TYPE, SOURCE))
     base.write_interim(df, COUNTRY)
     checks.write_coverage(df, "observed")
+    checks.write_sample_day(daily, COUNTRY, cfg["tenors"])
     # month-end sampled parameters: the Phase 2 Svensson benchmark
     p = params.copy()
     p["date"] = base.month_end(p["obs_date"])

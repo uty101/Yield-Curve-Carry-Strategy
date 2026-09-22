@@ -324,6 +324,13 @@ last with no observation), `gaps` (`;`-joined `YYYY-MM..YYYY-MM` runs of
 others kept. Loader steps write `stage = observed`; 1.8 writes
 `stage = harmonised`.
 
+`data/checks/sample_day_mismatch.csv` (Session 1 review, 2026-09-22) is the
+sampling rule's footprint: every curve loader writes, per `(country, month)`,
+the latest `obs_date` any tenor was sampled on, the number of standard
+tenors present, the number of those sampled on an earlier day and which
+(`checks.write_sample_day`). It is a check only; the per-tenor sampling
+rule in Conventions is unchanged unless the owner says so.
+
 ## Step 1.1 — US: FRED constant-maturity par yields
 
 **Build**

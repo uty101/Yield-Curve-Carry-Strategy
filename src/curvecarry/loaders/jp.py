@@ -78,8 +78,10 @@ def latest_paths() -> list[Path]:
 
 
 def load(cfg: dict) -> pd.DataFrame:
-    monthly = base.month_end_sample(parse(latest_paths()))
+    daily = parse(latest_paths())
+    monthly = base.month_end_sample(daily)
     df = base.validate_curve(base.to_curveframe(monthly, COUNTRY, CURVE_TYPE, SOURCE))
     base.write_interim(df, COUNTRY)
     checks.write_coverage(df, "observed")
+    checks.write_sample_day(daily, COUNTRY, cfg["tenors"])
     return df

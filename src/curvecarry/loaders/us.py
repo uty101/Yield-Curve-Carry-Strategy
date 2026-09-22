@@ -90,4 +90,5 @@ def load(cfg: dict) -> pd.DataFrame:
     df = base.validate_curve(base.to_curveframe(monthly, COUNTRY, CURVE_TYPE, SOURCE))
     base.write_interim(df, COUNTRY)
     checks.write_coverage(df, "observed")
+    checks.write_sample_day(daily, COUNTRY, cfg["tenors"])
     return df
