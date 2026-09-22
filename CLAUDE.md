@@ -208,4 +208,17 @@ Empty at the start. Each gate writes one dated line here when it passes.
 | PLAN.md v2 approved by owner | 2026-09-16 | PLAN.md v2 approved by owner 2026-09-16 (commit 2c6040b), issue #2 |
 | Session 0 (0.2, 0.3) | 2026-09-17 | Session 0 approved 2026-09-17 (142a14e), issue #6 |
 | Session 1 (1.1–1.7, all loaders) | 2026-09-22 | Session 1 approved 2026-09-22 (ccd656f), issue #9 |
-| Phase 1 gate: `coverage.csv` and `par_zero_gap.csv` reviewed; `strategy_start` set | — | — |
+| Session 2 (1.8, 1.9, gate) | 2026-09-22 | Session 2 approved 2026-09-22 (48324a1), issue #11 |
+| Phase 1 gate: `coverage.csv` and `par_zero_gap.csv` reviewed; `strategy_start` set | 2026-09-22 | Phase 1 gate passed: `strategy_start` 1997-08-31, `sample_full_start` 2004-11-30; bootstrap verified on the GSW par curve (max 1.4 bp); no bootstrap drops on or after `strategy_start` |
+
+Note on the gate: pre-1997 US 30y zero/par gaps straddle the
+`bootstrap_zero_par_tolerance_bp` threshold (100 bp) — at 30y, 1982-09 at
+97.9 bp is kept and 1982-03 at 100.5 bp is dropped; across all tenors the
+closest pair is 1985-05 at 99.5 bp kept against the same 1982-03 dropped
+(`data/checks/bootstrap_dropped.csv`, `decisions/sources.md` → "Bootstrap
+long-end rules"). Which side of the line a 1981–82 month falls on is
+therefore close to arbitrary. No month on or after `strategy_start` is
+anywhere near it (the largest is 68.7 bp, US 2003-07 at 20y), so nothing in
+the strategy sample turns on the threshold. **To be revisited in the Session
+4 PCA stability review**, where the pre-1997 months enter the
+expanding-window fits.
