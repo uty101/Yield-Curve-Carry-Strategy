@@ -19,6 +19,15 @@ the shortest tenor) reproduces them exactly. Nothing beyond ``T_max``
 (rule 13). Par yields are quoted with the country's coupon frequency
 (``decisions/compounding.md`` → "Par yields").
 
+**No bootstrap across a wide node gap** (Session 2 fix 2): the bootstrap
+for a (country, date) runs only to the longest observed par tenor ``T``
+such that no two consecutive observed par nodes up to ``T`` are more than
+``config.bootstrap_max_node_gap_years`` (10) apart; tenors beyond it are
+absent from the zero curve (rule 13), not interpolated. For the US this
+removes the 20y and 30y zeros for 1987-01..1993-09, when DGS20 was not
+published and the par curve was linear from 10 to 30 years
+(``decisions/sources.md`` → "Bootstrap node-gap rule").
+
 ``build(cfg)`` → ``data/processed/curves_zero.parquet`` (the panel schema
 plus ``bootstrapped``; a bootstrapped month carries its whole coupon grid,
 ``standard`` marks the 8 standard tenors and ``interpolated`` marks a tenor
@@ -74,11 +83,32 @@ def money_market_zero(c: float | np.ndarray, t: float | np.ndarray) -> float | n
     return (1.0 + np.asarray(c) * np.asarray(t)) ** (1.0 / np.asarray(t)) - 1.0
 
 
-def bootstrap_par_to_zero(par: Curve, freq: int, standard: list[float] | None = None) -> Curve:
+def node_gap_cutoff(par: Curve, max_gap: float) -> float:
+    """The longest observed par tenor ``T`` such that no two consecutive observed nodes up to
+    ``T`` are more than ``max_gap`` years apart (Session 2 fix 2)."""
+    wide = np.where(np.diff(par.tenors) > max_gap + 1e-9)[0]
+    return float(par.tenors[wide[0]]) if wide.size else float(par.tenors[-1])
+
+
+def truncate(par: Curve, t_max: float) -> Curve:
+    keep = par.tenors <= t_max + 1e-9
+    return Curve(par.tenors[keep], par.yields[keep], par.curve_type, par.country, par.date)
+
+
+def bootstrap_par_to_zero(
+    par: Curve,
+    freq: int,
+    standard: list[float] | None = None,
+    max_node_gap: float | None = None,
+) -> Curve:
     """Par curve (coupon frequency ``freq``) -> zero curve at every coupon-grid point inside
     ``[T_min, T_max]`` plus the money-market zero of any observed tenor below ``1/freq``
     (PLAN.md 1.9 as amended; issue #10). ``standard`` is accepted for the plan's signature
-    and ignored: the standard tenors are on the grid."""
+    and ignored: the standard tenors are on the grid. With ``max_node_gap`` (years) the
+    bootstrap stops at ``node_gap_cutoff``; ``zero_panel`` passes
+    ``config.bootstrap_max_node_gap_years``."""
+    if max_node_gap is not None:
+        par = truncate(par, node_gap_cutoff(par, max_node_gap))
     grid, _, z = bootstrap_grid(par, freq)
     t_min = float(par.tenors.min())
     keep = grid >= t_min - 1e-9
@@ -91,6 +121,7 @@ def bootstrap_par_to_zero(par: Curve, freq: int, standard: list[float] | None = 
 def zero_panel(panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """``curves.parquet`` -> the zero panel: zero pass through, par bootstrapped."""
     std = harmonise.standard_tenors(cfg)
+    max_gap = float(cfg["bootstrap_max_node_gap_years"])
     out = []
     for country, g in panel.groupby("country", sort=False):
         ctype = g["curve_type"].unique()
@@ -110,7 +141,7 @@ def zero_panel(panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             )
             if par.tenors.size < 2:
                 continue
-            zc = bootstrap_par_to_zero(par, freq)
+            zc = bootstrap_par_to_zero(par, freq, max_node_gap=max_gap)
             observed = set(np.round(obs["tenor_years"].to_numpy(), 9))
             for t, y in zip(zc.tenors, zc.yields, strict=True):
                 rows.append(

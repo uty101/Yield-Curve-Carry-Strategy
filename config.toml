@@ -15,6 +15,9 @@ tenors = [1, 2, 3, 5, 7, 10, 20, 30]  # standard tenor grid, years
 short_end = "flat"                    # below the shortest observed zero tenor the zero yield is flat from that tenor; this is a
                                       # convention, not extrapolation, and is the only exception to rule 13, used only by
                                       # bondmath and bootstrap (plan v2 amendment B; decisions/short_anchor.md)
+bootstrap_max_node_gap_years = 10     # Session 2 fix 2: the par bootstrap stops at the last observed tenor before two
+                                      # consecutive observed nodes are further apart than this; tenors beyond are absent
+                                      # (US 20y/30y 1987-01..1993-09, DGS20 unpublished; decisions/sources.md)
 
 # coupon frequency per country, payments per year; used by the bootstrap (1.9)
 # and by every par-bond price/duration/convexity function (2.1)

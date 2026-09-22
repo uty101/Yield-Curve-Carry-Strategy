@@ -383,3 +383,23 @@ observation_date,EXUSEU
 1999-01-01,1.1591
 1999-02-01,1.1203
 ```
+
+## Bootstrap node-gap rule (Session 2 fix 2, 2026-09-22)
+
+FRED DGS20 is not published from 1987-01 to 1993-09 (81 month ends; the
+Treasury stopped issuing the 20-year bond in 1986 and resumed the series
+in 1993-10). In those months the observed US par nodes are 0.25 (from
+1981-09), 0.5, 1, 2, 3, 5, 7, 10 and 30: the bootstrap's par yields at
+every coupon date between 10 and 30 years would come from a straight
+line over a 20-year gap, and the 1992-09/10 30-year zero it produced was
++129/+145 bp from the Fed's GSW fit (issue #11). Rule, from the owner's
+Session 2 review: **the bootstrap for a (country, date) runs only to the
+longest observed par tenor `T` such that no two consecutive observed par
+nodes up to `T` are at most `config.bootstrap_max_node_gap_years` (10)
+apart.** Tenors beyond `T` are absent from `curves_zero.parquet` (rule
+13), never interpolated. The 1.8 par panel is unchanged: its interpolated
+20y rows (`interpolated = True`) are not bootstrap nodes. Effect: the US
+20y and 30y zeros are absent for 1987-01..1993-09 (3,240 grid rows); no
+other country-month has a gap wider than 10 years (JP's longest is 10y
+between 30 and 40; FR is annual to 30; the US 2002-03..2006-01 months end
+at 20 because DGS30 is absent, not because of this rule).

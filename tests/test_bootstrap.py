@@ -102,6 +102,31 @@ def test_no_tenor_beyond_longest_par() -> None:
     assert np.abs(z[grid < 4] - float(zc.at(0.5))).max() < 1e-12
 
 
+def test_no_bootstrap_across_wide_node_gap() -> None:
+    """Session 2 fix 2: the bootstrap stops before two consecutive observed par nodes more
+    than config.bootstrap_max_node_gap_years (10) apart; nothing beyond is interpolated."""
+    max_gap = float(config.load()["bootstrap_max_node_gap_years"])
+    assert max_gap == 10.0
+    y = [0.02, 0.022, 0.024, 0.027, 0.029, 0.03, 0.035, 0.04]
+    with_gap = _par([1, 2, 3, 5, 7, 10, 30], y[:6] + y[7:])  # 10 -> 30 is a 20-year gap
+    zc = bootstrap.bootstrap_par_to_zero(with_gap, 2, max_node_gap=max_gap)
+    assert zc.tenors.max() == 10.0 and math.isnan(zc.at(20.0)) and math.isnan(zc.at(30.0))
+    assert bootstrap.node_gap_cutoff(with_gap, max_gap) == 10.0
+    full = _par([1, 2, 3, 5, 7, 10, 20, 30], y)
+    zc = bootstrap.bootstrap_par_to_zero(full, 2, max_node_gap=max_gap)
+    assert zc.tenors.max() == 30.0 and {20.0, 30.0} <= set(zc.tenors)
+    assert bootstrap.node_gap_cutoff(full, max_gap) == 30.0
+    # the zeros up to 10y are the same with and without the cut: the bootstrap is sequential
+    a = bootstrap.bootstrap_par_to_zero(with_gap, 2)  # no rule: runs to 30 across the gap
+    assert (
+        np.abs(a.at(zc.tenors[zc.tenors <= 10]) - zc.at(zc.tenors[zc.tenors <= 10])).max() < 1e-15
+    )
+    # and a gap of exactly 10 years (20 -> 30) is allowed
+    assert (
+        bootstrap.node_gap_cutoff(_par([1, 10, 20, 30], [0.02, 0.03, 0.035, 0.04]), max_gap) == 30.0
+    )
+
+
 def test_short_stub_is_flat_at_shortest_par() -> None:
     # tenors from 1y, freq 2: the 0.5y discount factor is the one implied by the 1y par yield
     par = _par([1, 2, 5, 10], [0.03, 0.032, 0.035, 0.04])

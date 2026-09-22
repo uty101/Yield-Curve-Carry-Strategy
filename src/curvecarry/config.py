@@ -22,6 +22,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "countries",
     "tenors",
     "short_end",
+    "bootstrap_max_node_gap_years",
     "coupon_frequency.US",
     "coupon_frequency.GB",
     "coupon_frequency.JP",

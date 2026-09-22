@@ -744,6 +744,16 @@ coverage rows and `data/checks/funding_fill.csv`.
     point that was not an observed par tenor. Phase 2 fits use
     `standard == True` only; `Curve.from_panel` keeps every row of a
     bootstrapped month (its grid is the curve).
+  - **No bootstrap across a wide node gap (Session 2 fix 2, 2026-09-22).**
+    For a par country the bootstrap for a `(country, date)` runs only to
+    the longest observed par tenor `T` such that no two consecutive
+    observed par nodes up to `T` are more than
+    `config.bootstrap_max_node_gap_years` (10) apart
+    (`bootstrap.node_gap_cutoff`). Tenors beyond `T` are absent from
+    `curves_zero.parquet` (rule 13), not interpolated. For the US this
+    removes the 20y and 30y zeros for 1987-01..1993-09 (DGS20 unpublished;
+    the 1.8 panel's interpolated 20y is not a node). Recorded in
+    `decisions/sources.md` → "Bootstrap node-gap rule".
   - `build(cfg) -> pd.DataFrame` → `data/processed/curves_zero.parquet`:
     same schema as `curves.parquet` plus `bootstrapped: bool`. Countries
     whose source is `zero` (GB, DE, CA) pass through unchanged; `par`
@@ -794,6 +804,10 @@ coverage rows and `data/checks/funding_fill.csv`.
 - `test_zero_source_passes_through`: a `zero` input is returned identical.
 - `test_par_assertion`: passing a `zero` curve raises `AssertionError`.
 - `test_no_tenor_beyond_longest_par`: par curve to 10y gives no 20 or 30.
+- `test_no_bootstrap_across_wide_node_gap` (Session 2 fix 2): nodes
+  {1, 2, 3, 5, 7, 10, 30} give no zero beyond 10; nodes
+  {1, 2, 3, 5, 7, 10, 20, 30} give all; a gap of exactly 10 years is
+  allowed; the zeros to 10y are identical with and without the cut.
 - `test_short_stub_is_flat_at_shortest_par`: with tenors from 1y and
   freq 2, the 0.5y discount factor equals the one implied by the 1y par
   yield; with 0.5 observed it equals the one implied by the 0.5 par yield;
@@ -801,7 +815,7 @@ coverage rows and `data/checks/funding_fill.csv`.
 - `test_sample_window_rule`: a synthetic coverage panel with a known first
   5-of-6 month and first 6-of-6 month gives those two dates.
 
-**Done when** the nine tests pass, `data/checks/par_zero_gap.csv`,
+**Done when** the ten tests pass, `data/checks/par_zero_gap.csv`,
 `data/checks/us_zero_vs_gsw.csv` and `data/checks/sample_window.txt`
 exist, and `config.toml` has both dates.
 
@@ -1628,6 +1642,7 @@ and the README block is the pasted table.
 | Quantity | Config key | Used in |
 |---|---|---|
 | countries, tenors, flat short end | `countries`, `tenors`, `short_end` | 1.8, 1.9, 2.1, 4.1 |
+| bootstrap node gap | `bootstrap_max_node_gap_years` | 1.9 (Session 2 fix 2) |
 | coupon frequency | `coupon_frequency.<cc>` | 1.9, 2.1, 4.x |
 | windows | `sample.*` | 1.9, 5.3 |
 | NS/Svensson grid and fixed λ, min tenors | `nelson_siegel.*` | 2.2, 2.3 |
