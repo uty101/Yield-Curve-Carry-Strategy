@@ -18,6 +18,9 @@ short_end = "flat"                    # below the shortest observed zero tenor t
 bootstrap_max_node_gap_years = 10     # Session 2 fix 2: the par bootstrap stops at the last observed tenor before two
                                       # consecutive observed nodes are further apart than this; tenors beyond are absent
                                       # (US 20y/30y 1987-01..1993-09, DGS20 unpublished; decisions/sources.md)
+bootstrap_forward_tolerance_bp = 300  # Session 2 fix 3, not tuned: after the bootstrap, the first coupon-grid tenor whose
+                                      # 1-year forward is more than this from the par yield there, and every tenor beyond,
+                                      # is dropped for that month (data/checks/bootstrap_dropped.csv)
 
 # coupon frequency per country, payments per year; used by the bootstrap (1.9)
 # and by every par-bond price/duration/convexity function (2.1)

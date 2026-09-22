@@ -754,6 +754,23 @@ coverage rows and `data/checks/funding_fill.csv`.
     removes the 20y and 30y zeros for 1987-01..1993-09 (DGS20 unpublished;
     the 1.8 panel's interpolated 20y is not a node). Recorded in
     `decisions/sources.md` → "Bootstrap node-gap rule".
+  - **Ill-conditioned long end (Session 2 fix 3, 2026-09-22).** After
+    bootstrapping each `(country, date)` (to the node-gap `T`), the
+    1-year forward rates on the coupon grid,
+    `f(t_k − 1, t_k) = DF(t_k − 1)/DF(t_k) − 1` for `t_k ≥ 1` (`DF(0) = 1`),
+    are compared with the par yield at `t_k` (`par.at(t_k)`). If any
+    forward differs from it by more than
+    `config.bootstrap_forward_tolerance_bp` (300; **not tuned**), the zeros
+    at that `t_k` and beyond are dropped for that month
+    (`bootstrap.bootstrap_month`). `data/checks/bootstrap_dropped.csv`:
+    one row per bootstrapped month whose worst forward is more than 200 bp
+    from par — `country, date, t_max_observed, t_node_gap,
+    first_tenor_dropped` (blank when 300 bp drops nothing), `worst_tenor,
+    worst_forward, par_at_worst, worst_diff_bp, first_tenor_dropped_200bp`
+    (what 200 bp would have dropped; reported, never applied), `dropped`
+    (the 300 bp rule fired). The Session 2 fix comment reports months
+    dropped by country and decade and how many fall on or after
+    `strategy_start`.
   - `build(cfg) -> pd.DataFrame` → `data/processed/curves_zero.parquet`:
     same schema as `curves.parquet` plus `bootstrapped: bool`. Countries
     whose source is `zero` (GB, DE, CA) pass through unchanged; `par`
@@ -808,6 +825,13 @@ coverage rows and `data/checks/funding_fill.csv`.
   {1, 2, 3, 5, 7, 10, 30} give no zero beyond 10; nodes
   {1, 2, 3, 5, 7, 10, 20, 30} give all; a gap of exactly 10 years is
   allowed; the zeros to 10y are identical with and without the cut.
+- `test_ill_conditioned_long_end_is_dropped` (Session 2 fix 3): a flat
+  15% par curve keeps every tenor to 30y (worst forward 56 bp from par);
+  the same curve with a 30 bp kink at the 20y par yield breaches 300 bp
+  between 10 and 20 years and loses the 20y and 30y zeros; the surviving
+  zeros equal the unrestricted bootstrap's; the 200 bp report tenor is at
+  or before the 300 bp cut; on a flat curve every 1-year forward equals
+  the zero.
 - `test_short_stub_is_flat_at_shortest_par`: with tenors from 1y and
   freq 2, the 0.5y discount factor equals the one implied by the 1y par
   yield; with 0.5 observed it equals the one implied by the 0.5 par yield;
@@ -815,7 +839,7 @@ coverage rows and `data/checks/funding_fill.csv`.
 - `test_sample_window_rule`: a synthetic coverage panel with a known first
   5-of-6 month and first 6-of-6 month gives those two dates.
 
-**Done when** the ten tests pass, `data/checks/par_zero_gap.csv`,
+**Done when** the eleven tests pass, `data/checks/par_zero_gap.csv`,
 `data/checks/us_zero_vs_gsw.csv` and `data/checks/sample_window.txt`
 exist, and `config.toml` has both dates.
 
@@ -1643,6 +1667,7 @@ and the README block is the pasted table.
 |---|---|---|
 | countries, tenors, flat short end | `countries`, `tenors`, `short_end` | 1.8, 1.9, 2.1, 4.1 |
 | bootstrap node gap | `bootstrap_max_node_gap_years` | 1.9 (Session 2 fix 2) |
+| bootstrap forward tolerance | `bootstrap_forward_tolerance_bp` | 1.9 (Session 2 fix 3; not tuned) |
 | coupon frequency | `coupon_frequency.<cc>` | 1.9, 2.1, 4.x |
 | windows | `sample.*` | 1.9, 5.3 |
 | NS/Svensson grid and fixed λ, min tenors | `nelson_siegel.*` | 2.2, 2.3 |

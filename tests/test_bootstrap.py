@@ -127,6 +127,35 @@ def test_no_bootstrap_across_wide_node_gap() -> None:
     )
 
 
+def test_ill_conditioned_long_end_is_dropped() -> None:
+    """Session 2 fix 3: a 30 bp kink in the 20y par yield of a 15% curve sends the 1-year
+    forwards beyond config.bootstrap_forward_tolerance_bp (300) from par; the zeros from the
+    first breach on are dropped. The same curve without the kink keeps every tenor."""
+    tol = float(config.load()["bootstrap_forward_tolerance_bp"])
+    assert tol == 300.0
+    flat = _par(STANDARD, [0.15] * 8)
+    zc, diag = bootstrap.bootstrap_month(flat, 2, forward_tolerance_bp=tol)
+    assert zc.tenors.max() == 30.0 and diag["first_tenor_dropped"] is None and not diag["dropped"]
+    assert abs(diag["worst_diff_bp"]) < 100  # 56 bp: par 15% vs the annual-compounded forward
+    kink = _par(STANDARD, [0.15] * 6 + [0.153, 0.15])
+    zc, diag = bootstrap.bootstrap_month(kink, 2, forward_tolerance_bp=tol)
+    first = diag["first_tenor_dropped"]
+    assert diag["dropped"] and 10.0 < first <= 20.0
+    assert zc.tenors.max() < first and not {20.0, 30.0} & set(zc.tenors)
+    assert abs(diag["worst_diff_bp"]) > tol and diag["worst_tenor"] >= first
+    assert diag["par_at_worst"] == pytest.approx(float(kink.at(diag["worst_tenor"])))
+    # the zeros below the first breach are the bootstrap's own, untouched
+    full = bootstrap.bootstrap_par_to_zero(kink, 2)
+    assert np.abs(zc.yields - full.at(zc.tenors)).max() < 1e-15
+    # the 200 bp report threshold is at or before the 300 bp cut, and never applied
+    assert diag["first_tenor_dropped_200bp"] <= first
+    assert bootstrap.bootstrap_par_to_zero(kink, 2, forward_tolerance_bp=tol).tenors.max() < first
+    # the forward arithmetic: on a flat zero curve every 1-year forward equals the zero
+    grid, df, z = bootstrap.bootstrap_grid(flat, 2)
+    fwd = bootstrap.one_year_forwards(grid, df, 2)
+    assert np.isnan(fwd[0]) and np.abs(fwd[1:] - z[1:]).max() < 1e-12
+
+
 def test_short_stub_is_flat_at_shortest_par() -> None:
     # tenors from 1y, freq 2: the 0.5y discount factor is the one implied by the 1y par yield
     par = _par([1, 2, 5, 10], [0.03, 0.032, 0.035, 0.04])
@@ -216,9 +245,15 @@ def test_gsw_units_and_compounding() -> None:
 def test_par_zero_gap_and_gsw_check_shapes() -> None:
     cfg = config.load()
     t = np.array(STANDARD)
-    panel_rows = [(D, "US", tt, 0.02 + 0.001 * tt, "par", "fred", False, True) for tt in t]
+    # upward sloping and flattening (2% -> 4%): a par curve rising 10 bp/yr for ever implies
+    # 1-year forwards 1,200 bp above par at 30y, which the fix-3 rule would (rightly) drop
+    y = 0.02 + 0.02 * (1 - np.exp(-t / 5))
+    panel_rows = [
+        (D, "US", tt, yy, "par", "fred", False, True) for tt, yy in zip(t, y, strict=True)
+    ]
     panel = pd.DataFrame(panel_rows, columns=[*base.CURVE_COLUMNS, "interpolated", "standard"])
-    zero = bootstrap.zero_panel(panel, cfg)
+    zero, dropped = bootstrap.zero_panel_and_dropped(panel, cfg)
+    assert list(dropped.columns) == bootstrap.DROPPED_COLUMNS and dropped.empty
     assert len(zero) == 59 and zero["standard"].sum() == 8  # the grid 1.0 .. 30.0, freq 2
     assert (zero["interpolated"] == ~zero["tenor_years"].isin(t)).all()
     assert Curve.from_panel(zero, "US", D).tenors.size == 59  # a zero curve is its grid
