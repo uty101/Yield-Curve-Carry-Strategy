@@ -52,7 +52,12 @@ sample_max_tenor = 10                 # ... have every tenor up to and including
 
 # ------------------------------------------------------------ curve models
 [nelson_siegel]
-ns_lambda_grid = [0.2, 1.5, 0.05]     # lambda grid: lo, hi, step (per year)
+ns_lambda_grid = [0.05, 1.5, 0.05]    # lambda grid: lo, hi, step (per year). Lower bound widened from 0.2 in
+                                      # session 2 (issue #12 answer Q1, option C): the Bundesbank's own lambda was
+                                      # outside [0.2, 1.5] in 69.9% of DE months and our own NS-free lambda sat on a
+                                      # bound in a third of all months, ~90% of those at the lower bound. The upper
+                                      # bound stays at 1.5: a published lambda above it is a month where tau
+                                      # collapses, not a curve we need to reach. 30 NS grid points, 435 Svensson pairs.
 ns_lambda_fixed = 0.7                 # Diebold-Li fixed lambda
 min_tenors = 5                        # a country-month with fewer observed standard tenors is not fitted (2.2, 2.3)
 

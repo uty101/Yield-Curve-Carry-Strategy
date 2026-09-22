@@ -978,6 +978,20 @@ is larger, stop and report before 2.2.** Measured: 3.4e-12 bp (US), 3.1e-12
 
 ## Step 2.2 — Nelson-Siegel
 
+**`config.nelson_siegel.ns_lambda_grid` may be changed in this step** (issue
+#12, answered 2026-09-22; the one exception to rule 14 for this key, and only
+here and in 2.3). It was widened from `[0.2, 1.5, 0.05]` to
+`[0.05, 1.5, 0.05]` because the fits themselves said the lower bound was
+binding: the Bundesbank's own lambda lay outside `[0.2, 1.5]` in 69.9% of DE
+months (`data/checks/svensson_vs_bundesbank.csv`), 51.9% of those breaches at
+the bottom, and our own NS-free lambda sat on a bound in 8.9% (DE) to 40.5%
+(JP) of months with roughly nine in ten of those at 0.2. The upper bound is
+unchanged: a published lambda above 1.5 is a month where tau collapses, not a
+curve the fit needs to reach. The change is its own commit. Any further
+widening needs a new decision issue, and **if lambda pins at the new lower
+bound in more than 10% of months for any country the session stops and posts
+one** rather than widening again.
+
 **Build**
 - `src/curvecarry/nelson_siegel.py`:
   - `ns_loadings(tau: np.ndarray, lam: float) -> np.ndarray` (n × 3):
@@ -1032,6 +1046,9 @@ has both models for every fitted country-month.
     `lam1_ours, lam2_ours, lam1_bbk = 1/tau1, lam2_bbk = 1/tau2, lam_gap_ours, lam_gap_bbk`,
     and `beta_diff_max` (max abs difference of the four betas).
 - CLI `build --step svensson`.
+
+**`ns_lambda_grid` may be changed in this step too** — see 2.2 for the reason
+and the stop condition. 2.2 and 2.3 are always re-run together on a new grid.
 
 **Session-2 amendment 2 (2026-09-22).** In `compare_bundesbank`, convert the
 Bundesbank's `(tau1, tau2)` to the lambda form and, where `1/tau2 < 1/tau1`,
