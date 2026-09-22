@@ -10,11 +10,12 @@ from curvecarry.loaders import base, short_rates
 
 BIS = [Path("tests/fixtures/bis") / f"CBPOL_{a}.csv" for a in short_rates.BIS_AREAS]
 IB = [Path("tests/fixtures/fred") / f"{s}.csv" for s in short_rates.INTERBANK.values()]
+IMM = [Path("tests/fixtures/fred") / f"{s}.csv" for s in short_rates.IMMEDIATE.values()]
 
 
 @pytest.fixture(scope="module")
 def rates() -> pd.DataFrame:
-    return short_rates.parse(BIS + IB)
+    return short_rates.parse(BIS + IB + IMM)
 
 
 def test_units_policy(rates: pd.DataFrame) -> None:
@@ -32,6 +33,16 @@ def test_units_interbank(rates: pd.DataFrame) -> None:
     ib = rates[rates["kind"] == "interbank_3m"]
     assert ib["rate"].between(-0.05, 0.5).all() and ib["rate"].max() > 0.001
     assert set(ib["area"]) == {"US", "GB", "JP", "CA", "EZ"}
+
+
+def test_units_immediate(rates: pd.DataFrame) -> None:
+    im = rates[rates["kind"] == "immediate"]
+    assert im["rate"].between(-0.05, 0.5).all() and im["rate"].max() > 0.001
+    assert set(im["area"]) == {"US", "GB", "JP", "CA", "EZ"}
+    raw = pd.read_csv("tests/fixtures/fred/IRSTCI01JPM156N.csv", na_values=["."]).iloc[0]
+    got = im[(im["area"] == "JP") & (im["date"] == "1985-07-31")]["rate"].item()
+    assert raw["observation_date"] == "1985-07-01"
+    assert got == pytest.approx(raw["IRSTCI01JPM156N"] / 100.0)
 
 
 def test_month_end_stamp(rates: pd.DataFrame) -> None:
@@ -80,6 +91,52 @@ def test_eur_splice() -> None:
     assert rate("FR", "1998-12-31") == 0.031 and rate("FR", "1999-01-31") == 0.040
     assert rate("US", "1998-12-31") == 0.050 and rate("US", "1999-01-31") == 0.050
     assert (f[(f["country"] == "DE") & (f["kind"] == "interbank_3m")]["rate"] == 0.035).all()
+
+
+def _with_immediate(rates: pd.DataFrame, value: float = 0.009) -> pd.DataFrame:
+    """Add an OECD immediate series for every area over the synthetic months."""
+    months = sorted(rates["date"].unique())
+    rows = [
+        (d, a, value, "immediate", "fred") for d in months for a in ["US", "GB", "JP", "CA", "EZ"]
+    ]
+    return pd.concat([rates, pd.DataFrame(rows, columns=rates.columns)], ignore_index=True)
+
+
+def test_policy_gap_filled_from_immediate_and_labelled() -> None:
+    """A planted 3-month hole in the BIS JP series is filled from IRSTCI01JP, labelled."""
+    cfg = config.load()
+    rates = _with_immediate(_synthetic_rates())
+    hole = pd.date_range("1998-12-31", "1999-02-28", freq="ME")
+    rates = rates[
+        ~((rates["area"] == "JP") & (rates["kind"] == "policy") & rates["date"].isin(hole))
+    ]
+    f = short_rates.build_funding(rates, cfg)
+    jp = f[(f["country"] == "JP") & (f["kind"] == "policy")].set_index("date")
+    assert list(jp.index) == sorted(rates["date"].unique())  # no month missing any more
+    assert (jp.loc[hole, "source"] == "fred_immediate").all()
+    assert (jp.loc[hole, "rate"] == 0.009).all()
+    assert (jp.drop(hole)["source"] == "bis").all() and (jp.drop(hole)["rate"] == 0.005).all()
+    fill = short_rates.funding_fill_rows(f)
+    row = fill[fill["country"] == "JP"].iloc[0]
+    assert (row["first"], row["last"], row["months_filled"]) == ("1998-12-31", "1999-02-28", 3)
+    assert (fill[fill["country"] != "JP"]["months_filled"] == 0).all()
+
+
+def test_bis_value_never_overwritten() -> None:
+    """Where BIS has a value the immediate rate is ignored, even when it differs."""
+    cfg = config.load()
+    f = short_rates.build_funding(_with_immediate(_synthetic_rates(), value=0.123), cfg)
+    pol = f[f["kind"] == "policy"]
+    assert (pol["source"] == "bis").all() and not (pol["rate"] == 0.123).any()
+    assert short_rates.funding_fill_rows(f)["months_filled"].eq(0).all()
+    # and the fill never extends a series before its first or after its last BIS month
+    rates = _with_immediate(_synthetic_rates())
+    rates = rates[
+        ~((rates["area"] == "JP") & (rates["kind"] == "policy") & (rates["date"] >= "1999-03-01"))
+    ]
+    jp = short_rates.build_funding(rates, cfg)
+    jp = jp[(jp["country"] == "JP") & (jp["kind"] == "policy")]
+    assert jp["date"].max() == pd.Timestamp("1999-02-28") and (jp["source"] == "bis").all()
 
 
 def test_funding_table_covers_every_country_and_kind() -> None:

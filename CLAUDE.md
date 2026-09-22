@@ -144,7 +144,8 @@ Fetched so far (2026-09-17): `data/raw/fred/` — the 10 US DGS series (1.1);
 `data/raw/boc/` — the zero-coupon curve and Valet benchmarks (1.5);
 `data/raw/bdf/` — the 10 TEC exports (1.6; needs `BDF_API_KEY`);
 `data/raw/bis/` — 7 policy-rate series; `data/raw/fred/` also holds the 5
-OECD interbank and 4 daily FX series (1.7).
+OECD interbank, the 5 OECD immediate-rate (`IRSTCI01*`, 2026-09-22, the
+policy-gap fill) and 4 daily FX series (1.7).
 `data/interim/curves_{us,gb,de,jp,ca,fr}.parquet`, `svensson_params_de.parquet`,
 `short_rates.parquet`, `funding.parquet`, `fx.parquet` are built. Re-create with
 `uv run curvecarry fetch --all && uv run curvecarry build --all`.
@@ -172,7 +173,11 @@ depend on (full table in `decisions/sources.md`, the FR/IT ruling in
   it does to the 1-year rolldown. The OECD 3-month interbank series on FRED
   (`IR3TIB01*`, one series type for all five currencies, USD included) are a
   robustness column only: JPY starts 2002, GBP and EUR stop at 2026-01, and
-  the interbank credit spread in 2008 would read as carry.
+  the interbank credit spread in 2008 would read as carry. **Gaps in the
+  BIS policy series are filled from the OECD immediate rate** (FRED
+  `IRSTCI01*`, rule of 2026-09-22) with `source = "fred_immediate"` on the
+  row; only JP has any (116 months, three windows, listed in
+  `data/checks/funding_fill.csv` and `decisions/short_anchor.md`).
 - **FX is the FRED daily series** `DEXUSUK`, `DEXJPUS`, `DEXCAUS`, `DEXUSEU`,
   sampled at the last observation of the month like the curves, and
   normalised in the loader to units of base currency per unit of foreign

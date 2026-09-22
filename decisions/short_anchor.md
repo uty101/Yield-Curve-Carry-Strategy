@@ -35,6 +35,47 @@ rate (`funding_rate_robustness = "interbank_3m"`), used in a logged run in
 5.5 with the same definitions. Their sample is shorter (JPY from 2002-04)
 and stops at 2026-01 for GBP and EUR.
 
+## Gaps in the BIS policy rate: filled from the OECD immediate rate, labelled
+
+Owner's rule, Session 1 review, 2026-09-22. The BIS `WS_CBPOL` series for
+Japan has no value for **116 months**, in three windows — the periods with
+no stated target (zero interest rate policy, quantitative easing, QQE):
+
+| window | months | first filled value | last filled value | BIS on either side |
+|---|---|---|---|---|
+| 1999-03 .. 2000-07 | 17 | 0.041% (1999-03) | 0.021% (2000-07) | 0.25% (1999-02), 0.25% (2000-08) |
+| 2001-04 .. 2006-02 | 59 | 0.020% (2001-04) | 0.001% (2006-02) | 0.15% (2001-03), 0.00% (2006-03) |
+| 2013-05 .. 2016-08 | 40 | 0.070% (2013-05) | −0.043% (2016-08) | 0.05% (2013-04), −0.10% (2016-09) |
+
+For `kind = policy`, any month **inside the BIS series' span** (between its
+first and last month) with no BIS value is filled from the OECD *immediate
+rate* — the monthly average of the overnight call-money rate, FRED
+`IRSTCI01{US,GB,JP,CA,EZ}M156N`, percent, `/ 100`, stamped to the month end
+like the other FRED monthly series. The filled row carries
+`source = "fred_immediate"` in `funding.parquet`, so every consumer can see
+which months are fills; a month with a BIS value is never overwritten, and
+the fill never extends a series before its first or after its last BIS
+month. The rule runs for every currency (the five series are fetched and in
+the manifest) even though only Japan has gaps today, so a gap that appears
+in a re-fetch is treated the same way. `data/checks/funding_fill.csv` lists
+every filled run per country (`country, first, last, months_filled`; a
+country with no fill has one row with 0).
+
+What the fill is and is not: it is a traded overnight average, not a
+target. Where both exist, the immediate rate differs from the BIS policy
+rate by −2 bp (US), −6 bp (GB), −2 bp (CA) and +42 bp (JP; the BIS series is
+the discount rate before 1995, above which the call rate traded) on
+average, with single months hundreds of bp apart in the 1970s–80s. Inside
+the three JP windows the immediate rate sits within 1 bp of the BIS value
+on the month either side, which is what a zero-target regime looks like.
+The `EZ` immediate series stops at 2026-01, so a euro gap after that could
+not be filled; there is none.
+
+`decisions/short_anchor.md` is the record; `loaders/short_rates.py`
+(`fill_policy_gaps`, `funding_fill_rows`) is the code;
+`test_policy_gap_filled_from_immediate_and_labelled` and
+`test_bis_value_never_overwritten` are the tests.
+
 ## The short end of each curve
 
 Below the shortest observed zero tenor the zero yield is **flat** from that

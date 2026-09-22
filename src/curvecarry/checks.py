@@ -15,6 +15,7 @@ import pandas as pd
 
 CHECKS = Path("data/checks")
 COVERAGE = CHECKS / "coverage.csv"
+FUNDING_FILL = CHECKS / "funding_fill.csv"  # written by loaders.short_rates.load (Session 1 fix)
 COVERAGE_COLUMNS = [
     "country",
     "tenor_years",

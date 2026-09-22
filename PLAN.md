@@ -566,7 +566,18 @@ first date.
     every other country takes its own area. For `interbank_3m`: the OECD
     series of its currency (`EZ` for EUR; nothing before 1994-01 and
     nothing national — the robustness column is one series type).
-    A missing rate is a missing row, never filled.
+    A missing `interbank_3m` rate is a missing row, never filled.
+  - **Policy-rate gaps (Session 1 review, 2026-09-22):** the BIS JP series
+    has no value for 116 months (1999-03..2000-07, 2001-04..2006-02,
+    2013-05..2016-08). For `policy`, any month inside the BIS series' span
+    with no BIS value is filled from the OECD immediate (overnight call)
+    rate, FRED `IRSTCI01{US,GB,JP,CA,EZ}M156N` (raw
+    `data/raw/fred/<series>_<date>.csv`, `/ 100`, month-end stamped), with
+    `source = "fred_immediate"` on the filled row so the fill is visible in
+    every row. A month with a BIS value is never overwritten. All five
+    series are fetched so the rule is the same for every currency.
+    `data/checks/funding_fill.csv` (`country, first, last, months_filled`)
+    lists every filled run. `decisions/short_anchor.md` has the JP windows.
 - `src/curvecarry/loaders/fx.py`:
   - FRED daily `DEXUSUK` (USD per GBP), `DEXJPUS` (JPY per USD), `DEXCAUS`
     (CAD per USD), `DEXUSEU` (USD per EUR); raw `data/raw/fred/<series>_<date>.csv`.
@@ -605,10 +616,16 @@ first date.
 - `test_fx_non_usd_base`: with `base_currency = "GBP"` on the same fixtures,
   `spot_USD × spot_GBP(USD base) == 1` to 1e-12 on matching dates.
 - `test_fx_last_observation_of_month`: synthetic month → last value.
+- `test_policy_gap_filled_from_immediate_and_labelled` (2026-09-22): a
+  planted 3-month hole in a synthetic BIS series is filled from the
+  immediate series with `source = fred_immediate` and appears as one run in
+  `funding_fill_rows`; `test_bis_value_never_overwritten`: a month with a
+  BIS value keeps it even when the immediate rate differs, and the fill
+  never extends a series past its first or last BIS month.
 
-**Done when** the eight tests pass and `data/interim/short_rates.parquet`,
+**Done when** the ten tests pass and `data/interim/short_rates.parquet`,
 `data/interim/funding.parquet`, `data/interim/fx.parquet` exist with the
-coverage rows.
+coverage rows and `data/checks/funding_fill.csv`.
 
 ## Step 1.8 — Harmonise: one panel, the 8 standard tenors marked
 
