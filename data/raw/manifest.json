@@ -475,5 +475,14 @@
     "sha256": "6ebba558ba7653d3481fae0493e5916d080c80f5915590858322a8a15354ee5a",
     "bytes": 11678,
     "fetched_at": "2026-09-22T00:38:11+00:00"
+  },
+  {
+    "source": "gsw",
+    "name": "feds200628",
+    "path": "data/raw/gsw/feds200628_20260922.csv",
+    "url": "https://www.federalreserve.gov/data/yield-curve-tables/feds200628.csv",
+    "sha256": "73761455d39b3cccbbf4b520b1dda81c142f7fcda77b774e9e3f3eea917e3862",
+    "bytes": 16642559,
+    "fetched_at": "2026-09-22T10:12:52+00:00"
   }
 ]

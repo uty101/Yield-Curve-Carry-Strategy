@@ -23,6 +23,10 @@ CHECKS = Path("data/checks")
 COVERAGE = CHECKS / "coverage.csv"
 FUNDING_FILL = CHECKS / "funding_fill.csv"  # written by loaders.short_rates.load (Session 1 fix)
 SAMPLE_DAY = CHECKS / "sample_day_mismatch.csv"  # written by every curve loader (Session 1 fix)
+PAR_ZERO_GAP = CHECKS / "par_zero_gap.csv"  # step 1.9
+US_ZERO_VS_GSW = CHECKS / "us_zero_vs_gsw.csv"  # step 1.9, Session 2 amendment 3
+SAMPLE_WINDOW = CHECKS / "sample_window.txt"  # step 1.9
+SAMPLE_WINDOW_BY_COUNTRY = CHECKS / "sample_window_by_country.csv"  # 1.9, per country
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",

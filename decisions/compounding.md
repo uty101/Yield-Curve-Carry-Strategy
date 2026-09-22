@@ -4,7 +4,8 @@ Inside the package a zero yield `z` at tenor `t` means `DF(t) = (1 + z)^(-t)`
 — annual compounding (PLAN.md, Conventions). Each zero-curve loader reads
 the source's stated convention from the source's own documentation, records
 it here with the quote, and converts once, in `parse`. Par yields (US, JP,
-FR) are quoted with the country's coupon frequency and are not converted.
+FR) are quoted with the country's coupon frequency and are not converted
+(their sources' statements are in "Par yields" below, Session 2).
 
 | Country | Source | Stated convention | Conversion in the loader | Recorded in step |
 |---|---|---|---|---|
@@ -114,3 +115,165 @@ with the Bank of Canada's own benchmark yields (Valet
 benchmarks are on-the-run coupon bonds, not par bonds, and the ±5–15 bp
 scatter of either column is larger than the 4 bp that separates them. The
 convention is taken from the stated definition above, not from this table.
+
+## Par yields
+
+Written 2026-09-22 (Session 2, amendment 2) before the bootstrap in step
+1.9 was built. Each par source's own statement of how its series is quoted,
+and the conversion the bootstrap makes from it. Inside the package a par
+yield stays as quoted (decimal, the country's coupon frequency
+`config.coupon_frequency`); the bootstrap turns it into an annually
+compounded zero via the discount factors (`DF_k = (1 − (c/f) Σ DF_j) /
+(1 + c/f)`, `z = DF^(−1/t) − 1`), so at the first coupon date
+`z = (1 + c/f)^f − 1`.
+
+| Country | Series | Stated quotation | Coupon frequency used | What the series is |
+|---|---|---|---|---|
+| US | FRED `DGS*` = Treasury par yield curve rates (H.15) | **Bond-equivalent yield, semiannual coupon, par yield curve** | 2 | a par curve by construction (fitted to on-the-run bid quotes) |
+| FR | Banque de France `FM.D.FR.EUR.FR2.BB.FRMOYTEC<n>.HSTA` (CNO-TEC n) | **Taux de rendement actuariel annuel** of a fictitious n-year OAT, linear interpolation between the annual actuarial yields of the two bracketing OATs | 1 | yields to maturity of two actual bonds, interpolated; treated as a par yield |
+| JP | MOF "Interest Rate" (JGB constant-maturity yields) | **Semiannual compound interest rate on a constant maturity basis**, from a cubic-spline yield curve through yields to maturity of selected JGBs | 2 | yields to maturity of actual bonds on a spline; treated as a par yield |
+
+### US — Treasury par yield curve (FRED DGS series)
+
+FRED's series notes point to the H.15 release and Treasury's yield-curve
+methodology. Treasury, *Interest Rates — Frequently Asked Questions*
+(https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/interest-rates-frequently-asked-questions,
+read 2026-09-22):
+
+> CMT yields are read directly from the Treasury's daily par yield curve
+> and represent "bond equivalent yields" for securities that pay semiannual
+> interest, which are expressed on a simple annualized basis.
+
+> The par yield curve is based on securities that pay interest on a
+> semiannual basis and the yields are "bond-equivalent" yields.
+
+> All yields on the par yield curve are on a bond-equivalent basis.
+> Therefore, the yields at any point on the par yield curve are consistent
+> with a semiannual coupon security with that amount of time remaining to
+> maturity.
+
+Treasury, *Treasury Yield Curve Methodology* (revised 2025-02-18): "The
+Treasury's official yield curve is a par yield curve derived using a
+monotone convex method. Our inputs are indicative, bid-side market price
+quotations … for the most recently auctioned securities". The bills'
+inputs are "bid discount rates corresponding to their bond equivalent
+yields". So `DGS<n>` is the semiannual bond-equivalent par yield;
+`coupon_frequency.US = 2`, no conversion before the bootstrap. The
+0.25-year point is a bill's bond-equivalent yield, not a coupon bond; it
+is off the semiannual coupon grid (Session 2 decision issue).
+
+### FR — Banque de France CNO-TEC (Taux de l'Échéance Constante)
+
+Banque de France, *Note technique sur les indices CNO-TEC*, revised
+2020-05-07 (https://www.banque-france.fr/system/files/2024-07/TEC%20Note%20Technique%20-%20Version%20r%C3%A9vis%C3%A9e%20FR%2020200507.pdf,
+downloaded 2026-09-22), §1.1 Définition:
+
+> L'indice quotidien CNO-TEC n, Taux de l'Échéance Constante n ans, pour n
+> variant de 1 à 30, est le taux de rendement actuariel d'une valeur du
+> Trésor fictive dont la durée de vie serait à chaque instant égale à n
+> années. Ce taux est obtenu par interpolation linéaire entre les taux de
+> rendement actuariels annuels des 2 valeurs du Trésor qui encadrent au
+> plus proche la maturité n années théorique.
+
+§1.2: the reference securities are "OAT à taux fixe, in fine et à intérêts
+annuels" (TEC 1 may use a BTF, for which "il est retenu le taux actuariel
+équivalent"); the Banque de France "extrait un taux actuariel de la
+cotation milieu de fourchette … par la méthode … décrite dans la notice
+'Normes applicables au marché domestique obligataire français' en date de
+Juin 1992" — the CNO actuarial yield, annual compounding on actual days
+(`Dj − Di` "correspond au nombre de jours réels"). So TEC n is an
+**annually compounded yield to maturity**; `coupon_frequency.FR = 1`,
+no conversion before the bootstrap. (The Webstat metadata for the series
+gives only "Constant maturity rate", unit PC, source EUXT/Euronext, first
+observation 2004-11-03; the definition is in the note above.)
+
+### JP — MOF JGB constant-maturity interest rates
+
+MOF, *Interest Rate (Q & A)*
+(https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/qa.htm,
+read 2026-09-22):
+
+> What kind of interest rate is released by the Ministry of Finance? — The
+> semiannual compound interest rate on a constant maturity basis calculated
+> on prevailing prices of fixed income JGBs in the secondary market at the
+> market closing time (3pm) is released.
+
+> What is the yield curve? — It is a curve which is plotted by connecting
+> the points which represent the relationship between yields to maturity
+> and remaining maturity of JGBs.
+
+> How are the prevailing market yields of each JGB calculated? — They are
+> calculated by using the average price of "Reference Statistical Prices
+> (Yields) for OTC Bond Transactions" provided by Japan Securities Dealers
+> Association (JSDA). Note that the prevailing market yields of before
+> July, 2002 are calculated by using the following data. Sep 24, 1974 ~
+> Nov 30, 1998: Tokyo Stock Exchange, Close Price or Special Quotation;
+> Dec 1, 1998 ~ Jul 31, 2002: JSDA, The price of "Standard Quotation".
+
+MOF, *Calculation method of interest rate (Outline)* (`outline-e.pdf`,
+linked from the Q & A): grids at one-year intervals from 1 to 40 years;
+for each grid the on-the-run issue of the class (2-, 5-, 10-, 20-, 30-,
+40-year JGBs) plus the issues whose remaining maturity is nearest to the
+grid on either side; "The yield curve is formed by interpolating through a
+cubic spline function, utilizing the prevailing market yields of securities
+selected … as contact points"; the constant-maturity rates are read off it.
+
+**Compound or simple, and whether it changes by date.** The source states
+*semiannual compound* with no date qualification, and the yields are
+computed by MOF from *prices*, so the JSDA convention of quoting OTC
+reference yields as simple yields does not enter. The only dated changes
+the source states are the price providers (TSE to 1998-11-30, JSDA
+standard quotation to 2002-07-31, JSDA reference statistical prices
+after). Nothing in the source says the pre-1986 (or any other) portion of
+the historical file is on a different basis; review 1.4's open question
+is answered by that statement, and by nothing else — there is no separate
+document for the 1974–1985 data. `coupon_frequency.JP = 2`, no
+conversion before the bootstrap.
+
+### TEC and MOF yields are yields to maturity treated as par yields
+
+A par yield is the coupon at which a bond of that maturity prices at 100.
+TEC n and the MOF constant-maturity rates are **yields to maturity of
+actual bonds** (interpolated or splined to the grid maturity). A bond's
+yield to maturity equals the par yield of its maturity only when its
+coupon equals that par yield; otherwise the yield to maturity is a
+coupon-weighted average of the zero rates along its cash flows (the
+"coupon effect"): a high-coupon bond has more weight on the shorter,
+lower zeros in an upward-sloping curve and so a yield to maturity *below*
+the par yield, and the reverse for a low coupon. The bootstrap treats the
+quoted yield as the par yield, i.e. it prices a bond with coupon equal to
+the quote at exactly 100.
+
+Size of the approximation, measured on the bootstrapped curves of this
+repo (a 10-year bond priced off the zero curve with a coupon that differs
+from the 10-year par yield, then its yield to maturity compared with the
+par yield; bp):
+
+| Country | Date | 10y par | 2s10s slope | coupon = par − 200 bp | − 100 bp | + 100 bp | + 200 bp |
+|---|---|---|---|---|---|---|---|
+| FR | 2010-06-30 | 3.085% | 230 bp | +8.1 | +3.8 | −3.4 | −6.6 |
+| FR | 2021-12-31 | 0.100% | 80 bp | +3.8 | +1.8 | −1.6 | −3.0 |
+| FR | 2026-08-31 | 4.114% | 104 bp | +4.2 | +2.0 | −1.8 | −3.4 |
+| JP | 2010-06-30 | 1.095% | 95 bp | +5.4 | +2.6 | −2.3 | −4.4 |
+| JP | 2021-12-31 | 0.089% | 18 bp | +1.4 | +0.7 | −0.6 | −1.1 |
+| JP | 2026-08-31 | 2.943% | 120 bp | +5.0 | +2.4 | −2.2 | −4.1 |
+| US | 2010-06-30 | 2.970% | 236 bp | +8.3 | +3.9 | −3.6 | −6.8 |
+
+So the error is of order **2–4 bp per 100 bp of coupon–par difference at
+10 years** in a curve with a 100–230 bp 2s10s slope, and proportional to
+both. The TEC uses the two OATs nearest the maturity, whose coupons are
+close to current yields when the curve has not moved far since issue
+(2004–2021: coupons above yields in a falling-rate period, so the TEC
+reads slightly below the true par yield); the MOF grid uses on-the-run
+and nearest-maturity issues, same argument. The approximation is of the
+same nature for both, is not corrected anywhere in the package, and is
+the reason `data/checks/par_zero_gap.csv` should be read as par-to-zero
+*of the quoted series*, not of a true par curve. The US series has no such
+approximation: Treasury publishes a par curve.
+
+### GSW check curve (Session 2, amendment 3)
+
+The Federal Reserve's `feds200628.csv` header states, for the series
+used: "Zero-coupon yield, Continuously Compounded, SVENYXX". The loader
+`loaders/gsw.py` asserts that line is present and converts with
+`exp(z) − 1` once. Used only for `data/checks/us_zero_vs_gsw.csv`.

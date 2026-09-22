@@ -37,8 +37,8 @@ CA = "CAD"
 FR = "EUR"
 
 [sample]
-strategy_start = ""                   # set in step 1.9 from data/checks/sample_window.txt (YYYY-MM-DD)
-sample_full_start = ""                # set in step 1.9: first month all 6 countries are present (France is the binding one)
+strategy_start = "1997-08-31"                   # set in step 1.9 from data/checks/sample_window.txt (YYYY-MM-DD)
+sample_full_start = "2004-11-30"                # set in step 1.9: first month all 6 countries are present (France is the binding one)
 strategy_end = "2026-08-31"           # last complete month at the time of writing (session 1, 2026-09-16)
 sample_min_countries = 5              # strategy_start = first month where >= this many of the 6 countries ...
 sample_max_tenor = 10                 # ... have every tenor up to and including this one

@@ -108,10 +108,11 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (89 tests after the Session 1 fixes)
+uv run pytest -q                                       # make test (117 tests after Session 2)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
-uv run curvecarry build    # steps 1.8-1.9
+uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet
+uv run curvecarry build --step zero        # 1.9: curves_zero.parquet, sample window, checks
 uv run curvecarry run      # step 5.3
 uv run curvecarry report   # step 6.4
 ```
@@ -145,10 +146,12 @@ Fetched so far (2026-09-17): `data/raw/fred/` — the 10 US DGS series (1.1);
 `data/raw/bdf/` — the 10 TEC exports (1.6; needs `BDF_API_KEY`);
 `data/raw/bis/` — 7 policy-rate series; `data/raw/fred/` also holds the 5
 OECD interbank, the 5 OECD immediate-rate (`IRSTCI01*`, 2026-09-22, the
-policy-gap fill) and 4 daily FX series (1.7).
+policy-gap fill) and 4 daily FX series (1.7); `data/raw/gsw/` — the Fed's
+GSW zero curve `feds200628` (1.9 check, 2026-09-22).
 `data/interim/curves_{us,gb,de,jp,ca,fr}.parquet`, `svensson_params_de.parquet`,
-`short_rates.parquet`, `funding.parquet`, `fx.parquet` are built. Re-create with
-`uv run curvecarry fetch --all && uv run curvecarry build --all`.
+`short_rates.parquet`, `funding.parquet`, `fx.parquet`, `gsw_us.parquet` are built;
+`data/processed/curves.parquet` (1.8) and `curves_zero.parquet` (1.9) too. Re-create
+with `uv run curvecarry fetch --all && uv run curvecarry build --all`.
 
 Source facts learned in the probe and the session-1 review that later steps
 depend on (full table in `decisions/sources.md`, the FR/IT ruling in
@@ -190,8 +193,9 @@ depend on (full table in `decisions/sources.md`, the FR/IT ruling in
 - The BoE `latest-yield-curve-data.zip` is not used; the month-end archive
   (`glcnominalmonthedata.zip`) covers everything up to `strategy_end`.
 - **Two sample windows everywhere a result appears**: the 5-country window
-  from `strategy_start` and the 6-country window from `sample_full_start`
-  (the first month France is present). Both are set in step 1.9.
+  from `strategy_start = 1997-08-31` (Germany is the fifth country) and the
+  6-country window from `sample_full_start = 2004-11-30` (France). Set in
+  step 1.9 from `data/checks/sample_window.txt`.
 
 ---
 

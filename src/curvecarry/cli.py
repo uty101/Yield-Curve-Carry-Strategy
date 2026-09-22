@@ -3,6 +3,7 @@
 uv run curvecarry fetch --source us        # Phase 1: download to data/raw/, record in the manifest
 uv run curvecarry build --step us          # raw -> data/interim/curves_us.parquet + coverage rows
 uv run curvecarry build --step harmonise    # 1.8: interim curves -> data/processed/curves.parquet
+uv run curvecarry build --step zero         # 1.9: par -> zero, curves_zero.parquet, sample window
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -15,9 +16,12 @@ import sys
 from curvecarry import config
 
 # loader modules by their CLI name; a name is added by the step that builds it
-LOADERS: list[str] = ["us", "gb", "de", "jp", "ca", "fr", "short_rates", "fx"]
+LOADERS: list[str] = ["us", "gb", "de", "jp", "ca", "fr", "short_rates", "fx", "gsw"]
 # build-only steps after the loaders: CLI name -> (module, function); run in this order by --all
-STEPS: dict[str, tuple[str, str]] = {"harmonise": ("curvecarry.harmonise", "build")}
+STEPS: dict[str, tuple[str, str]] = {
+    "harmonise": ("curvecarry.harmonise", "build"),
+    "zero": ("curvecarry.bootstrap", "build"),
+}
 NOT_BUILT = {"run": "step 5.3", "report": "step 6.4"}
 
 
