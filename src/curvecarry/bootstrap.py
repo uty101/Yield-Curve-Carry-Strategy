@@ -1,24 +1,31 @@
 """Step 1.9: par to zero, the two sample windows, the US bootstrap check.
 
-``bootstrap_par_to_zero(par, freq)`` (PLAN.md 1.9): coupon dates
-``t_k = k / freq`` up to the longest observed par tenor ``T_max``; the par
-yield at each ``t_k`` is ``par.at(t_k)`` — the one interpolator between
-observed par tenors, and flat at the shortest observed par yield below it
-(``config.short_end``, amendment B). ``DF_k = (1 − (c_k/f) Σ_{j<k} DF_j) /
-(1 + c_k/f)`` and ``z_k = DF_k^(−1/t_k) − 1`` (annual compounding); at
-``t_1 = 1/f`` this is ``z = (1 + c/f)^f − 1``. Returned: the zero yield at
-every observed par tenor that lies on the coupon grid plus the standard
-tenors ``<= T_max``; nothing beyond ``T_max`` (rule 13). An observed par
-tenor **off the coupon grid** (the US 0.25 with ``freq = 2``) has no
-bootstrap formula in the plan and is left out of the zero curve — issue
-posted in Session 2; it still serves as an interpolation node for
-``par.at``. Par yields are quoted with the country's coupon frequency
+``bootstrap_par_to_zero(par, freq)`` (PLAN.md 1.9, as amended by the Session
+2 fixes): coupon dates ``t_k = k / freq`` up to the longest observed par
+tenor ``T_max``; the par yield at each ``t_k`` is ``par.at(t_k)`` — the one
+interpolator between observed par tenors, and flat at the shortest observed
+par yield below it (``config.short_end``, amendment B). ``DF_k = (1 − (c_k/f)
+Σ_{j<k} DF_j) / (1 + c_k/f)`` and ``z_k = DF_k^(−1/t_k) − 1`` (annual
+compounding); at ``t_1 = 1/f`` this is ``z = (1 + c/f)^f − 1``. Returned
+(issue #10 A, answer a): **the zero at every coupon-grid point** inside
+``[T_min, T_max]`` — the curve is then exactly invertible (any observed par
+bond reprices to 1e-10 off it) — plus, for an observed par tenor **below
+the first coupon date** (the US 0.25 bill with ``freq = 2``; #10 B, answer
+a), the money-market identity ``z = (1 + c·t)^(1/t) − 1``: a bill's
+bond-equivalent yield ``c`` is defined by ``P = 1 / (1 + c·t)``. Grid points
+below ``T_min`` are not returned: the par is flat there by convention, so
+the bootstrap zeros there all equal ``z(T_min)`` and ``Curve.at`` (flat below
+the shortest tenor) reproduces them exactly. Nothing beyond ``T_max``
+(rule 13). Par yields are quoted with the country's coupon frequency
 (``decisions/compounding.md`` → "Par yields").
 
 ``build(cfg)`` → ``data/processed/curves_zero.parquet`` (the panel schema
-plus ``bootstrapped``); ``data/checks/par_zero_gap.csv`` (10y and 30y, par
-countries); ``data/checks/us_zero_vs_gsw.csv`` (Session 2 amendment 3);
-``data/checks/sample_window.txt`` and the two dates in ``config.toml``.
+plus ``bootstrapped``; a bootstrapped month carries its whole coupon grid,
+``standard`` marks the 8 standard tenors and ``interpolated`` marks a tenor
+that was not an observed par tenor); ``data/checks/par_zero_gap.csv`` (10y
+and 30y, par countries); ``data/checks/us_zero_vs_gsw.csv`` (Session 2
+amendment 3); ``data/checks/sample_window.txt`` and the two dates in
+``config.toml``.
 """
 
 from __future__ import annotations
@@ -60,19 +67,25 @@ def bootstrap_grid(par: Curve, freq: int) -> tuple[np.ndarray, np.ndarray, np.nd
     return grid, df, z
 
 
+def money_market_zero(c: float | np.ndarray, t: float | np.ndarray) -> float | np.ndarray:
+    """Zero yield (annual compounding) of a single-cashflow tenor ``t`` below the first coupon
+    date, from its bond-equivalent (simple-interest) yield ``c``: ``P = 1 / (1 + c·t)``, so
+    ``z = (1 + c·t)^(1/t) − 1`` (#10 B). Not the coupon-frequency stub formula."""
+    return (1.0 + np.asarray(c) * np.asarray(t)) ** (1.0 / np.asarray(t)) - 1.0
+
+
 def bootstrap_par_to_zero(par: Curve, freq: int, standard: list[float] | None = None) -> Curve:
-    """Par curve (coupon frequency ``freq``) -> zero curve at the observed par tenors that lie
-    on the coupon grid plus the standard tenors inside ``[T_min, T_max]`` (PLAN.md 1.9; issue
-    #10 on what the returned curve should carry)."""
+    """Par curve (coupon frequency ``freq``) -> zero curve at every coupon-grid point inside
+    ``[T_min, T_max]`` plus the money-market zero of any observed tenor below ``1/freq``
+    (PLAN.md 1.9 as amended; issue #10). ``standard`` is accepted for the plan's signature
+    and ignored: the standard tenors are on the grid."""
     grid, _, z = bootstrap_grid(par, freq)
-    t_min, t_max = float(par.tenors.min()), float(par.tenors.max())
-    on_grid = np.isclose(par.tenors[:, None], grid[None, :], atol=1e-9).any(axis=1)
-    want = {round(float(t), 9) for t in par.tenors[on_grid]}
-    # standard tenors only inside the observed par range: below the shortest observed tenor
-    # the grid uses the flat convention, which is not a value the panel may claim (rule 13)
-    want |= {round(float(t), 9) for t in (standard or []) if t_min - 1e-9 <= t <= t_max + 1e-9}
-    keep = np.array([round(float(g), 9) in want for g in grid])
-    return Curve(grid[keep], z[keep], "zero", par.country, par.date)
+    t_min = float(par.tenors.min())
+    keep = grid >= t_min - 1e-9
+    bill = par.tenors * freq < 1 - 1e-9  # observed tenors before the first coupon date
+    tenors = np.r_[par.tenors[bill], grid[keep]]
+    zeros = np.r_[money_market_zero(par.yields[bill], par.tenors[bill]), z[keep]]
+    return Curve(tenors, zeros, "zero", par.country, par.date)
 
 
 def zero_panel(panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
@@ -97,7 +110,7 @@ def zero_panel(panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             )
             if par.tenors.size < 2:
                 continue
-            zc = bootstrap_par_to_zero(par, freq, std)
+            zc = bootstrap_par_to_zero(par, freq)
             observed = set(np.round(obs["tenor_years"].to_numpy(), 9))
             for t, y in zip(zc.tenors, zc.yields, strict=True):
                 rows.append(

@@ -726,9 +726,24 @@ coverage rows and `data/checks/funding_fill.csv`.
     at `t_k` (converted from the coupon-frequency convention to annual:
     `z = (1 + c/freq)^freq − 1`). For later `t_k`:
     `DF_k = (1 − (c_k/freq) · Σ_{j<k} DF_j) / (1 + c_k/freq)`, `z_k = DF_k^(−1/t_k) − 1`.
-    Returns the zero curve at every observed par tenor plus the 8 standard
-    tenors (those ≤ `T_max`) as `Curve(curve_type="zero")`; tenors
-    beyond `T_max` are absent (rule 13).
+    Returns the zero curve **at every coupon-grid point `t_k` inside
+    `[T_min, T_max]`** as `Curve(curve_type="zero")` (Session 2 fix 1,
+    issue #10 A, answer a, 2026-09-22: the plan's earlier "observed par
+    tenors plus the 8 standard tenors" cannot reprice a 20y or 30y bond
+    within 0.005 — the zeros between 10, 20 and 30 would be re-interpolated
+    linearly — while the full grid reprices every observed par bond to
+    1e-10). Grid points below `T_min` are not returned: the par is flat
+    there by convention, so their zeros all equal `z(T_min)` and `Curve.at`
+    reproduces them. **An observed par tenor below the first coupon date**
+    (the US 0.25 bill, `freq = 2`) gets the money-market identity
+    `z = (1 + c·t)^(1/t) − 1` (#10 B, answer a: a bill's bond-equivalent
+    yield `c` is defined by `P = 1/(1 + c·t)`), with its own test. Tenors
+    beyond `T_max` are absent (rule 13). In `curves_zero.parquet` a
+    bootstrapped month therefore carries 60 US / 80 JP / 30 FR rows;
+    `standard` marks the 8 standard tenors and `interpolated` marks a grid
+    point that was not an observed par tenor. Phase 2 fits use
+    `standard == True` only; `Curve.from_panel` keeps every row of a
+    bootstrapped month (its grid is the curve).
   - `build(cfg) -> pd.DataFrame` → `data/processed/curves_zero.parquet`:
     same schema as `curves.parquet` plus `bootstrapped: bool`. Countries
     whose source is `zero` (GB, DE, CA) pass through unchanged; `par`
@@ -769,18 +784,24 @@ coverage rows and `data/checks/funding_fill.csv`.
 - `test_reprice_par_bonds_at_100`: an upward-sloping par curve
   (2% at 1 to 5% at 30, and again with 0.25 and 0.5 observed) bootstrapped,
   then each observed par bond priced
-  off the zero curve (`bondmath` is 2.1; this test uses a local
-  cashflow-sum helper in the test file) is within 0.005 of 100.
+  off the returned zero curve (`bondmath` is 2.1; this test uses a local
+  cashflow-sum helper in the test file) is within 1e-9 of 100 (Session 2
+  fix 1: the returned curve is the coupon grid, so the bound is exact).
+- `test_bill_zero_is_money_market_identity` (Session 2 fix 1, #10 B): with
+  0.25 observed at yield `c`, the returned 0.25 zero is
+  `(1 + c·0.25)^4 − 1`, not `(1 + c/2)^2 − 1`, and every other zero is
+  unchanged from the curve without the 0.25 point.
 - `test_zero_source_passes_through`: a `zero` input is returned identical.
 - `test_par_assertion`: passing a `zero` curve raises `AssertionError`.
 - `test_no_tenor_beyond_longest_par`: par curve to 10y gives no 20 or 30.
 - `test_short_stub_is_flat_at_shortest_par`: with tenors from 1y and
   freq 2, the 0.5y discount factor equals the one implied by the 1y par
-  yield; with 0.5 observed it equals the one implied by the 0.5 par yield.
+  yield; with 0.5 observed it equals the one implied by the 0.5 par yield;
+  with 0.25 observed the returned zero curve has a 0.25 point.
 - `test_sample_window_rule`: a synthetic coverage panel with a known first
   5-of-6 month and first 6-of-6 month gives those two dates.
 
-**Done when** the eight tests pass, `data/checks/par_zero_gap.csv`,
+**Done when** the nine tests pass, `data/checks/par_zero_gap.csv`,
 `data/checks/us_zero_vs_gsw.csv` and `data/checks/sample_window.txt`
 exist, and `config.toml` has both dates.
 

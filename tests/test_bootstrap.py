@@ -31,7 +31,10 @@ def test_flat_par_gives_flat_zero() -> None:
         par = _par(STANDARD, [0.04] * 8)
         zc = bootstrap.bootstrap_par_to_zero(par, freq, STANDARD)
         want = (1 + 0.04 / freq) ** freq - 1
-        assert zc.curve_type == "zero" and zc.tenors.tolist() == STANDARD
+        # the whole coupon grid from the shortest observed tenor (#10 A): 30 or 59 points
+        grid = (np.arange(1, 30 * freq + 1) / freq).tolist()
+        assert zc.curve_type == "zero" and zc.tenors.tolist() == [t for t in grid if t >= 1]
+        assert set(STANDARD) <= set(zc.tenors)
         assert np.abs(zc.yields - want).max() < 1e-12
         if freq == 1:
             assert np.abs(zc.yields - 0.04).max() < 1e-12
@@ -40,22 +43,25 @@ def test_flat_par_gives_flat_zero() -> None:
 
 
 def test_reprice_par_bonds_at_100() -> None:
-    """The bootstrap is exact: each observed par bond prices at 100 off the coupon-grid zeros."""
+    """The bootstrap is exact: each observed par bond prices at 100 off the returned zero
+    curve, which carries every coupon-grid point (#10 A, answer a)."""
     t = np.array(STANDARD)
     y = 0.02 + 0.03 * (t - 1) / 29  # 2% at 1y to 5% at 30y
     for tenors, yields in ((t, y), (np.r_[0.25, 0.5, t], np.r_[0.018, 0.019, y])):
         for freq in (1, 2):
             par = _par(tenors, yields)
-            grid, _, z = bootstrap.bootstrap_grid(par, freq)
-            full = Curve(grid, z, "zero", "XX", D)
+            zc = bootstrap.bootstrap_par_to_zero(par, freq, STANDARD)
             for tenor, c in zip(tenors, yields, strict=True):
                 if tenor * freq < 1 - 1e-9:  # a tenor below the first coupon date is not a bond
                     continue
-                assert abs(_price(full, tenor, c, freq) - 100.0) < 0.005, (freq, tenor)
-            # the curve the plan returns (observed + standard tenors) is a subset of the grid
-            zc = bootstrap.bootstrap_par_to_zero(par, freq, STANDARD)
+                assert abs(_price(zc, tenor, c, freq) - 100.0) < 1e-9, (freq, tenor)
+            # and the returned curve is the grid itself (plus any bill tenor), not a subset
+            grid, _, z = bootstrap.bootstrap_grid(par, freq)
+            on_grid = zc.tenors[zc.tenors * freq >= 1 - 1e-9]
+            assert on_grid.tolist() == grid[grid >= tenors.min() - 1e-9].tolist()
             for tt, zz in zip(zc.tenors, zc.yields, strict=True):
-                assert zz == pytest.approx(float(full.at(tt)), abs=1e-15)
+                if tt * freq >= 1 - 1e-9:
+                    assert zz == pytest.approx(float(z[np.isclose(grid, tt)][0]), abs=1e-15)
 
 
 def test_zero_source_passes_through(tmp_path: Path) -> None:
@@ -90,7 +96,10 @@ def test_no_tenor_beyond_longest_par() -> None:
     # and none below the shortest observed par tenor (JP 1978-80: shortest is 4y)
     par = _par([4, 5, 7, 10], [0.06, 0.062, 0.065, 0.07])
     zc = bootstrap.bootstrap_par_to_zero(par, 2, STANDARD)
-    assert zc.tenors.tolist() == [4.0, 5.0, 7.0, 10.0]
+    assert zc.tenors.tolist() == (np.arange(8, 21) / 2).tolist()  # 4.0, 4.5, ..., 10.0
+    # below the shortest observed tenor the flat par gives the same zero as Curve.at does
+    grid, _, z = bootstrap.bootstrap_grid(par, 2)
+    assert np.abs(z[grid < 4] - float(zc.at(0.5))).max() < 1e-12
 
 
 def test_short_stub_is_flat_at_shortest_par() -> None:
@@ -102,10 +111,28 @@ def test_short_stub_is_flat_at_shortest_par() -> None:
     par = _par([0.5, 1, 2, 5, 10], [0.02, 0.03, 0.032, 0.035, 0.04])
     grid, df, _ = bootstrap.bootstrap_grid(par, 2)
     assert df[0] == pytest.approx(1 / (1 + 0.02 / 2), abs=1e-15)
-    # an observed 0.25 tenor (off the semi-annual grid) is not in the returned zero curve
+    # an observed 0.25 tenor (off the semi-annual grid) is in the returned zero curve (#10 B)
     par = _par([0.25, 0.5, 1, 2, 5, 10], [0.018, 0.02, 0.03, 0.032, 0.035, 0.04])
     zc = bootstrap.bootstrap_par_to_zero(par, 2, STANDARD)
-    assert 0.25 not in set(zc.tenors) and 0.5 in set(zc.tenors)
+    assert 0.25 in set(zc.tenors) and 0.5 in set(zc.tenors)
+
+
+def test_bill_zero_is_money_market_identity() -> None:
+    """The US 0.25 point (a bill quoted bond-equivalent, P = 1/(1 + c·t)) gets
+    z = (1 + c·0.25)^(1/0.25) − 1 (#10 B, answer a); nothing else moves."""
+    c = 0.0512
+    with_bill = _par([0.25, 0.5, 1, 2, 5, 10], [c, 0.05, 0.049, 0.048, 0.047, 0.046])
+    without = _par([0.5, 1, 2, 5, 10], [0.05, 0.049, 0.048, 0.047, 0.046])
+    a = bootstrap.bootstrap_par_to_zero(with_bill, 2)
+    b = bootstrap.bootstrap_par_to_zero(without, 2)
+    assert a.tenors[0] == 0.25
+    assert a.yields[0] == pytest.approx((1 + c * 0.25) ** 4 - 1, abs=1e-15)
+    assert a.yields[0] == pytest.approx(bootstrap.money_market_zero(c, 0.25), abs=1e-15)
+    assert a.yields[0] != pytest.approx((1 + c / 2) ** 2 - 1, abs=1e-6)  # not the coupon stub
+    assert a.tenors[1:].tolist() == b.tenors.tolist()
+    assert np.abs(a.yields[1:] - b.yields).max() < 1e-15
+    # and the bill's own price, discounted at its zero, is 1/(1 + c·t)
+    assert (1 + a.yields[0]) ** -0.25 == pytest.approx(1 / (1 + c * 0.25), abs=1e-15)
 
 
 def _zero_rows(country: str, months, tenors):
@@ -167,6 +194,9 @@ def test_par_zero_gap_and_gsw_check_shapes() -> None:
     panel_rows = [(D, "US", tt, 0.02 + 0.001 * tt, "par", "fred", False, True) for tt in t]
     panel = pd.DataFrame(panel_rows, columns=[*base.CURVE_COLUMNS, "interpolated", "standard"])
     zero = bootstrap.zero_panel(panel, cfg)
+    assert len(zero) == 59 and zero["standard"].sum() == 8  # the grid 1.0 .. 30.0, freq 2
+    assert (zero["interpolated"] == ~zero["tenor_years"].isin(t)).all()
+    assert Curve.from_panel(zero, "US", D).tenors.size == 59  # a zero curve is its grid
     gap = bootstrap.par_zero_gap(panel, zero)
     assert list(gap.columns) == [
         "country",

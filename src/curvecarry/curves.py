@@ -6,7 +6,8 @@ NaNs dropped. ``Curve.at(t)`` is the one place the flat short end lives:
 ``interpolate_yield`` inside ``[tenors.min(), tenors.max()]``, ``yields[0]``
 below ``tenors.min()`` (``config.short_end = "flat"``, amendment B), NaN
 above ``tenors.max()`` (rule 13). ``Curve.from_panel`` takes every observed
-tenor of a country-month, standard or not.
+tenor of a country-month, standard or not; a bootstrapped zero curve is its
+whole coupon grid (Session 2 fix, issue #10 A).
 """
 
 from __future__ import annotations
@@ -52,9 +53,12 @@ class Curve:
     @classmethod
     def from_panel(cls, panel: pd.DataFrame, country: str, date: pd.Timestamp) -> Curve:
         """All observed tenors of that country-month (``interpolated == False`` rows if the
-        column exists, else every row)."""
+        column exists, else every row); every row of a bootstrapped month, whose coupon-grid
+        zeros are the curve (#10 A)."""
         g = panel[(panel["country"] == country) & (panel["date"] == pd.Timestamp(date))]
-        if "interpolated" in g.columns:
+        if "bootstrapped" in g.columns and not g.empty and g["bootstrapped"].astype(bool).all():
+            pass
+        elif "interpolated" in g.columns:
             g = g[~g["interpolated"].astype(bool)]
         if g.empty:
             raise ValueError(f"no rows for {country} {pd.Timestamp(date).date()}")
