@@ -141,11 +141,11 @@ Fetched so far (2026-09-17): `data/raw/fred/` — the 10 US DGS series (1.1);
 `data/raw/boe/` — the nominal month-end archive zip (1.2);
 `data/raw/bundesbank/` — 6 Svensson parameter series + the 10y check (1.3);
 `data/raw/mof/` — the JGB historical and current-month files (1.4);
-`data/raw/boc/` — the zero-coupon curve and Valet benchmarks (1.5, pending #8);
+`data/raw/boc/` — the zero-coupon curve and Valet benchmarks (1.5);
 `data/raw/bdf/` — the 10 TEC exports (1.6; needs `BDF_API_KEY`);
 `data/raw/bis/` — 7 policy-rate series; `data/raw/fred/` also holds the 5
 OECD interbank and 4 daily FX series (1.7).
-`data/interim/curves_{us,gb,de,jp,fr}.parquet`, `svensson_params_de.parquet`,
+`data/interim/curves_{us,gb,de,jp,ca,fr}.parquet`, `svensson_params_de.parquet`,
 `short_rates.parquet`, `funding.parquet`, `fx.parquet` are built. Re-create with
 `uv run curvecarry fetch --all && uv run curvecarry build --all`.
 
