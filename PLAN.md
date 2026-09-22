@@ -43,6 +43,15 @@ amended in the same session, before the session review is posted.
 deviation from the plan, stated in full; every open question; and for each
 step the "Reviewer reads" list from its review file. Then stop.
 
+**Every session ends by writing `instructions/session-N-status.md` and
+pushing it** (rule of 2026-09-22, session 2). However the session ends —
+finished, stopped on a question, or blocked — that file states what was
+built, what was not, why it stopped, and the last commit. It is written and
+pushed even when the session stopped early, and it is the last thing done
+before the summary. The owner's own instruction for the session is saved
+verbatim in `instructions/session-N.md` at the start of the session and
+committed as `Session N: instructions`.
+
 **Review loop.** The owner reviews the whole session from the repo and
 replies with fixes. Each fix is one commit (`Session N fix: <one line>`);
 after the fixes the full suite is re-run and a comment on the session issue
@@ -63,6 +72,15 @@ neutrality across the book; the policy rate as funding rate with 3-month
 interbank as a robustness column; Canada from the zero-coupon curve; par
 curves bootstrapped to zero in step 1.9. Italy is not in the universe
 (`decisions/euro_curves.md`).
+
+**Session-2 amendments (2026-09-22, `instructions/session-2.md`)** — three,
+amended into steps 2.1, 2.2 and 2.3 below in the same session:
+(1) a repricing check in 2.1 (`data/checks/par_reprice.csv`);
+(2) the Bundesbank `(tau1, tau2)` -> lambda mapping and its ordering swap in
+2.3, with a 10% trigger on the share of DE months whose lambda lies outside
+`config.nelson_siegel.ns_lambda_grid` — **the share is 69.9%, so the trigger
+fired, issue #12 is open and step 2.4 is not built until it is answered**;
+(3) a held-out fit test across 2.2 and 2.3 (`data/checks/fit_holdout.csv`).
 
 **v2 (2026-09-16, after the review of v1 in issue #2)** — four amendments:
 (A) every bucket return is an excess return over its own funding rate and
@@ -881,6 +899,20 @@ A country-month with fewer than `config.nelson_siegel.min_tenors` (5)
 non-null standard tenors is not fitted and is counted in
 `data/checks/fit_skipped.csv`.
 
+**Session-2 amendment 3 (2026-09-22), across 2.2 and 2.3.** Fits still use
+the 8 standard tenors only. `data/checks/fit_holdout.csv`: for GB, CA and JP,
+every month and every observed non-standard tenor between 1 and 30 years
+(`interpolated == False`), the NS-free, NS-DL and Svensson fitted yield
+against the observed zero, and the error in bp. For US and FR the
+bootstrapped non-standard coupon-grid zeros are used instead and labelled
+`bootstrapped` in the `zero_kind` column. (JP's own zeros are bootstrapped
+too, so its rows carry `zero_kind = bootstrapped` although it is selected by
+the `interpolated == False` rule; DE is in neither list, its whole curve
+being reconstructed from the Bundesbank's parameters.) `holdout_summary`
+reports, per country and model, the median and p95 of the monthly held-out
+RMSE next to the in-sample RMSE. The file is written by 2.2 with the two NS
+models in it and rewritten by 2.3 with all three.
+
 ## Step 2.1 — Bond maths
 
 **Build**
@@ -910,6 +942,19 @@ non-null standard tenors is not fitted and is counted in
     `par_yield_from_zero`, then `D`, `C` at `ytm = c`. **This is the one
     duration function**; 4.1, 4.2, 5.1, 5.2 and 6.1 call it and nothing
     else computes a duration.
+
+**Session-2 amendment 1 (2026-09-22).** `Curve.from_panel` for zero curves
+keeps every coupon-grid point in `curves_zero.parquet`, not only the
+standard tenors (already true since the Session 1 part B fix to issue #10 A;
+restated here so it cannot be lost). `write_par_reprice(cfg)` →
+`data/checks/par_reprice.csv`: for every US, JP and FR month and every
+observed par node, the observed par yield, `par_yield_from_zero(Curve.from_panel(...))`
+and `diff_bp`, with a `status` of `ok`, `money_market` (an observed node
+below the first coupon date, whose zero came from the simple-interest
+identity) or `dropped` (a node beyond that month's zero curve after the 1.9
+node-gap and zero-vs-par rules). **Expected max |diff| below 0.01 bp; if it
+is larger, stop and report before 2.2.** Measured: 3.4e-12 bp (US), 3.1e-12
+(JP), 1.9e-12 (FR) — see `review/2.1.md`.
 
 **Test** `tests/test_bondmath.py` (closed forms).
 - `test_zero_coupon_bond_price`: coupon 0, tenor T, flat curve z →
@@ -987,6 +1032,24 @@ has both models for every fitted country-month.
     `lam1_ours, lam2_ours, lam1_bbk = 1/tau1, lam2_bbk = 1/tau2, lam_gap_ours, lam_gap_bbk`,
     and `beta_diff_max` (max abs difference of the four betas).
 - CLI `build --step svensson`.
+
+**Session-2 amendment 2 (2026-09-22).** In `compare_bundesbank`, convert the
+Bundesbank's `(tau1, tau2)` to the lambda form and, where `1/tau2 < 1/tau1`,
+swap the labels (and `beta2` with `beta3`) so that both sides use
+`lambda2 > lambda1` before the betas and lambdas are compared;
+`swapped` records it per month. **The swap is a labelling convention, not an
+identity** — `lambda1` carries the slope loading as well as the first
+curvature, so it preserves the curve only when `beta1 = 0` — therefore
+`rmse_bbk_bp` is scored from the *original, unswapped* parameters, which is
+what makes it 0 by construction. Report the distribution of the
+Bundesbank's `1/tau1` and `1/tau2` (p5, median, p95) and the share of DE
+months where either lies outside `config.nelson_siegel.ns_lambda_grid`.
+**If that share is above 10%, post a `decision` issue on whether to widen the
+grid and do not build 2.4 until it is answered.** Measured: 69.9% (1/tau1
+39.0%, 1/tau2 55.0%), so issue #12 is open and 2.4 is not built.
+`test_de_fit_recovers_bundesbank_curve` uses a fixture row whose lambdas lie
+inside the grid; `test_de_fit_for_a_row_outside_the_grid` documents what
+happens for a row outside it.
 
 **Test** `tests/test_svensson.py` (synthetic).
 - `test_recover_known_curve`: from β = (0.05, −0.02, 0.01, 0.015),

@@ -45,6 +45,13 @@ that do not depend on the answer. Never guess. When a decision issue changes
 a step, the plan text is amended in the same session, before the session
 review is posted.
 
+**Every session ends by writing `instructions/session-N-status.md` and
+pushing it** (rule of 2026-09-22): what was built, what was not, why it
+stopped, and the last commit — however the session ends, finished, stopped
+on a question, or blocked. The owner's instruction for the session is saved
+verbatim to `instructions/session-N.md` at the start and committed as
+`Session N: instructions`.
+
 At the end: push, post one issue `Session N review` (label `review`) with
 the steps built and their test counts, every deviation from the plan in
 full, every open question, and each step's "Reviewer reads" list; stop. The
@@ -99,6 +106,7 @@ to make a run pass.
 | 12 | Tests never use the network. Every `parse()` is tested on a fixture in `tests/fixtures/` (first 50 rows of the real download, made by `scripts/make_fixture.py`). Every review follows `review/TEMPLATE.md`. | `test_reviews_follow_template` (reviews); network side is review (a test that needs the internet is a bug) |
 | 13 | Interpolation in yield is linear in tenor, between observed tenors only. One interpolation function in the package; every module uses it. No extrapolation, ever: a tenor beyond the longest observed is missing. | pending 1.8 |
 | 14 | `config.toml` is written in full in step 0.1 with every key the plan names. A later step may change a default only if the step says so, and that change is a commit on its own. | `test_config_loads_every_named_key`; the default-change rule is review |
+| 15 | Every session writes `instructions/session-N-status.md` and pushes it, however the session ends; the owner's instruction for the session is in `instructions/session-N.md`, saved verbatim. | review |
 
 Two consequences worth spelling out:
 
@@ -119,11 +127,13 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (123 tests at the last approval; see the latest session review)
+uv run pytest -q                                       # make test (152 tests after session 2 steps 2.1-2.3; see the latest session review)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet
 uv run curvecarry build --step zero        # 1.9: curves_zero.parquet, sample window, checks
+uv run curvecarry build --step ns          # 2.2: ns_params.parquet, ns_fitted.parquet, fit checks
+uv run curvecarry build --step svensson    # 2.3: sv_params.parquet, svensson_vs_bundesbank.csv
 uv run curvecarry run      # step 5.3
 uv run curvecarry report   # step 6.4
 ```
@@ -161,8 +171,10 @@ policy-gap fill) and 4 daily FX series (1.7); `data/raw/gsw/` — the Fed's
 GSW zero curve `feds200628` (1.9 check, 2026-09-22).
 `data/interim/curves_{us,gb,de,jp,ca,fr}.parquet`, `svensson_params_de.parquet`,
 `short_rates.parquet`, `funding.parquet`, `fx.parquet`, `gsw_us.parquet` are built;
-`data/processed/curves.parquet` (1.8) and `curves_zero.parquet` (1.9) too. Re-create
-with `uv run curvecarry fetch --all && uv run curvecarry build --all`.
+`data/processed/curves.parquet` (1.8) and `curves_zero.parquet` (1.9) too, and
+`ns_params.parquet` + `ns_fitted.parquet` (2.2) and `sv_params.parquet` (2.3).
+Re-create with `uv run curvecarry fetch --all && uv run curvecarry build --all`.
+No Phase 2 step touches `data/raw/`; the fits read `curves_zero.parquet` only.
 
 Source facts learned in the probe and the session-1 review that later steps
 depend on (full table in `decisions/sources.md`, the FR/IT ruling in
