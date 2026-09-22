@@ -1,0 +1,27 @@
+country,date,n_standard_tenors,reason
+JP,1978-06-30,2,fewer than min_tenors (5) non-null standard tenors
+JP,1978-07-31,2,fewer than min_tenors (5) non-null standard tenors
+JP,1978-08-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1978-09-30,3,fewer than min_tenors (5) non-null standard tenors
+JP,1978-10-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1978-11-30,3,fewer than min_tenors (5) non-null standard tenors
+JP,1978-12-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-01-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-02-28,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-03-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-04-30,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-05-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-06-30,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-07-31,3,fewer than min_tenors (5) non-null standard tenors
+JP,1979-08-31,4,fewer than min_tenors (5) non-null standard tenors
+JP,1979-09-30,4,fewer than min_tenors (5) non-null standard tenors
+JP,1979-10-31,4,fewer than min_tenors (5) non-null standard tenors
+JP,1979-11-30,4,fewer than min_tenors (5) non-null standard tenors
+JP,1979-12-31,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-01-31,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-02-29,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-03-31,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-04-30,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-05-31,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-06-30,4,fewer than min_tenors (5) non-null standard tenors
+JP,1980-07-31,4,fewer than min_tenors (5) non-null standard tenors

@@ -4,6 +4,7 @@ uv run curvecarry fetch --source us        # Phase 1: download to data/raw/, rec
 uv run curvecarry build --step us          # raw -> data/interim/curves_us.parquet + coverage rows
 uv run curvecarry build --step harmonise    # 1.8: interim curves -> data/processed/curves.parquet
 uv run curvecarry build --step zero         # 1.9: par -> zero, curves_zero.parquet, sample window
+uv run curvecarry build --step ns           # 2.2: ns_params.parquet, ns_fitted.parquet, fit checks
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -21,6 +22,7 @@ LOADERS: list[str] = ["us", "gb", "de", "jp", "ca", "fr", "short_rates", "fx", "
 STEPS: dict[str, tuple[str, str]] = {
     "harmonise": ("curvecarry.harmonise", "build"),
     "zero": ("curvecarry.bootstrap", "build"),
+    "ns": ("curvecarry.nelson_siegel", "build"),
 }
 NOT_BUILT = {"run": "step 5.3", "report": "step 6.4"}
 
