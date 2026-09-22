@@ -128,32 +128,82 @@ def test_no_bootstrap_across_wide_node_gap() -> None:
 
 
 def test_ill_conditioned_long_end_is_dropped() -> None:
-    """Session 2 fix 3: a 30 bp kink in the 20y par yield of a 15% curve sends the 1-year
-    forwards beyond config.bootstrap_forward_tolerance_bp (300) from par; the zeros from the
-    first breach on are dropped. The same curve without the kink keeps every tenor."""
-    tol = float(config.load()["bootstrap_forward_tolerance_bp"])
-    assert tol == 300.0
+    """Session 2 fix round 2: the zero-vs-par rule. A 15% par curve with a kinked 20y par
+    keeps the 20y and drops the 30y; an ordinary steep curve keeps everything. The rule looks
+    only at standard tenors >= 10y that are observed par nodes, so linear interpolation
+    between nodes cannot trip it (the forward rule it replaces did)."""
+    tol = float(config.load()["bootstrap_zero_par_tolerance_bp"])
+    assert tol == 100.0 and bootstrap.ZERO_PAR_MIN_TENOR == 10.0
+
+    def gap_bp(par: Curve, tenor: float, freq: int = 2) -> float:
+        grid, _, z = bootstrap.bootstrap_grid(par, freq)
+        return float((z[np.isclose(grid, tenor)][0] - par.at(tenor)) * 1e4)
+
+    # a flat 15% par curve: the zero sits 56 bp above par at every tenor (semiannual
+    # compounding alone), well inside the tolerance, and nothing is dropped
     flat = _par(STANDARD, [0.15] * 8)
-    zc, diag = bootstrap.bootstrap_month(flat, 2, forward_tolerance_bp=tol)
-    assert zc.tenors.max() == 30.0 and diag["first_tenor_dropped"] is None and not diag["dropped"]
-    assert abs(diag["worst_diff_bp"]) < 100  # 56 bp: par 15% vs the annual-compounded forward
-    kink = _par(STANDARD, [0.15] * 6 + [0.153, 0.15])
-    zc, diag = bootstrap.bootstrap_month(kink, 2, forward_tolerance_bp=tol)
-    first = diag["first_tenor_dropped"]
-    assert diag["dropped"] and 10.0 < first <= 20.0
-    assert zc.tenors.max() < first and not {20.0, 30.0} & set(zc.tenors)
-    assert abs(diag["worst_diff_bp"]) > tol and diag["worst_tenor"] >= first
-    assert diag["par_at_worst"] == pytest.approx(float(kink.at(diag["worst_tenor"])))
-    # the zeros below the first breach are the bootstrap's own, untouched
+    zc, rows = bootstrap.bootstrap_month(flat, 2, 10.0, STANDARD, tol)
+    assert rows == [] and zc.tenors.max() == 30.0
+    assert all(abs(gap_bp(flat, t)) == pytest.approx(56.2, abs=0.2) for t in (10.0, 20.0, 30.0))
+
+    # the same curve with a 10 bp kink down in the 20y par yield: the 20y zero is still
+    # within tolerance (33 bp) but the 30y is thrown to +138 bp, so 30y is dropped and the
+    # 20y kept — the kink is at a node, which is exactly what the rule is meant to catch
+    kink = _par(STANDARD, [0.15] * 6 + [0.149, 0.15])
+    assert gap_bp(kink, 20.0) == pytest.approx(32.8, abs=0.5)
+    assert gap_bp(kink, 30.0) == pytest.approx(137.9, abs=0.5)
+    zc, rows = bootstrap.bootstrap_month(kink, 2, 10.0, STANDARD, tol)
+    assert [r["reason"] for r in rows] == ["zero_par"]
+    assert rows[0]["first_tenor_dropped"] == 30.0
+    assert rows[0]["gap_bp"] == pytest.approx(137.9, abs=0.5)
+    assert rows[0]["zero"] == pytest.approx(0.16379, abs=1e-4)
+    assert rows[0]["par"] == 0.15
+    assert 20.0 in set(zc.tenors) and 30.0 not in set(zc.tenors) and zc.tenors.max() == 29.5
+    # the surviving zeros are the bootstrap's own, untouched
     full = bootstrap.bootstrap_par_to_zero(kink, 2)
     assert np.abs(zc.yields - full.at(zc.tenors)).max() < 1e-15
-    # the 200 bp report threshold is at or before the 300 bp cut, and never applied
-    assert diag["first_tenor_dropped_200bp"] <= first
-    assert bootstrap.bootstrap_par_to_zero(kink, 2, forward_tolerance_bp=tol).tenors.max() < first
-    # the forward arithmetic: on a flat zero curve every 1-year forward equals the zero
-    grid, df, z = bootstrap.bootstrap_grid(flat, 2)
-    fwd = bootstrap.one_year_forwards(grid, df, 2)
-    assert np.isnan(fwd[0]) and np.abs(fwd[1:] - z[1:]).max() < 1e-12
+
+    # an ordinary steep curve: 3% at 1y to 5% at 30y, par linear in tenor, nodes at 10, 20
+    # and 30. The gaps grow with the slope: 8 bp at 10y, 32 at 20y, 106 at 30y. The 30y is
+    # 5.6 bp over the 100 bp tolerance, so it is dropped — reported to the owner on #11,
+    # since the fix round asked for a curve of this shape to drop nothing.
+    t = np.array(STANDARD)
+    steep = _par(STANDARD, 0.03 + 0.02 * (t - 1) / 29)
+    got = {tt: gap_bp(steep, tt) for tt in (10.0, 20.0, 30.0)}
+    assert got[10.0] == pytest.approx(7.9, abs=0.3)
+    assert got[20.0] == pytest.approx(31.5, abs=0.3)
+    assert got[30.0] == pytest.approx(105.6, abs=0.3)
+    zc, rows = bootstrap.bootstrap_month(steep, 2, 10.0, STANDARD, tol)
+    assert (
+        [r["first_tenor_dropped"] for r in rows]
+        == [30.0]
+        == [tt for tt, g in got.items() if abs(g) > tol]
+    )
+    # a slope of 1.5% over the same 29 years — the steepest ordinary shape the rule lets
+    # through at 30y — drops nothing
+    gentle = _par(STANDARD, 0.03 + 0.015 * (t - 1) / 29)
+    assert abs(gap_bp(gentle, 30.0)) == pytest.approx(64.4, abs=0.3)
+    zc, rows = bootstrap.bootstrap_month(gentle, 2, 10.0, STANDARD, tol)
+    assert rows == [] and zc.tenors.max() == 30.0
+
+    # a tenor >= 10y that is not an observed par node is never checked: the same kinked
+    # curve without a 30y node keeps everything the node-gap rule allows
+    no30 = _par([1, 2, 3, 5, 7, 10, 20], [0.15] * 6 + [0.149])
+    zc, rows = bootstrap.bootstrap_month(no30, 2, 10.0, STANDARD, tol)
+    assert rows == [] and zc.tenors.max() == 20.0
+
+
+def test_node_gap_and_zero_par_rows() -> None:
+    """bootstrap_dropped.csv carries one row per (country, date, reason); a node-gap cut
+    names the first grid tenor beyond the cutoff and leaves zero, par and gap blank."""
+    y = [0.02, 0.022, 0.024, 0.027, 0.029, 0.03, 0.04]
+    with_gap = _par([1, 2, 3, 5, 7, 10, 30], y)  # 10 -> 30 is a 20-year gap
+    zc, rows = bootstrap.bootstrap_month(with_gap, 2, 10.0, STANDARD, 100.0)
+    assert [r["reason"] for r in rows] == ["node_gap"]
+    assert rows[0]["first_tenor_dropped"] == 10.5  # the first grid point beyond the cutoff
+    assert rows[0]["zero"] is None and rows[0]["par"] is None and rows[0]["gap_bp"] is None
+    assert zc.tenors.max() == 10.0
+    assert set(bootstrap.DROPPED_COLUMNS) == {"country", "date", *rows[0]}
 
 
 def test_short_stub_is_flat_at_shortest_par() -> None:

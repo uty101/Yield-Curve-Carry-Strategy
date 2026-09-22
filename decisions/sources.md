@@ -384,7 +384,9 @@ observation_date,EXUSEU
 1999-02-01,1.1203
 ```
 
-## Bootstrap node-gap rule (Session 2 fix 2, 2026-09-22)
+## Bootstrap long-end rules (Session 2 fix 2, 2026-09-22)
+
+### The node gap
 
 FRED DGS20 is not published from 1987-01 to 1993-09 (81 month ends; the
 Treasury stopped issuing the 20-year bond in 1986 and resumed the series
@@ -403,3 +405,62 @@ apart.** Tenors beyond `T` are absent from `curves_zero.parquet` (rule
 other country-month has a gap wider than 10 years (JP's longest is 10y
 between 30 and 40; FR is annual to 30; the US 2002-03..2006-01 months end
 at 20 because DGS30 is absent, not because of this rule).
+
+### The zero-versus-par rule, and the forward rule it replaced (fix round 2, 2026-09-22)
+
+**Withdrawn: the 1-year forward rule.** Session 2 fix 3 dropped a month's
+long end from the first coupon-grid tenor whose 1-year forward rate
+`DF(t−1)/DF(t) − 1` was more than 300 bp from the par yield at the same
+tenor. It was wrong twice over:
+
+- **It measured the interpolator, not the curve.** The par yield between
+  observed nodes is linear in tenor (rule 13), so the implied forward
+  curve is a step function that jumps at every node; the forward at a
+  long tenor is roughly the zero plus the tenor times the zero's slope,
+  and in any steep curve it stands hundreds of basis points above par by
+  construction. The rule fired on that arithmetic, not on bad data.
+- **It dropped 46 months on or after `strategy_start` that are not
+  ill-conditioned** — the US 20y in 2002-06..2004-04 and 2008-2011, and
+  the JP 25y-40y in 2025-2026: ordinary steep curves (US 1y at 1-2%, 20y
+  at 5%, the 1-year forward ending at 20y at 8-9.5%). The fix-4 GSW
+  diagnostics settle it: run on the Fed's own GSW par curve the bootstrap
+  reproduces the GSW zeros to 0.32 bp at 10y and 0.13 bp at 30y, and
+  since 2000 the CMT-vs-GSW *par* difference (10y −10.1 bp) accounts for
+  nearly all of the *zero* difference (−11.9 bp). The bootstrap adds
+  about 2 bp beyond the input data. Those zeros stand.
+
+**The rule now:** after bootstrapping each (country, date), if
+`|zero(T) − par(T)| > config.bootstrap_zero_par_tolerance_bp` at any
+standard tenor `T >= 10` that is **also an observed par node**, the zeros
+at `T` and beyond are dropped for that month. Comparing at observed nodes
+only is the point: no value the interpolator invented can trip it, and a
+par node whose own bootstrapped zero is implausibly far from it is the
+signature of an ill-conditioned bootstrap (a long-end node inconsistent
+with the nodes before it, so the discount factor it implies is wrong).
+
+**The threshold, 100 bp, was chosen after seeing the data** — stated
+plainly because rule 6 and the project's working style do not allow a
+number to be presented as prior when it was not. What the data shows,
+with the node-gap rule already applied:
+
+| | |
+|---|---|
+| months dropped at 100 bp | 14, all US, all in the 1980s (1981-03..1982-10 at 30y, and 1985-09 at 20y) |
+| dropped on or after `strategy_start` | **0** |
+| largest `\|zero − par\|` on or after `strategy_start` at any `T >= 10` | 68.7 bp (US 2003-07-31, 20y) |
+| smallest `\|zero − par\|` among the 14 dropped | 100.5 bp (US 1982-03-31, 30y) |
+
+So the sample the strategy actually runs on is untouched by **any**
+threshold at or above 69 bp, and the same 14 months are dropped by any
+threshold in **[99.51, 100.54] bp**. 100 sits inside that band and well
+clear of the in-window maximum; the choice is not load-bearing anywhere
+between those bounds. The months it does drop are the 1981-82 inversion
+at 13-15% coupons, where the 30y zero comes out 100-279 bp below a par
+yield that the 10y and 20y nodes cannot support.
+
+**Known, not fixed:** the rule is a level test, so a smooth curve steep
+enough will trip it at 30y — a par curve rising linearly from 3% at 1y to
+5% at 30y has a 30y zero 105.6 bp above par and would lose its 30y. No
+month in the panel is anywhere near that slope at the long end (the
+in-window maximum is 68.7 bp), so nothing real is affected; raised with
+the owner on issue #11.

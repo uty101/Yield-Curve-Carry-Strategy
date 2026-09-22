@@ -23,7 +23,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "tenors",
     "short_end",
     "bootstrap_max_node_gap_years",
-    "bootstrap_forward_tolerance_bp",
+    "bootstrap_zero_par_tolerance_bp",
     "coupon_frequency.US",
     "coupon_frequency.GB",
     "coupon_frequency.JP",

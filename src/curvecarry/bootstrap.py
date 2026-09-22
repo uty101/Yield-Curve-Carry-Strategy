@@ -28,16 +28,21 @@ removes the 20y and 30y zeros for 1987-01..1993-09, when DGS20 was not
 published and the par curve was linear from 10 to 30 years
 (``decisions/sources.md`` → "Bootstrap node-gap rule").
 
-**Ill-conditioned long end** (Session 2 fix 3): after bootstrapping each
-(country, date), the 1-year forward rates on the coupon grid,
-``f(t_k − 1, t_k) = DF(t_k − 1) / DF(t_k) − 1`` for ``t_k >= 1``, are
-compared with the par yield at ``t_k`` (``par.at``). If any forward differs
-from it by more than ``config.bootstrap_forward_tolerance_bp`` (300, not
-tuned), the zeros at that ``t_k`` and beyond are dropped for that month.
-``data/checks/bootstrap_dropped.csv`` lists every month that breaches
-``REPORT_TOLERANCE_BP`` (200; reported, never applied): the first tenor
-dropped at 300 bp (blank if none), the worst forward, the par yield at
-that point, and the first tenor that 200 bp would have dropped.
+**Ill-conditioned long end** (Session 2 fix 3, **withdrawn**; replaced in
+fix round 2): after bootstrapping each (country, date), if the zero yield
+differs from the par yield by more than
+``config.bootstrap_zero_par_tolerance_bp`` (100) at any standard tenor
+``T >= ZERO_PAR_MIN_TENOR`` (10) that is **also an observed par node**, the
+zeros at ``T`` and beyond are dropped for that month. The comparison is at
+observed nodes only, so nothing the interpolator invented can trip it. The
+1-year forward rule it replaces tripped on the forward-rate jumps that
+linear par interpolation produces at every node
+(``decisions/sources.md`` → "Bootstrap long-end rules").
+
+``data/checks/bootstrap_dropped.csv``: one row per (country, date, reason)
+that dropped tenors — ``reason`` is ``node_gap`` (fix 2) or ``zero_par``,
+with the first tenor dropped and, for ``zero_par``, the zero, the par and
+the gap in bp at the breaching node.
 
 **GSW diagnostics, reported only** (Session 2 fix 4): ``us_par_vs_gsw.csv``
 — the CMT par yield minus the GSW par yield (``SVENPY``, coupon-equivalent,
@@ -70,20 +75,8 @@ from curvecarry.loaders import base
 
 PROCESSED = harmonise.PROCESSED
 ZERO_COLUMNS = [*harmonise.PANEL_COLUMNS, "bootstrapped"]
-REPORT_TOLERANCE_BP = 200.0  # bootstrap_dropped.csv reports this threshold; it is never applied
-DROPPED_COLUMNS = [
-    "country",
-    "date",
-    "t_max_observed",
-    "t_node_gap",
-    "first_tenor_dropped",
-    "worst_tenor",
-    "worst_forward",
-    "par_at_worst",
-    "worst_diff_bp",
-    "first_tenor_dropped_200bp",
-    "dropped",
-]
+ZERO_PAR_MIN_TENOR = 10.0  # the zero-vs-par check runs at standard tenors from here up
+DROPPED_COLUMNS = ["country", "date", "reason", "first_tenor_dropped", "zero", "par", "gap_bp"]
 GAP_TENORS = [10.0, 30.0]
 GSW_TENORS = [2.0, 5.0, 10.0, 30.0]
 
@@ -128,52 +121,70 @@ def truncate(par: Curve, t_max: float) -> Curve:
     return Curve(par.tenors[keep], par.yields[keep], par.curve_type, par.country, par.date)
 
 
-def one_year_forwards(grid: np.ndarray, df: np.ndarray, freq: int) -> np.ndarray:
-    """The 1-year forward rate (annual compounding) ending at each grid point ``t_k >= 1``:
-    ``DF(t_k − 1) / DF(t_k) − 1`` with ``DF(0) = 1``; NaN where ``t_k < 1``."""
-    prev = np.full(grid.shape, np.nan)
-    if grid.size >= freq:
-        prev[freq - 1] = 1.0
-        prev[freq:] = df[:-freq]
-    return prev / df - 1.0
-
-
-def forward_breach(grid: np.ndarray, diff_bp: np.ndarray, tol_bp: float) -> float | None:
-    """First grid tenor whose 1-year forward is more than ``tol_bp`` from the par yield."""
-    hit = np.where(np.isfinite(diff_bp) & (np.abs(diff_bp) > tol_bp))[0]
-    return float(grid[hit[0]]) if hit.size else None
+def zero_par_breach(
+    par: Curve,
+    grid: np.ndarray,
+    z: np.ndarray,
+    standard: list[float],
+    tol_bp: float,
+) -> tuple[float, float, float, float] | None:
+    """The first standard tenor ``T >= ZERO_PAR_MIN_TENOR`` that is an observed par node and
+    whose bootstrapped zero is more than ``tol_bp`` from the par yield there:
+    ``(T, zero, par, gap_bp)``, or ``None``."""
+    nodes = set(np.round(par.tenors, 9))
+    for t in sorted(float(x) for x in standard):
+        if t < ZERO_PAR_MIN_TENOR or round(t, 9) not in nodes:
+            continue
+        hit = np.isclose(grid, t, atol=1e-9)
+        if not hit.any():
+            continue
+        zt, pt = float(z[hit][0]), float(par.at(t))
+        gap_bp = (zt - pt) * 1e4
+        if abs(gap_bp) > tol_bp:
+            return t, zt, pt, gap_bp
+    return None
 
 
 def bootstrap_month(
     par: Curve,
     freq: int,
     max_node_gap: float | None = None,
-    forward_tolerance_bp: float | None = None,
-) -> tuple[Curve | None, dict]:
-    """One (country, date): ``(zero curve or None, diagnostics)``. The node-gap cut (fix 2)
-    runs first, then the bootstrap, then the forward check (fix 3). ``None`` when nothing
-    survives. Diagnostics: ``DROPPED_COLUMNS`` minus country and date."""
+    standard: list[float] | None = None,
+    zero_par_tolerance_bp: float | None = None,
+) -> tuple[Curve | None, list[dict]]:
+    """One (country, date): ``(zero curve or None, rows for bootstrap_dropped.csv)``. The
+    node-gap cut (fix 2) runs first, then the bootstrap, then the zero-vs-par check (fix
+    round 2). ``None`` when nothing survives."""
+    dropped = []
     t_max_obs = float(par.tenors.max())
     if max_node_gap is not None:
-        par = truncate(par, node_gap_cutoff(par, max_node_gap))
-    grid, df, z = bootstrap_grid(par, freq)
-    c = np.asarray(par.at(grid), dtype="float64")
-    diff_bp = (one_year_forwards(grid, df, freq) - c) * 1e4
-    w = int(np.nanargmax(np.abs(diff_bp))) if np.isfinite(diff_bp).any() else None
+        t_gap = node_gap_cutoff(par, max_node_gap)
+        if t_gap < t_max_obs - 1e-9:
+            par = truncate(par, t_gap)
+            dropped.append(
+                {
+                    "reason": "node_gap",
+                    "first_tenor_dropped": t_gap + 1.0 / freq,
+                    "zero": None,
+                    "par": None,
+                    "gap_bp": None,
+                }
+            )
+    grid, _, z = bootstrap_grid(par, freq)
     cut = None
-    if forward_tolerance_bp is not None:
-        cut = forward_breach(grid, diff_bp, forward_tolerance_bp)
-    diag = {
-        "t_max_observed": t_max_obs,
-        "t_node_gap": float(par.tenors.max()),
-        "first_tenor_dropped": cut,
-        "worst_tenor": None if w is None else float(grid[w]),
-        "worst_forward": None if w is None else float(c[w] + diff_bp[w] / 1e4),
-        "par_at_worst": None if w is None else float(c[w]),
-        "worst_diff_bp": None if w is None else float(diff_bp[w]),
-        "first_tenor_dropped_200bp": forward_breach(grid, diff_bp, REPORT_TOLERANCE_BP),
-        "dropped": cut is not None,
-    }
+    if zero_par_tolerance_bp is not None and standard:
+        breach = zero_par_breach(par, grid, z, standard, zero_par_tolerance_bp)
+        if breach is not None:
+            cut, zt, pt, gap_bp = breach
+            dropped.append(
+                {
+                    "reason": "zero_par",
+                    "first_tenor_dropped": cut,
+                    "zero": zt,
+                    "par": pt,
+                    "gap_bp": gap_bp,
+                }
+            )
     keep = grid >= float(par.tenors.min()) - 1e-9
     if cut is not None:
         keep &= grid < cut - 1e-9
@@ -181,7 +192,7 @@ def bootstrap_month(
     tenors = np.r_[par.tenors[bill], grid[keep]]
     zeros = np.r_[money_market_zero(par.yields[bill], par.tenors[bill]), z[keep]]
     curve = Curve(tenors, zeros, "zero", par.country, par.date) if tenors.size else None
-    return curve, diag
+    return curve, dropped
 
 
 def bootstrap_par_to_zero(
@@ -189,15 +200,16 @@ def bootstrap_par_to_zero(
     freq: int,
     standard: list[float] | None = None,
     max_node_gap: float | None = None,
-    forward_tolerance_bp: float | None = None,
+    zero_par_tolerance_bp: float | None = None,
 ) -> Curve:
     """Par curve (coupon frequency ``freq``) -> zero curve at every coupon-grid point inside
     ``[T_min, T_max]`` plus the money-market zero of any observed tenor below ``1/freq``
-    (PLAN.md 1.9 as amended; issue #10). ``standard`` is accepted for the plan's signature
-    and ignored: the standard tenors are on the grid. ``max_node_gap`` (years, fix 2) and
-    ``forward_tolerance_bp`` (fix 3) switch the two rules on; ``zero_panel`` passes
-    ``config.bootstrap_max_node_gap_years`` and ``config.bootstrap_forward_tolerance_bp``."""
-    curve, _ = bootstrap_month(par, freq, max_node_gap, forward_tolerance_bp)
+    (PLAN.md 1.9 as amended; issue #10). ``max_node_gap`` (years, fix 2) and
+    ``zero_par_tolerance_bp`` (fix round 2, with ``standard``) switch the two rules on;
+    ``zero_panel`` passes ``config.bootstrap_max_node_gap_years`` and
+    ``config.bootstrap_zero_par_tolerance_bp``. With no tolerance, ``standard`` is unused:
+    the standard tenors are on the grid."""
+    curve, _ = bootstrap_month(par, freq, max_node_gap, standard, zero_par_tolerance_bp)
     if curve is None:
         raise ValueError(f"{par.country} {par.date.date()}: no zero tenor survives")
     return curve
@@ -209,12 +221,11 @@ def zero_panel(panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
 
 def zero_panel_and_dropped(panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """The zero panel and the ``bootstrap_dropped.csv`` table (every bootstrapped month whose
-    worst 1-year forward is more than ``REPORT_TOLERANCE_BP`` from par; ``dropped`` says
-    whether the configured tolerance cut it)."""
+    """The zero panel and the ``bootstrap_dropped.csv`` table (one row per country-month and
+    reason that dropped tenors: ``node_gap`` or ``zero_par``)."""
     std = harmonise.standard_tenors(cfg)
     max_gap = float(cfg["bootstrap_max_node_gap_years"])
-    tol_bp = float(cfg["bootstrap_forward_tolerance_bp"])
+    tol_bp = float(cfg["bootstrap_zero_par_tolerance_bp"])
     out, dropped = [], []
     for country, g in panel.groupby("country", sort=False):
         ctype = g["curve_type"].unique()
@@ -234,9 +245,8 @@ def zero_panel_and_dropped(panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame
             )
             if par.tenors.size < 2:
                 continue
-            zc, diag = bootstrap_month(par, freq, max_gap, tol_bp)
-            if diag["first_tenor_dropped_200bp"] is not None:
-                dropped.append({"country": country, "date": date, **diag})
+            zc, rows_dropped = bootstrap_month(par, freq, max_gap, std, tol_bp)
+            dropped += [{"country": country, "date": date, **r} for r in rows_dropped]
             if zc is None:
                 continue
             observed = set(np.round(obs["tenor_years"].to_numpy(), 9))
@@ -262,7 +272,7 @@ def zero_panel_and_dropped(panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame
     z = z.sort_values(["country", "date", "tenor_years"]).reset_index(drop=True)
     base.validate_curve(z[base.CURVE_COLUMNS])
     d = pd.DataFrame(dropped, columns=DROPPED_COLUMNS)
-    d = d.sort_values(["country", "date"]).reset_index(drop=True)
+    d = d.sort_values(["country", "date", "reason"]).reset_index(drop=True)
     return z[ZERO_COLUMNS], d
 
 
