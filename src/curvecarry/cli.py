@@ -2,7 +2,8 @@
 
 uv run curvecarry fetch --source us        # Phase 1: download to data/raw/, record in the manifest
 uv run curvecarry build --step us          # raw -> data/interim/curves_us.parquet + coverage rows
-uv run curvecarry fetch --all / build --all
+uv run curvecarry build --step harmonise    # 1.8: interim curves -> data/processed/curves.parquet
+uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ from curvecarry import config
 
 # loader modules by their CLI name; a name is added by the step that builds it
 LOADERS: list[str] = ["us", "gb", "de", "jp", "ca", "fr", "short_rates", "fx"]
+# build-only steps after the loaders: CLI name -> (module, function); run in this order by --all
+STEPS: dict[str, tuple[str, str]] = {"harmonise": ("curvecarry.harmonise", "build")}
 NOT_BUILT = {"run": "step 5.3", "report": "step 6.4"}
 
 
@@ -35,9 +38,13 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
 def cmd_build(args: argparse.Namespace) -> int:
     cfg = config.load()
-    names = LOADERS if args.all else [args.step]
+    names = LOADERS + list(STEPS) if args.all else [args.step]
     for name in names:
-        df = _loader(name).load(cfg)
+        if name in STEPS:
+            module, fn = STEPS[name]
+            df = getattr(importlib.import_module(module), fn)(cfg)
+        else:
+            df = _loader(name).load(cfg)
         print(
             f"built {name}: {len(df)} rows, {df['date'].min().date()} .. {df['date'].max().date()}"
         )
@@ -56,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
 
     b = sub.add_parser("build", help="raw -> interim/processed + data/checks")
     g = b.add_mutually_exclusive_group(required=True)
-    g.add_argument("--step", choices=LOADERS)
+    g.add_argument("--step", choices=LOADERS + list(STEPS))
     g.add_argument("--all", action="store_true")
     b.set_defaults(fn=cmd_build)
 
