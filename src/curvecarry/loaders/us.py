@@ -4,7 +4,11 @@ Series ``DGS3MO DGS6MO DGS1 DGS2 DGS3 DGS5 DGS7 DGS10 DGS20 DGS30``, daily,
 percent, ``"."`` for a missing day. ``curve_type = par`` (semi-annual
 coupon, ``config.coupon_frequency.US = 2``). DGS3MO and DGS6MO (0.25 and
 0.5 years, from 1981-09) are the observed short end. DGS20 has no data
-1987-01..1993-09 and DGS30 none 2002-03..2006-01; both are recorded in
+1987-01..1993-09; DGS30 is dropped for 2002-02-19..2006-02-08 (issue #7:
+Treasury discontinued the 30-year constant maturity on 2002-02-18 and
+reinstated it on 2006-02-09, and FRED carries Treasury's factor-based
+estimates from the 20-year for the interval — an extrapolation under rule
+13, not an observation). Both gaps are recorded in
 ``data/checks/coverage.csv`` and never filled.
 """
 
@@ -33,6 +37,9 @@ SERIES: dict[str, float] = {
     "DGS20": 20.0,
     "DGS30": 30.0,
 }
+# DGS30 values inside this closed span are Treasury's estimates from the 20-year
+# (factor method), not 30-year observations; dropped as extrapolation (issue #7).
+DGS30_EXTRAPOLATED = (pd.Timestamp("2002-02-19"), pd.Timestamp("2006-02-08"))
 
 
 def fetch(cfg: dict) -> list[Path]:
@@ -57,12 +64,16 @@ def parse(paths: list[Path]) -> pd.DataFrame:
         s = series[0]
         if s not in SERIES:
             raise ValueError(f"{p}: unknown FRED series {s!r}")
+        obs = pd.to_datetime(df["observation_date"])
+        value = df[s].astype("float64")
+        if s == "DGS30":
+            value = value.mask(obs.between(*DGS30_EXTRAPOLATED))  # extrapolated span -> missing
         frames.append(
             pd.DataFrame(
                 {
-                    "obs_date": pd.to_datetime(df["observation_date"]),
+                    "obs_date": obs,
                     "tenor_years": SERIES[s],
-                    "yield": df[s].astype("float64") / 100.0,  # percent -> decimal, once
+                    "yield": value / 100.0,  # percent -> decimal, once
                 }
             )
         )

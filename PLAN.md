@@ -341,6 +341,12 @@ others kept. Loader steps write `stage = observed`; 1.8 writes
     (`stage = observed`). The DGS20 gap (1987-01 to 1993-09) and the DGS30
     gap (2002-03 to 2006-01) appear in the `gaps` column; nothing is
     interpolated across them.
+  - **DGS30 2002-02-19 .. 2006-02-08 is dropped in `parse`** (issue #7,
+    2026-09-22): Treasury discontinued the 30-year constant maturity on
+    2002-02-18 and reinstated it on 2006-02-09; FRED's DGS30 now carries
+    Treasury's factor-based estimates from the 20-year for the interval.
+    They are an extrapolation (rule 13), so the loader masks the closed
+    span (`us.DGS30_EXTRAPOLATED`) and the gap is recorded, not filled.
 - CLI: `fetch --source us`, `build --step us`.
 
 **Test** `tests/test_loader_us.py` on `tests/fixtures/fred/DGS*.csv`
@@ -351,8 +357,11 @@ others kept. Loader steps write `stage = observed`; 1.8 writes
   values 1, 2, 3 on three days gives 3 (× 1e-2), not 2.
 - `test_gap_is_recorded_not_filled`: a synthetic DGS20 with 24 missing months
   produces one `gaps` entry and no yields in those months.
+- `test_dgs30_extrapolated_span_is_dropped` (issue #7): a synthetic DGS30
+  with values on every business day 2002-01..2006-03 has no yield inside
+  the span, keeps 2002-02 and 2006-02, and coverage shows `2002-03..2006-01`.
 
-**Done when** the six tests pass and `data/checks/coverage.csv` has 10 US rows
+**Done when** the seven tests pass and `data/checks/coverage.csv` has 10 US rows
 with the two gaps in `gaps` and 1981-09 first dates for 0.25 and 0.5.
 
 ## Step 1.2 — UK: Bank of England nominal spot curve, month-end archive

@@ -82,3 +82,29 @@ def test_parse_rejects_unknown_series(tmp_path: Path) -> None:
     p.write_text("observation_date,DGS99\n2020-01-02,1.0\n")
     with pytest.raises(ValueError, match="DGS99"):
         us.parse([p])
+
+
+def test_dgs30_extrapolated_span_is_dropped(tmp_path: Path) -> None:
+    """Issue #7: FRED's DGS30 carries Treasury's 20-year-factor estimates for
+    2002-02-19..2006-02-08; they are dropped and the gap 2002-03..2006-01 recorded."""
+    days = pd.bdate_range("2002-01-02", "2006-03-31")
+    p = tmp_path / "DGS30.csv"
+    p.write_text(
+        "observation_date,DGS30\n" + "".join(f"{d:%Y-%m-%d},5.50\n" for d in days),
+        encoding="utf-8",
+    )
+    daily = us.parse([p])
+    lo, hi = us.DGS30_EXTRAPOLATED
+    inside = daily["obs_date"].between(lo, hi)
+    assert inside.sum() > 900 and daily.loc[inside, "yield"].isna().all()
+    assert daily.loc[~inside, "yield"].notna().all()
+    # the day before and the day after the span are observations, not estimates
+    edge = daily.set_index("obs_date")["yield"]
+    assert edge["2002-02-18"] == pytest.approx(0.055) and edge["2006-02-09"] == pytest.approx(0.055)
+    monthly = base.month_end_sample(daily)
+    df = base.validate_curve(base.to_curveframe(monthly, "US", "par", "fred"))
+    assert pd.Timestamp("2002-02-28") in set(df["date"])  # sampled from 2002-02-18
+    assert pd.Timestamp("2006-02-28") in set(df["date"])  # sampled from 2006-02-28
+    assert not df["date"].between("2002-03-01", "2006-01-31").any()
+    cov = checks.write_coverage(df, "observed", path=tmp_path / "coverage.csv")
+    assert cov.iloc[0]["gaps"] == "2002-03..2006-01" and cov.iloc[0]["months_missing"] == 47

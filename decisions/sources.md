@@ -76,7 +76,7 @@ observation_date,DGS20
 ```
 
 ### US curve — FRED DGS30
-_gap 2002-2006_
+_gap 2002-2006 — **enforced by the loader, not present in the file** (issue #7, decided 2026-09-22): Treasury discontinued the 30-year constant maturity on 2002-02-18 and reinstated it on 2006-02-09, and for the interval FRED's DGS30 carries Treasury's factor-based estimates from the 20-year (0 missing days in 2002–2006 in the file fetched 2026-09-17). `loaders/us.py` masks 2002-02-19..2006-02-08 (`DGS30_EXTRAPOLATED`) as extrapolation under rule 13; coverage shows `2002-03..2006-01`, 47 months._
 ```
 observation_date,DGS30
 1977-02-15,7.70
