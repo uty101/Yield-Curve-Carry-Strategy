@@ -8,7 +8,8 @@ def test_config_loads_every_named_key() -> None:
     cfg = config.load()
     for key in config.REQUIRED_KEYS:
         config._get(cfg, key)  # raises KeyError if absent
-    # blank until step 1.9 wrote them (Session 2); now dated, ordered, and before strategy_end
+    # blank until step 1.9 wrote them (Session 1 part B);
+    # now dated, ordered, and before strategy_end
     start, full = cfg["sample"]["strategy_start"], cfg["sample"]["sample_full_start"]
     assert start == "1997-08-31" and full == "2004-11-30"
     assert start <= full <= str(cfg["sample"]["strategy_end"].date())

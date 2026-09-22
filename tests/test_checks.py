@@ -1,4 +1,4 @@
-"""Session 1 fix: the sample-day mismatch check (data/checks/sample_day_mismatch.csv)."""
+"""Session 1 part A fix: the sample-day mismatch check (data/checks/sample_day_mismatch.csv)."""
 
 from pathlib import Path
 

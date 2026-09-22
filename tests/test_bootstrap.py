@@ -103,7 +103,7 @@ def test_no_tenor_beyond_longest_par() -> None:
 
 
 def test_no_bootstrap_across_wide_node_gap() -> None:
-    """Session 2 fix 2: the bootstrap stops before two consecutive observed par nodes more
+    """Session 1 part B fix 2: the bootstrap stops before two consecutive observed par nodes more
     than config.bootstrap_max_node_gap_years (10) apart; nothing beyond is interpolated."""
     max_gap = float(config.load()["bootstrap_max_node_gap_years"])
     assert max_gap == 10.0
@@ -128,7 +128,7 @@ def test_no_bootstrap_across_wide_node_gap() -> None:
 
 
 def test_ill_conditioned_long_end_is_dropped() -> None:
-    """Session 2 fix round 2: the zero-vs-par rule. A 15% par curve with a kinked 20y par
+    """Session 1 part B fix round 2: the zero-vs-par rule. A 15% par curve with a kinked 20y par
     keeps the 20y and drops the 30y; an ordinary steep curve keeps everything. The rule looks
     only at standard tenors >= 10y that are observed par nodes, so linear interpolation
     between nodes cannot trip it (the forward rule it replaces did)."""

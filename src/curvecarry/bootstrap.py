@@ -1,7 +1,7 @@
 """Step 1.9: par to zero, the two sample windows, the US bootstrap check.
 
-``bootstrap_par_to_zero(par, freq)`` (PLAN.md 1.9, as amended by the Session
-2 fixes): coupon dates ``t_k = k / freq`` up to the longest observed par
+``bootstrap_par_to_zero(par, freq)`` (PLAN.md 1.9, as amended by the
+Session 1 part B fixes): coupon dates ``t_k = k / freq`` up to the longest observed par
 tenor ``T_max``; the par yield at each ``t_k`` is ``par.at(t_k)`` — the one
 interpolator between observed par tenors, and flat at the shortest observed
 par yield below it (``config.short_end``, amendment B). ``DF_k = (1 − (c_k/f)
@@ -19,7 +19,7 @@ the shortest tenor) reproduces them exactly. Nothing beyond ``T_max``
 (rule 13). Par yields are quoted with the country's coupon frequency
 (``decisions/compounding.md`` → "Par yields").
 
-**No bootstrap across a wide node gap** (Session 2 fix 2): the bootstrap
+**No bootstrap across a wide node gap** (Session 1 part B fix 2): the bootstrap
 for a (country, date) runs only to the longest observed par tenor ``T``
 such that no two consecutive observed par nodes up to ``T`` are more than
 ``config.bootstrap_max_node_gap_years`` (10) apart; tenors beyond it are
@@ -28,7 +28,7 @@ removes the 20y and 30y zeros for 1987-01..1993-09, when DGS20 was not
 published and the par curve was linear from 10 to 30 years
 (``decisions/sources.md`` → "Bootstrap node-gap rule").
 
-**Ill-conditioned long end** (Session 2 fix 3, **withdrawn**; replaced in
+**Ill-conditioned long end** (Session 1 part B fix 3, **withdrawn**; replaced in
 fix round 2): after bootstrapping each (country, date), if the zero yield
 differs from the par yield by more than
 ``config.bootstrap_zero_par_tolerance_bp`` (100) at any standard tenor
@@ -44,7 +44,7 @@ that dropped tenors — ``reason`` is ``node_gap`` (fix 2) or ``zero_par``,
 with the first tenor dropped and, for ``zero_par``, the zero, the par and
 the gap in bp at the breaching node.
 
-**GSW diagnostics, reported only** (Session 2 fix 4): ``us_par_vs_gsw.csv``
+**GSW diagnostics, reported only** (Session 1 part B fix 4): ``us_par_vs_gsw.csv``
 — the CMT par yield minus the GSW par yield (``SVENPY``, coupon-equivalent,
 the same basis) at 2, 5, 10 and 30 years every month both exist, so the
 input difference can be read apart from the bootstrap; ``bootstrap_on_gsw.csv``
@@ -56,7 +56,7 @@ four tenors: the bootstrap's own error on a smooth curve it did not build.
 plus ``bootstrapped``; a bootstrapped month carries its whole coupon grid,
 ``standard`` marks the 8 standard tenors and ``interpolated`` marks a tenor
 that was not an observed par tenor); ``data/checks/par_zero_gap.csv`` (10y
-and 30y, par countries); ``data/checks/us_zero_vs_gsw.csv`` (Session 2
+and 30y, par countries); ``data/checks/us_zero_vs_gsw.csv`` (Session 1 part B
 amendment 3); ``data/checks/sample_window.txt`` and the two dates in
 ``config.toml``.
 """
@@ -111,7 +111,7 @@ def money_market_zero(c: float | np.ndarray, t: float | np.ndarray) -> float | n
 
 def node_gap_cutoff(par: Curve, max_gap: float) -> float:
     """The longest observed par tenor ``T`` such that no two consecutive observed nodes up to
-    ``T`` are more than ``max_gap`` years apart (Session 2 fix 2)."""
+    ``T`` are more than ``max_gap`` years apart (Session 1 part B fix 2)."""
     wide = np.where(np.diff(par.tenors) > max_gap + 1e-9)[0]
     return float(par.tenors[wide[0]]) if wide.size else float(par.tenors[-1])
 

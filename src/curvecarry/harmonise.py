@@ -11,7 +11,7 @@ is absent here.
 
 ``build`` reads ``data/interim/curves_<cc>.parquet`` for every country in
 ``config.countries``, keeps months ``<= config.sample.strategy_end``
-(Session 2 amendment: the partial current month stays in ``data/interim``
+(Session 1 part B amendment: the partial current month stays in ``data/interim``
 only), writes ``data/processed/curves.parquet`` and the coverage rows
 ``stage = harmonised`` for the standard tenors.
 """

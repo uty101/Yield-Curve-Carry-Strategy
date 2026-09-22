@@ -11,7 +11,7 @@ percent, dated the first of the month and stamped to that month's end; one
 series type for all five currencies (issue #1 follow-up). JP starts 2002-04,
 GB and EZ stop at 2026-01.
 
-Policy-rate gap fill (Session 1 fix, 2026-09-22): the BIS JP series has no
+Policy-rate gap fill (Session 1 part A fix, 2026-09-22): the BIS JP series has no
 value for 116 months (1999-03..2000-07, 2001-04..2006-02, 2013-05..2016-08 —
 the zero-rate and QQE regimes with no stated target). For ``kind = policy``
 any month inside the BIS series' span with no BIS value is filled from the

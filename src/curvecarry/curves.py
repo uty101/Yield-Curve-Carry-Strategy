@@ -7,7 +7,7 @@ NaNs dropped. ``Curve.at(t)`` is the one place the flat short end lives:
 below ``tenors.min()`` (``config.short_end = "flat"``, amendment B), NaN
 above ``tenors.max()`` (rule 13). ``Curve.from_panel`` takes every observed
 tenor of a country-month, standard or not; a bootstrapped zero curve is its
-whole coupon grid (Session 2 fix, issue #10 A).
+whole coupon grid (Session 1 part B fix, issue #10 A).
 """
 
 from __future__ import annotations

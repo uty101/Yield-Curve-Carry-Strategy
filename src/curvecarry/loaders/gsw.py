@@ -1,4 +1,6 @@
-"""US check curve: the Fed's Gürkaynak–Sack–Wright zero-coupon yields (Session 2, amendment 3).
+"""US check curve: the Fed's Gürkaynak–Sack–Wright zero-coupon yields.
+
+Session 1 part B, amendment 3.
 
 ``feds200628.csv`` from federalreserve.gov, daily from 1961-06-14. The file's
 own header states the convention: *"Zero-coupon yield, Continuously
@@ -6,7 +8,7 @@ Compounded, SVENYXX"* (and the par yields SVENPYXX are coupon-equivalent).
 Columns ``SVENY01 .. SVENY30``, percent, ``NA`` where the fit does not reach
 the tenor (30y from 1985-11): ``/ 100`` then ``exp(z) - 1`` to the package's
 annual compounding, once, in ``parse``. Month-end sampled like the curves.
-``parse_par`` reads the par yields ``SVENPY01 .. SVENPY30`` (Session 2 fix
+``parse_par`` reads the par yields ``SVENPY01 .. SVENPY30`` (Session 1 part B fix
 4): coupon-equivalent, i.e. the same semiannual bond-equivalent basis as
 the Treasury CMT curve, so ``/ 100`` and nothing else. ``load`` writes
 ``gsw_us.parquet`` (zero) and ``gsw_us_par.parquet`` (par). Used only for

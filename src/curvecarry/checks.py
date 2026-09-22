@@ -6,7 +6,7 @@ the runs of two or more missing months. Rows for the same
 ``(country, curve_type, stage)`` are replaced on each write; every other row
 is kept.
 
-``sample_day_mismatch.csv`` (Session 1 fix, 2026-09-22): one row per
+``sample_day_mismatch.csv`` (Session 1 part A fix, 2026-09-22): one row per
 ``(country, month)`` with the latest ``obs_date`` any tenor was sampled on
 and the number of standard tenors (``config.tenors``) sampled on an earlier
 day — the per-tenor sampling rule's footprint. Rows for a country are
@@ -21,13 +21,15 @@ import pandas as pd
 
 CHECKS = Path("data/checks")
 COVERAGE = CHECKS / "coverage.csv"
-FUNDING_FILL = CHECKS / "funding_fill.csv"  # written by loaders.short_rates.load (Session 1 fix)
-SAMPLE_DAY = CHECKS / "sample_day_mismatch.csv"  # written by every curve loader (Session 1 fix)
+# written by loaders.short_rates.load (Session 1 part A fix)
+FUNDING_FILL = CHECKS / "funding_fill.csv"
+# written by every curve loader (Session 1 part A fix)
+SAMPLE_DAY = CHECKS / "sample_day_mismatch.csv"
 PAR_ZERO_GAP = CHECKS / "par_zero_gap.csv"  # step 1.9
-US_ZERO_VS_GSW = CHECKS / "us_zero_vs_gsw.csv"  # step 1.9, Session 2 amendment 3
-BOOTSTRAP_DROPPED = CHECKS / "bootstrap_dropped.csv"  # step 1.9, Session 2 fix 3
-US_PAR_VS_GSW = CHECKS / "us_par_vs_gsw.csv"  # step 1.9, Session 2 fix 4a
-BOOTSTRAP_ON_GSW = CHECKS / "bootstrap_on_gsw.csv"  # step 1.9, Session 2 fix 4b
+US_ZERO_VS_GSW = CHECKS / "us_zero_vs_gsw.csv"  # step 1.9, Session 1 part B amendment 3
+BOOTSTRAP_DROPPED = CHECKS / "bootstrap_dropped.csv"  # step 1.9, Session 1 part B fix 3
+US_PAR_VS_GSW = CHECKS / "us_par_vs_gsw.csv"  # step 1.9, Session 1 part B fix 4a
+BOOTSTRAP_ON_GSW = CHECKS / "bootstrap_on_gsw.csv"  # step 1.9, Session 1 part B fix 4b
 SAMPLE_WINDOW = CHECKS / "sample_window.txt"  # step 1.9
 SAMPLE_WINDOW_BY_COUNTRY = CHECKS / "sample_window_by_country.csv"  # 1.9, per country
 SAMPLE_DAY_COLUMNS = [
