@@ -32,6 +32,11 @@ US_PAR_VS_GSW = CHECKS / "us_par_vs_gsw.csv"  # step 1.9, Session 1 part B fix 4
 BOOTSTRAP_ON_GSW = CHECKS / "bootstrap_on_gsw.csv"  # step 1.9, Session 1 part B fix 4b
 SAMPLE_WINDOW = CHECKS / "sample_window.txt"  # step 1.9
 SAMPLE_WINDOW_BY_COUNTRY = CHECKS / "sample_window_by_country.csv"  # 1.9, per country
+PAR_REPRICE = CHECKS / "par_reprice.csv"  # step 2.1, session-2 amendment 1
+FIT_SKIPPED = CHECKS / "fit_skipped.csv"  # steps 2.2 and 2.3 (PLAN.md, Phase 2 preamble)
+FIT_HOLDOUT = CHECKS / "fit_holdout.csv"  # steps 2.2 and 2.3, session-2 amendment 3
+SVENSSON_VS_BUNDESBANK = CHECKS / "svensson_vs_bundesbank.csv"  # step 2.3
+CHART1_DATES = CHECKS / "chart1_dates.csv"  # step 2.4
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",
