@@ -668,6 +668,12 @@ coverage rows and `data/checks/funding_fill.csv`.
     tenors.
   - Dates: the panel index is the union of month ends across countries; a
     country-month absent in the source is absent here (no forward fill).
+  - **Partial month (Session 2 amendment, 2026-09-22):** `build` keeps
+    only months `<= config.sample.strategy_end` in
+    `data/processed/curves.parquet` (and therefore in
+    `curves_zero.parquet`). `data/interim/` is unchanged and still carries
+    the partial current month. Coverage rows for `stage = harmonised`
+    reflect the cut.
 - CLI `build --step harmonise`.
 
 **Test** `tests/test_interp.py`, `tests/test_harmonise.py` (synthetic).
@@ -687,13 +693,27 @@ coverage rows and `data/checks/funding_fill.csv`.
   `config.tenors`.
 - `test_one_curve_type_per_country_month`.
 - `test_no_forward_fill`: a missing month stays missing.
+- `test_panel_stops_at_strategy_end` (Session 2 amendment): a synthetic
+  panel with months after `strategy_end` keeps none of them; the month
+  equal to `strategy_end` is kept.
 
-**Done when** the nine tests pass and `data/checks/coverage.csv` has
+**Done when** the ten tests pass and `data/checks/coverage.csv` has
 `harmonised` rows for 6 countries × 8 standard tenors.
 
 ## Step 1.9 — Par to zero, the two sample windows, the gate
 
 **Build**
+- **Par conventions first (Session 2 amendment, 2026-09-22).** Before the
+  bootstrap is built, `decisions/compounding.md` gets a section "Par
+  yields" quoting each source's own statement of how its par series is
+  quoted: US FRED constant maturity (Treasury par yield curve,
+  semi-annual bond-equivalent); Banque de France TEC (taux actuariel,
+  annual); MOF JGB (compound or simple, and whether that differs before
+  1986 or at any other date). It also records that TEC and MOF yields are
+  yields to maturity on actual bonds treated as par yields, and what that
+  approximation is. A convention not stated in a reachable source is a
+  `decision` issue, and 1.9 is not built until it is answered; 1.8 does
+  not depend on it.
 - `src/curvecarry/bootstrap.py`:
   - `bootstrap_par_to_zero(par: Curve, freq: int) -> Curve`: asserts
     `par.curve_type == "par"`. Coupon dates `t_k = k / freq` for
@@ -725,6 +745,19 @@ coverage rows and `data/checks/funding_fill.csv`.
     countries in `config.countries` do. `config.toml` gets both values
     written into `[sample]` in this step's commit (the only step that edits
     `config.toml` besides 0.1).
+  - **US bootstrap check (Session 2 amendment, 2026-09-22).**
+    `src/curvecarry/loaders/gsw.py` fetches the Federal Reserve's
+    Gürkaynak–Sack–Wright zero curve,
+    `https://www.federalreserve.gov/data/yield-curve-tables/feds200628.csv`,
+    to `data/raw/gsw/feds200628_<date>.csv` (source `gsw`, in the manifest).
+    Its `SVENYnn` zero yields are continuously compounded (the file's own
+    header says so) and percent: `/ 100`, then `exp(z) − 1`; month-end
+    sampled like the curves. `build` writes
+    `data/checks/us_zero_vs_gsw.csv`: `date, tenor_years, zero_bootstrap,
+    zero_gsw, diff_bp` at 2, 5, 10 and 30 years every month both exist.
+    A check, not a test gate; its distribution is reported in the session
+    review. `tests/fixtures/gsw/feds200628.csv` (header + 50 rows) and
+    `test_gsw_units_and_compounding`.
 - CLI `build --step zero`.
 
 **Test** `tests/test_bootstrap.py` (synthetic).
@@ -747,12 +780,25 @@ coverage rows and `data/checks/funding_fill.csv`.
 - `test_sample_window_rule`: a synthetic coverage panel with a known first
   5-of-6 month and first 6-of-6 month gives those two dates.
 
-**Done when** the seven tests pass, `data/checks/par_zero_gap.csv` and
-`data/checks/sample_window.txt` exist, and `config.toml` has both dates.
+**Done when** the eight tests pass, `data/checks/par_zero_gap.csv`,
+`data/checks/us_zero_vs_gsw.csv` and `data/checks/sample_window.txt`
+exist, and `config.toml` has both dates.
 
 **Gate.** The owner reviews `data/checks/coverage.csv` and
 `data/checks/par_zero_gap.csv` and the two dates before any Phase 2 step
 is started. The pass is recorded in `CLAUDE.md` → Validation status.
+
+**Session 2 review issue (amendment, 2026-09-22)** must contain, besides
+the usual sections:
+- `strategy_start` and `sample_full_start`, and for each country the
+  first month it has all standard tenors ≤ 10y.
+- A table per country and standard tenor: first and last harmonised
+  month, months present, months missing, and whether any value is
+  interpolated.
+- `par_zero_gap.csv` summarised per country at 10y and 30y by decade:
+  mean, 5th and 95th percentile, max absolute gap in bp.
+- `us_zero_vs_gsw.csv` summarised per tenor: mean, standard deviation,
+  5th and 95th percentile, max absolute diff in bp, and the 5 worst months.
 
 ---
 
