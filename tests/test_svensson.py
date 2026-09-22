@@ -125,6 +125,40 @@ def test_bundesbank_to_lambda_swaps_labels_and_betas() -> None:
     assert np.abs(zero_slope - zero_slope_raw).max() < 1e-15  # exact once beta1 = 0
 
 
+def test_polish_keeps_the_grid_separation() -> None:
+    """Issue #12 Q2 option D: the polished pair never collapses, and the betas stay small.
+
+    Before the fix the Nelder-Mead polish was clipped to [lo, hi] only and could
+    drive lam2 onto lam1, making the two curvature columns identical and the
+    betas 1e11 as a difference of two large numbers.
+    """
+    step = GRID[2]
+    rng = np.random.default_rng(7)
+    for _ in range(30):
+        # a near-Nelson-Siegel curve: the second curvature is barely identified,
+        # which is exactly where the pair used to collapse
+        y = sv.sv_loadings(TENORS, 0.4, 0.45) @ np.array([0.03, -0.01, 0.01, 0.0005]) + rng.normal(
+            0, 1e-5, TENORS.size
+        )
+        f = sv.fit(TENORS, y, GRID)
+        assert f.lam2 >= f.lam1 + step - 1e-9, (f.lam1, f.lam2)
+        assert f.lam_gap >= step - 1e-9
+        assert max(abs(f.beta2), abs(f.beta3)) < 1e6
+
+
+def test_project_is_the_nearest_feasible_pair() -> None:
+    """_project keeps [lo, hi] and the one-step separation, and orders the pair."""
+    lo, hi, step = GRID
+    assert sv._project(np.array([0.5, 0.5]), lo, hi, step) == (0.475, 0.525)
+    assert sv._project(np.array([0.9, 0.4]), lo, hi, step) == (0.4, 0.9)  # crossed: ordered
+    a, b = sv._project(np.array([lo, lo]), lo, hi, step)
+    assert (a, b) == (lo, lo + step)  # pushed up, not below the floor
+    a, b = sv._project(np.array([hi, hi]), lo, hi, step)
+    assert (a, b) == (hi - step, hi)  # pushed down, not above the ceiling
+    a, b = sv._project(np.array([-5.0, 99.0]), lo, hi, step)
+    assert (a, b) == (lo, hi)
+
+
 def test_fit_panel_and_holdout_shapes() -> None:
     """fit_panel emits one sv row per fittable month, and the params join the holdout file."""
     from curvecarry import nelson_siegel as ns

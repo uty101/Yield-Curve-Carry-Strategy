@@ -22,9 +22,10 @@ indistinguishable without an ordering. The exchange is not an exact symmetry:
 
 **Session-2 amendment 2.** The Bundesbank publishes no such ordering, so
 ``bundesbank_to_lambda`` converts ``(tau1, tau2)`` to ``(1/tau1, 1/tau2)`` and,
-where ``1/tau2 < 1/tau1``, swaps the labels **and** ``beta2`` with ``beta3``
-before anything is compared. ``swapped`` records it per month in
-``data/checks/svensson_vs_bundesbank.csv``.
+where ``1/tau2 < 1/tau1``, swaps the labels **and** ``beta2`` with ``beta3``.
+``swapped`` records it per month in ``data/checks/svensson_vs_bundesbank.csv``
+and, after the issue #12 answer, the swap is used for the **lambda** comparison
+only: ``beta_diff_max`` is computed against the original, unswapped betas.
 """
 
 from __future__ import annotations
@@ -133,17 +134,44 @@ def lambda_pairs(grid: tuple[float, float, float]) -> list[tuple[float, float]]:
     return [(float(a), float(b)) for a in lams for b in lams if b > a + step - 1e-12]
 
 
+def _project(v: np.ndarray, lo: float, hi: float, step: float) -> tuple[float, float]:
+    """The feasible pair nearest ``v``: inside ``[lo, hi]`` and ``lam2 >= lam1 + step``.
+
+    Issue #12 answer Q2, option D. The grid already searches only ordered pairs
+    with a full step between them; before the fix the Nelder-Mead polish was
+    clipped to ``[lo, hi]`` alone and could drive ``lam2`` onto ``lam1``, which
+    makes the two curvature columns of ``sv_loadings`` identical and blows the
+    betas up to 1e11 as a difference of two large numbers. The separation is
+    now the same in the polish as in the grid.
+    """
+    a, b = float(np.clip(v[0], lo, hi)), float(np.clip(v[1], lo, hi))
+    if b < a:
+        a, b = b, a
+    if b < a + step:
+        mid = 0.5 * (a + b)
+        a, b = mid - step / 2.0, mid + step / 2.0
+        if a < lo:
+            a, b = lo, lo + step
+        if b > hi:
+            a, b = hi - step, hi
+    return a, b
+
+
 def fit(tau: np.ndarray, y: np.ndarray, grid: tuple[float, float, float]) -> SVFit:
-    """Grid over ordered ``(lam1, lam2)`` pairs, then Nelder-Mead from the best pair."""
-    lo, hi = float(grid[0]), float(grid[1])
+    """Grid over ordered ``(lam1, lam2)`` pairs, then Nelder-Mead from the best pair.
+
+    The polish honours the grid's own separation ``lam2 >= lam1 + step`` as well
+    as ``[lo, hi]`` (issue #12 Q2, option D).
+    """
+    lo, hi, step = (float(v) for v in grid)
+    assert hi - lo >= step, f"lambda grid {grid} is narrower than one step"
     pairs = lambda_pairs(grid)
     rmses = [fit_fixed_lambdas(tau, y, a, b)[1] for a, b in pairs]
     k = int(np.argmin(rmses))
     best, best_rmse = pairs[k], float(rmses[k])
 
     def objective(v: np.ndarray) -> float:
-        a, b = float(np.clip(v[0], lo, hi)), float(np.clip(v[1], lo, hi))
-        return fit_fixed_lambdas(tau, y, a, b)[1]
+        return fit_fixed_lambdas(tau, y, *_project(v, lo, hi, step))[1]
 
     res = minimize(
         objective,
@@ -151,11 +179,9 @@ def fit(tau: np.ndarray, y: np.ndarray, grid: tuple[float, float, float]) -> SVF
         method="Nelder-Mead",
         options={"xatol": 1e-8, "fatol": 1e-14},
     )
-    lam1, lam2 = (float(np.clip(v, lo, hi)) for v in res.x)
+    lam1, lam2 = _project(res.x, lo, hi, step)
     if float(res.fun) > best_rmse or not np.isfinite(res.fun):
         lam1, lam2 = best
-    if lam2 < lam1:  # the polish may cross the pair; the ordering is the identification
-        lam1, lam2 = lam2, lam1
     beta, rmse = fit_fixed_lambdas(tau, y, lam1, lam2)
     return SVFit(
         *(float(v) for v in beta),
@@ -280,7 +306,12 @@ def compare_bundesbank(
             tau, raw["beta0"], raw["beta1"], raw["beta2"], raw["beta3"], raw["tau1"], raw["tau2"]
         )
         rmse_bbk = float(np.sqrt(np.mean((y - fit_b) ** 2))) * 1e4
-        beta_diff = max(abs(float(o[f"beta{k}"]) - b[f"beta{k}"]) for k in range(4))
+        # issue #12: beta_diff_max is computed against the ORIGINAL, unswapped
+        # betas. The swap is a labelling convention and not an identity once
+        # beta1 != 0, so comparing across it compared a beta fitted against lam1
+        # with one fitted against a different decay. `swapped` stays in the csv
+        # and is used for the lambda comparison only.
+        beta_diff = max(abs(float(o[f"beta{k}"]) - float(raw[f"beta{k}"])) for k in range(4))
         outside = not (lo <= b["lam1"] <= hi and lo <= b["lam2"] <= hi)
         rows.append(
             (
