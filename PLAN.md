@@ -1848,7 +1848,18 @@ variant and is never the headline, whatever the numbers say.
   - Outputs: `data/processed/backtest_<variant>.parquet`
     (`date, r_gross, cost, r_net, turnover, n_long, n_short, n_closed, run_id`);
     `data/checks/metrics_<variant>.csv` (`run_id, variant, window, metric, value`),
-    `data/checks/positions_<variant>.parquet` (the weights actually held).
+    `data/checks/positions_<variant>.parquet` (the weights actually held), and
+    `data/checks/extreme_months_<variant>.csv` (**session-5 amendment 2**:
+    `rank, sign, date, r_net, country, tenor_years, leg, wd, r_bucket,
+    contribution` - the 10 largest monthly gains and the 10 largest losses,
+    each with the 5 largest positive and 5 largest negative bucket
+    contributions, `contribution = weight x r`). It is written by the engine
+    for **every** variant rather than once in 5.5, because the headline is a
+    5.3 variant and a headline number nobody can trace to a curve move is a
+    number taken on trust.
+  - Every metric this step reports is reported **twice, gross and net of
+    costs**: the metrics frame carries `<metric>` on `r_net` and
+    `<metric>_gross` on `r_gross`, in both windows.
 - CLI `run --variant carry_hedged [--note]`; `run --all` runs the variants
   the step names, each as its own logged row.
 
@@ -1871,6 +1882,9 @@ variant and is never the headline, whatever the numbers say.
   `annualised_return = 12r`, `vol = 0`, drawdown 0; a `−10%` then `+5%`
   series → `max_drawdown = −0.10`, dates right.
 - `test_two_windows_reported`: metrics frame has `window ∈ {full, six}`.
+- `test_extreme_months_names_the_legs`: the biggest month of a synthetic
+  panel is the month that moved, and the largest contribution in it is
+  `weight x r` of the bucket that moved.
 - **Session-5 amendment 5, timing:** `test_appending_months_does_not_change_weights_at_t`
   - weights built on the signal panel truncated at `T0` are identical, to
   1e-12 on `wd` and exactly on the held set, to the weights at the same
@@ -1879,7 +1893,7 @@ variant and is never the headline, whatever the numbers say.
   `t`, which spans `t -> t+1`; the test makes the first half of that
   sentence enforceable.
 
-**Done when** the nine tests pass, `reports/specifications.csv` has two new
+**Done when** the ten tests pass, `reports/specifications.csv` has two new
 rows, and `data/checks/metrics_carry_hedged.csv`,
 `data/checks/metrics_carry_unhedged.csv` exist.
 
@@ -2001,11 +2015,9 @@ max drawdown with its peak and trough dates, turnover, 2022 in isolation,
 gross **and** net of costs); the same table for every variant; the deflated
 Sharpe with its `N` and the `specifications.csv` row count; the eligible
 bucket count by year; and the **10 largest monthly gains and the 10 largest
-monthly losses**, each with the country-tenor legs that drove them
-(`data/checks/extreme_months.csv`: `rank, sign, date, r_net, country,
-tenor_years, leg, wd, r_bucket, contribution`, the five largest
-contributions each way per month), so the biggest months can be checked
-against the curve moves rather than taken on trust.
+monthly losses**, each with the country-tenor legs that drove them, from
+`data/checks/extreme_months_<variant>.csv`, which step 5.3 writes for every
+variant.
 
 ---
 

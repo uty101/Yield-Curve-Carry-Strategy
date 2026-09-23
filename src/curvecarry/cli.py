@@ -12,6 +12,7 @@ uv run curvecarry build --step returns      # 4.2: returns.parquet, approx gap, 
 uv run curvecarry build --step fx_hedge     # 4.3: hedged/unhedged columns, return_coverage.csv
 uv run curvecarry build --step signal       # 5.1: signal.parquet, universe join, exclusion checks
 uv run curvecarry build --step weights      # 5.2: weights.parquet, weights_empty_months.csv
+uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
@@ -40,7 +41,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "signal": ("curvecarry.signal", "build"),
     "weights": ("curvecarry.weights", "build"),
 }
-NOT_BUILT = {"run": "step 5.3"}
+NOT_BUILT: dict[str, str] = {}
 CHARTS_BUILT = {"1", "2", "3", "4"}  # steps 2.4, 3.3 and 4.4; the rest arrive in 6.4
 
 
@@ -70,6 +71,20 @@ def cmd_build(args: argparse.Namespace) -> int:
             df = _loader(name).load(cfg)
         span = f", {df['date'].min().date()} .. {df['date'].max().date()}" if "date" in df else ""
         print(f"built {name}: {len(df)} rows{span}")
+    return 0
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Step 5.3. Every run is a row in reports/specifications.csv before it computes."""
+    cfg = config.load()
+    backtest = importlib.import_module("curvecarry.backtest")
+    names = list(backtest.VARIANTS) if args.all else [args.variant]
+    for name in names:
+        res = backtest.run(cfg, name, note=args.note)
+        net = res.metrics
+        row = net[(net["window"] == "full") & (net["metric"] == "sharpe")]["value"]
+        sharpe = float(row.iloc[0])
+        print(f"ran {name} ({res.run_id}): {len(res.monthly)} months, full net Sharpe {sharpe:.3f}")
     return 0
 
 
@@ -108,6 +123,13 @@ def main(argv: list[str] | None = None) -> int:
         "report is step 6.4.",
     )
     r.set_defaults(fn=cmd_report)
+
+    rn = sub.add_parser("run", help="one logged strategy run (5.3)")
+    g = rn.add_mutually_exclusive_group(required=True)
+    g.add_argument("--variant")
+    g.add_argument("--all", action="store_true")
+    rn.add_argument("--note", default="")
+    rn.set_defaults(fn=cmd_run)
 
     for name, step in NOT_BUILT.items():
         s = sub.add_parser(name, help=f"not built yet ({step})")
