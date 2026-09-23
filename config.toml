@@ -80,7 +80,10 @@ yield_floor = 0.002                   # buckets with zero yield below 20 bp are 
 [weights]
 long_duration_budget = 5.0            # years of duration per unit capital in the long leg (brief 6.5)
 duration_neutral_scope = "book"       # issue #1 answer 3; "country" is a logged robustness run in 5.5
-min_eligible_buckets = 6              # a month with fewer eligible buckets holds nothing (5.2); logged
+min_eligible_buckets = 9              # a month with fewer eligible buckets holds nothing (5.2); logged.
+                                      # Raised from 6 by session-5 amendment 3, pre-registered before any result was
+                                      # seen: below 9 eligible buckets k = n // 3 is 2 a side, a pair trade and not a
+                                      # book. Global rule 14: this change is a commit on its own
 
 [overlay]
 z_entry = 1.5                         # |z| beyond which a steepener/flattener is entered
