@@ -81,11 +81,14 @@ answer). 4.3 and 4.4 do not depend on it.
 
 ## Where it stopped
 
-Finished. All of Phase 4 is built, committed and pushed. The `Session 4
-review` issue is posted; `Question 4.2` is issue **#17** and is open.
+Finished. All of Phase 4 is built, committed and pushed.
 
-Last commit of the session: see `git log -1` on `main` — the session's final
-commit is this status file.
+- `Session 4 review` — issue **#18**.
+- `Question 4.2: the return approximation's dy, and the 2 bp tolerance` —
+  issue **#17**, open.
+- Session 3's review issue **#16** is closed.
+
+Last commit before this line was written: `9b20626`.
 
 Nothing starts on Session 5 until `Session 4 approved` is posted and the
 approval line is in `CLAUDE.md` → Validation status.
