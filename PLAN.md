@@ -1361,6 +1361,13 @@ equals the sum of the three to 0.05 pp; one row per scope).
 
 ## Step 4.1 — Carry and rolldown
 
+**Session-4 amendment 2 (2026-09-23), the side this step owns.** The
+long-run identity check `data/checks/return_identity.csv` compares the
+annualised mean of `r_local` with the annualised mean of the expected return
+this step computes. It needs both `carry.parquet` (here) and
+`returns.parquet` (4.2), so **the file is written in 4.2** and its columns
+are listed there. It is a check, not a gate: nothing about it stops a step.
+
 **Build**
 - `src/curvecarry/carry.py`, on `curves_zero.parquet` and
   `funding.parquet`, horizon `Δt = 1/12`:
@@ -1402,6 +1409,54 @@ equals the sum of the three to 0.05 pp; one row per scope).
 **Done when** the six tests pass and `data/processed/carry.parquet` exists.
 
 ## Step 4.2 — Return engine
+
+**Session-4 amendment 1 (2026-09-23): the universe log.**
+`data/checks/universe_by_month.csv`, one row per `(date, country)` over
+every month of the panel that has a next month:
+`date, country, n_tenors, tenors, n_total_all_countries`. A tenor is in
+`tenors` when it has a **computable return** — a standard zero at
+`(country, t, n)` and a curve at `t + 1` that reaches the aged tenor
+`n − 1/12`, which is exactly the rows of `returns.parquet` with
+`closed == False`. `n_total_all_countries` is that month's total across the
+six countries and repeats on each of the month's rows. The review reports
+the first and last month of every country-tenor bucket, every mid-sample
+appearance or disappearance, and the bucket count by year.
+
+**Session-4 amendment 2 (2026-09-23): the long-run identity.**
+`data/checks/return_identity.csv`, one row per `(country, tenor_years,
+window)` with `window ∈ {full, strategy}` (`full` = every month the bucket
+has a return; `strategy` = from `config.sample.strategy_start`):
+`country, tenor_years, window, n_months, r_local_ann, yield_rolldown_ann,
+carry_rolldown_ann, price_return_ann, r_short_ann, diff_bp,
+diff_carry_bp, flagged`.
+
+Annualisation is `12 × mean(monthly)`, in decimals; `diff_bp` is
+`(r_local_ann − yield_rolldown_ann) × 1e4`.
+
+- `yield_rolldown_ann` = `12 × mean(yield/12 + rolldown)` — the bucket's
+  expected **total** return from carrying and rolling down the curve.
+- `carry_rolldown_ann` = `12 × mean(expected_return_1m)` =
+  `12 × mean(carry/12 + rolldown)` — the same quantity net of funding,
+  using this project's `carry = y_n − r_short` (`decisions/short_anchor.md`).
+  It differs from the first by `r_short_ann` by construction.
+
+**Which of the two the amendment means is a question for the owner**
+(`decision` issue of this session). The amendment's own words are "the
+annualised mean of (carry + rolldown)" and "over a long sample the first two
+should be close": those two clauses cannot both hold of
+`carry = y_n − r_short`, because a total return and a return over funding
+differ by the funding rate, which is 200 to 400 bp a year. Both columns are
+therefore written, nothing is lost either way, and **`flagged` is set on
+`|diff_bp| > config.checks.identity_gap_flag_bp_per_year` (50), the
+funding-free reading**, because that is the one the amendment's stated
+expectation describes. `diff_carry_bp` carries the other reading.
+
+Two things the identity does not claim. It is a *mean* identity, not a
+per-month one: within a month `r_local` also contains the price effect of
+the actual yield change, which averages towards zero over a long sample and
+does not vanish in a short one. And a bucket whose sample is one direction
+of rates (JP, or any bucket that starts in the 2010s) has no reason to
+satisfy it; the review says so rather than calling it a fault.
 
 **Build**
 - `src/curvecarry/returns.py`, for each `(country, tenor n, month t)` with
@@ -1461,6 +1516,24 @@ equals the sum of the three to 0.05 pp; one row per scope).
 exists.
 
 ## Step 4.3 — Hedged and unhedged excess returns
+
+**Session-4 amendment 3 (2026-09-23): the coverage log.**
+`data/checks/return_coverage.csv`, one row per `(date, country)` over every
+month with returns:
+`date, country, n_buckets, has_r_local, has_r_hedged, has_r_unhedged,
+reason, funding_kind, funding_source, funding_area, fx_currency`.
+`has_*` is true when **at least one** bucket that month has a finite value
+of that column; `reason` is empty when all three exist and otherwise names
+the binding one (`no_fx` — no spot for the currency that month or the next;
+`no_funding_local`; `no_funding_base`; `no_bucket`). `funding_source` is the
+`source` of the row used from `funding.parquet` (`bis`, or `fred_immediate`
+for a filled month), `funding_area` is `XM` or the legacy `DE`/`FR` code for
+the euro countries and the country itself otherwise, so the splice window
+of `decisions/short_anchor.md` can be read straight off the file.
+
+The review reports the months with a hedged return but no unhedged one and
+confirms that every `fred_immediate` month and every legacy euro area code
+falls inside the windows `decisions/short_anchor.md` records.
 
 **Build**
 - `returns.add_fx(returns, funding, fx, cfg) -> pd.DataFrame` adds to
