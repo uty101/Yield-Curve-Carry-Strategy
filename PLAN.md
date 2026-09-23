@@ -85,14 +85,16 @@ fired, issue #12 is open and step 2.4 is not built until it is answered**;
 **Session-3 amendments (2026-09-23, `instructions/session-3.md`)** — four,
 amended into steps 3.1 and 3.2 below in the same session:
 (1) the PCA tenor set is chosen per country rather than fixed at the 8
-standard tenors, with a stop condition — **the stop condition fired: the
-pooled set is 5 tenors, fewer than 6, so issue #15 is open and no step of
-Phase 3 is built until it is answered**;
+standard tenors, with a stop condition — the stop condition fired on the
+instruction's own wording and **issue #15 answered it: "enters the panel"
+means the first month the country has a 10-year zero (option C)**, which
+also added a secondary pooled fit on the 20-year set, reported only;
 (2) sign normalisation restated for a variable tenor set;
 (3) the input is `curves_zero.parquet` in bp of monthly change, and a month
 enters only if it and the previous month are both complete on the set;
 (4) 3.2 reports the US decade loadings twice, with and without the
-borderline pre-1997 months carried forward from the Phase 1 gate.
+borderline pre-1997 months carried forward from the Phase 1 gate — a
+robustness check, since 30y is not in the US tenor set (#15 answer 4).
 
 **v2 (2026-09-16, after the review of v1 in issue #2)** — four amendments:
 (A) every bucket return is an excess return over its own funding rate and
@@ -1158,16 +1160,50 @@ happens for a row outside it.
 
 ## Step 3.1 — PCA on monthly yield changes
 
-**Session-3 amendment 1 (2026-09-23): the tenor set is chosen, not fixed.**
-PCA needs a fixed tenor set, so it is chosen **per country**: the largest
-set of standard tenors (`config.tenors`) present in at least
-`config.pca.tenor_presence_min` (0.95) of that country's months, counted
-from the first month the country enters the panel. The **pooled** set is the
-intersection of the six country sets. `data/checks/pca_tenor_sets.csv`
+**Session-3 amendment 1 (2026-09-23, as answered in issue #15): the tenor
+set is chosen, not fixed.** PCA needs a fixed tenor set, so it is chosen
+**per country**: the largest set of standard tenors (`config.tenors`)
+present in at least `config.pca.tenor_presence_min` (0.95) of that country's
+months, counted **from the first month the country has a 10-year zero**.
+The **pooled** set is the intersection of the six country sets.
+
+That last clause is the owner's ruling of 2026-09-23 (issue #15, option C)
+and it is **a different rule from the one written in
+`instructions/session-3.md`**, not a different window for it. The
+instruction said "from the first month it enters the panel". Read that way
+JP entered in 1974-09 with a curve that stopped at 7 years, its 10-year
+point was present in only 77.2% of its months, its set came out
+`1, 2, 3, 5, 7` and the pooled intersection came out 5 tenors — which
+tripped the amendment's own stop condition and left amendment 2's "PC1
+positive at 10 years" undefined. A country enters the panel, for the purpose
+of this rule, when it enters it **with a curve rather than a stub**: the
+first month it has a 10-year zero. JP's panel therefore starts 1986-07;
+every other country's first 10-year month is its first panel month already.
+
+**Stop condition (kept, for a re-run on changed data):** if any country's
+set has fewer than 5 tenors, or the pooled set has fewer than 6, the step
+stops and a `decision` issue is posted. On the data of 2026-09-23 it does
+not fire: the sets are US and GB `1, 2, 3, 5, 7, 10`; JP, CA and FR
+`1, 2, 3, 5, 7, 10, 20`; DE all 8; **pooled `1, 2, 3, 5, 7, 10`**, 6 tenors.
+
+`data/checks/pca_tenor_sets.csv`
 (`country, tenors_used, tenors_excluded, months_available, months_dropped_missing_tenor`)
-records the choice and names the excluded tenors. **Stop condition:** if any
-country's set has fewer than 5 tenors, or the pooled set has fewer than 6,
-the step stops and a `decision` issue is posted.
+records the choice and names the excluded tenors.
+
+**Two pooled fits, and which one is load-bearing (issue #15 answer 5).**
+- **`pooled`, the primary fit**, on the intersection `1, 2, 3, 5, 7, 10`
+  over every month each country has complete on that set. **This is the
+  pooled fit every later step reads** — the PC1 vol control of 6.2 and the
+  PC2 z-score of 5.4 take their scores from `scope == "pooled"` and from
+  nothing else.
+- **`pooled_20y`, a secondary fit, reported only**, on
+  `1, 2, 3, 5, 7, 10, 20` over the months in which **all six** countries
+  have a 20-year zero. That window starts at the later of France's first
+  month and the end of the US 20-year gap (`1993-09`), so it is France's
+  start, `2004-11-30`, and runs to `strategy_end` with no gaps. Its
+  explained variance, loadings and month count are reported beside the
+  primary fit in the session review and in `pca_explained.csv`. **No step
+  after 3.3 may read it.**
 
 **Session-3 amendment 3 (2026-09-23): the input.** The input is the **zero**
 curves of `data/processed/curves_zero.parquet` in basis points of monthly
@@ -1196,13 +1232,15 @@ one-month one.
     **middle tenor of the set** > 0; PC4+ first non-zero element positive.
     The middle tenor of a set of even size is the lower of the two middle
     entries. A set that does not contain the tenor a rule names is a stop,
-    not a fallback (it cannot arise once the stop condition of amendment 1
-    has been met and 10 years is in every set).
+    not a fallback; under amendment 1 as answered, 10 years is in every one
+    of the seven scopes, so amendment 2 stands exactly as written.
     `PCAResult(loadings (n×n), eigenvalues, explained (= w / w.sum()), mean, scores)`.
-  - `fit_country(cfg) -> None` and `fit_pooled(cfg) -> None`: pooled =
-    each country's changes **on the pooled set** demeaned by its own column
-    means, stacked as rows, one PCA; scores per country-month = that
-    country's demeaned row `@ V`.
+  - `fit_country(cfg) -> None` and `fit_pooled(cfg, tenors, scope) -> None`:
+    pooled = each country's changes **on the pooled set** demeaned by its own
+    column means, stacked as rows, one PCA; scores per country-month = that
+    country's demeaned row `@ V`. Called twice: `scope = "pooled"` on the
+    intersection, and `scope = "pooled_20y"` on `1, 2, 3, 5, 7, 10, 20`
+    restricted to months every country has complete (the secondary fit).
   - Outputs `data/processed/pca_loadings.parquet`
     (`scope ∈ {US,…,FR,pooled}, component, tenor_years, loading`),
     `data/checks/pca_explained.csv` (`scope, component, eigenvalue, explained_share, n_months`),
@@ -1230,9 +1268,13 @@ one-month one.
 - `test_pooled_scores_are_per_country_month`: pooled score frame has one
   row per `(country, date, component)`.
 
+- `test_secondary_pooled_is_a_separate_scope`: `pooled` and `pooled_20y`
+  are both present, on different tenor sets, and `pooled` is the
+  intersection.
+
 **Done when** the tests pass and `pca_tenor_sets.csv`, `pca_dropped.csv`,
 `pca_explained.csv`, `pca_loadings.parquet` and `pca_scores.parquet` exist
-with `pooled` and six country scopes.
+with six country scopes, `pooled` and `pooled_20y`.
 
 ## Step 3.2 — Loading stability by decade
 
@@ -1246,7 +1288,15 @@ with `pooled` and six country scopes.
   A decade with fewer than `config.pca.stability_min_months` (24) months of
   changes is written with `abs_corr = NaN` and its `n_months`.
 
-**Session-3 amendment 4 (2026-09-23): the US twice.** The item `CLAUDE.md`
+**Session-3 amendment 4 (2026-09-23, relabelled by issue #15): the US
+twice, as a robustness check.** Under amendment 1 as answered, the US set is
+`1, 2, 3, 5, 7, 10` — **the 30-year is not in it.** A pre-1997 month with a
+bad 30-year zero therefore enters the US PCA only through its 1- to 10-year
+yields, and the Phase 1 gate's concern does not reach a loading at all. The
+row is still computed and reported, as a robustness check rather than a
+correction; `review/3.2.md` says it is moot and why, and the carry-forward
+line in `CLAUDE.md` → Validation status is answered there so the Phase 1
+gate question is closed rather than left open. The item `CLAUDE.md`
 carries forward from the Phase 1 gate is settled here. The US decade rows
 are written **twice**: once on all months (`us_borderline_excluded = False`)
 and once excluding the pre-1997 months whose 30-year zero-to-par gap in
