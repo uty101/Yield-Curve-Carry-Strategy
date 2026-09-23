@@ -1,10 +1,10 @@
-# Session 3 status — Phase 3 complete, #15 answered and closed, awaiting approval
+# Session 3 status — Phase 3 complete, fix round done, awaiting approval
 
-**Date** 2026-09-23. **Last commit** `68f7eeb` (plus this file).
+**Date** 2026-09-23. **Last commit** `a90f822` (plus this file).
 **Issues** #13 closed on the Session 2 approval, #12 closed as resolved in
 Session 2, #15 answered and closed. **Session 3 review issue: #16.**
 
-`uv run pytest -q` → **193 passed** (162 at the end of Session 2, +31).
+`uv run pytest -q` → **196 passed** (162 at the end of Session 2, +34).
 `ruff check` clean, `ruff format --check` clean.
 
 ## The session in commits
@@ -20,6 +20,9 @@ Session 2, #15 answered and closed. **Session 3 review issue: #16.**
 | `054c0d5` | **Step 3.2** — decade stability and the Phase 1 borderline months. |
 | `40ca070` | **Step 3.3** — Chart 2 and the explained-variance table. |
 | `68f7eeb` | The real shas and test counts filled into the three review files. |
+| `1e6205f`, `2cc5334`, `38be805` | Session 3 status, and the review issue #16. |
+| `8b2bcec` | **Fix 1** — `abs_cosine` is the statistic PLAN.md 3.2 names, `abs_corr` secondary; PLAN.md amended in the same session. |
+| `a90f822` | **Fix 2** — `data/checks/pca_change_vol.csv`, and the US 2010s loading shift explained in `review/3.2.md`. |
 
 ## What stopped and restarted
 
@@ -51,22 +54,46 @@ rows, decades 1960s–2020s, the US written twice.
 **3.3** `reports/figures/chart2_loadings.png` and
 `data/checks/pca_explained_table.md`; `report --charts 1,2,3`.
 
-## Deviations from the plan, all in the review issue in full
+## The fix round (one round, two commits, on #16)
+
+**Fix 1 — `abs_cosine` is the statistic PLAN.md 3.2 names** (`8b2bcec`).
+The owner withdrew the `abs_corr` wording of session-3 amendment 4.
+`abs_cosine = |v_k^decade . v_k^full|` now leads `pca_stability.csv` and the
+plan; `abs_corr` stays as a secondary column with one sentence on why
+Pearson is misleading for a level factor, whose mean is nearly the whole
+vector. PLAN.md 3.2 amended in the same session. No number changed — only
+which one leads. One new test pins the column order.
+
+**Fix 2 — the US 2010s row explained, not just reported** (`a90f822`).
+`data/checks/pca_change_vol.csv`, 242 rows: the sd of monthly zero-yield
+changes in bp per country, decade and set tenor, plus a `full` baseline row.
+The zero-lower-bound explanation holds. The US 1-year sd falls to 8.4 bp in
+the 2010s, 17% of its 48.4 bp full-sample value, while the 10-year holds
+69%; the 1y/10y ratio is **0.38** against 0.86 to 2.03 in every other US
+decade. Across the six countries the three whose front end collapsed most
+(GB 0.150, JP 0.165, US 0.174 of their own full sample) are the three with
+the lowest PC2 `abs_cosine` (0.874, 0.722, 0.759); DE and FR, at 0.619 and
+0.645, have the highest (0.950, 0.966). The mechanism shows in the loadings:
+US PC1 at 1 year falls from 0.478 to 0.128 while PC1 at 10 years rises from
+0.300 to 0.514, and PC2's pivot moves from about 3 years to about 6. Two
+new tests. Two things are left open rather than invented: that the bound
+*caused* the collapse, and that a Spearman of 0.83 on six countries means
+anything on its own.
+
+## Deviations from the plan, all in #16 in full
 
 1. **PC2's sign tenor is interpolated.** `(longest − 2)` is a member of none
    of the seven sets. The loading there is read off the loading curve with
    the package's one interpolation function. All three candidate readings
-   agree on the sign in all eight scopes, so nothing turns on it.
-2. **`abs_cosine` added beside the plan's `abs_corr` in 3.2.** `abs_corr` is
-   Pearson and removes the mean, which for a near-flat PC1 is most of the
-   vector; it reads 0.075 for a US 1990s level factor whose uncentred cosine
-   against the full sample is 0.984. `abs_corr` is written exactly as
-   specified and untouched.
-3. **The PC1-3 column sums the rounded components**, not the rounded exact
+   agree on the sign in all eight scopes, so nothing turns on it. Still open
+   on #16.
+2. **The PC1-3 column sums the rounded components**, not the rounded exact
    total, so the printed row adds up. It differs on one row of eight (US,
    99.2 against 99.3).
-4. **Decades widened to 1960s–2020s** (PLAN.md said 1990s–2020s), accepted in
+3. **Decades widened to 1960s–2020s** (PLAN.md said 1990s–2020s), accepted in
    the #15 answer.
+4. `abs_cosine` was a deviation when Session 3 was first posted; the fix
+   round made it the plan, so it is no longer one.
 
 ## Answered and closed
 
@@ -80,7 +107,6 @@ the 1980s moves the loading vector by at most 0.008 (PC1), 0.011 (PC2),
 
 ## Next
 
-The owner replies on the `Session 3 review` issue. Each fix is one commit
-`Session 3 fix: <one line>`, then the full suite re-runs and a comment lists
-what changed. Session 4 (Phase 4: 4.1–4.4) does not start until
-`Session 3 approved` is recorded in `CLAUDE.md` → Validation status.
+The fix round is done and its comment is on #16. Session 4 (Phase 4:
+4.1–4.4) does not start until `Session 3 approved` is recorded in
+`CLAUDE.md` → Validation status.
