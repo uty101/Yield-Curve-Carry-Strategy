@@ -15,6 +15,7 @@ uv run curvecarry build --step weights      # 5.2: weights.parquet, weights_empt
 uv run curvecarry build --step overlay      # 5.4: pc2_expanding, overlay_positions, overlay_trades
 uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
+uv run curvecarry report --table            # 5.5: data/checks/metrics_table.csv and .md
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -92,6 +93,11 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def cmd_report(args: argparse.Namespace) -> int:
     cfg = config.load()
+    if args.table:
+        table = importlib.import_module("curvecarry.report").write_metrics_table(cfg)
+        n = int(table["n_trials"].iloc[0])
+        print(f"wrote metrics_table.csv: {table['variant'].nunique()} variants, N = {n}")
+        return 0
     want = {c.strip() for c in args.charts.split(",") if c.strip()}
     if want - CHARTS_BUILT:
         sys.exit(f"charts {sorted(want - CHARTS_BUILT)} are not built yet; see PLAN.md step 6.4")
@@ -118,6 +124,11 @@ def main(argv: list[str] | None = None) -> int:
     b.set_defaults(fn=cmd_build)
 
     r = sub.add_parser("report", help="charts and tables (2.4 builds charts 1 and 3)")
+    r.add_argument(
+        "--table",
+        action="store_true",
+        help="write data/checks/metrics_table.csv and .md (step 5.5)",
+    )
     r.add_argument(
         "--charts",
         default="1,2,3,4",

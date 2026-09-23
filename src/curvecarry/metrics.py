@@ -96,3 +96,59 @@ def summary(r: pd.Series, turnover: pd.Series | None = None) -> dict[str, float 
     out["dd_2022"] = max_drawdown(year).depth
     out["n_months_2022"] = float(len(year))
     return out
+
+
+# ------------------------------------------------------- the deflated Sharpe
+
+EULER_GAMMA = 0.5772156649015329
+NORMAL_KURTOSIS = 3.0  # ``kurt`` is raw, not excess
+
+
+def deflated_sharpe(
+    sr_monthly: float,
+    sr_var_trials: float,
+    n_trials: int,
+    t_months: int,
+    skew: float,
+    kurt: float,
+) -> tuple[float, float]:
+    """``(SR0, DSR)`` - Bailey & Lopez de Prado (2014), per period (monthly).
+
+    ``SR0 = sqrt(V[SR]) * [(1 - g) * Phi^-1(1 - 1/N) + g * Phi^-1(1 - 1/(N e))]``
+    with ``g`` the Euler-Mascheroni constant, and
+
+    ``DSR = Phi((SR - SR0) sqrt(T - 1) / sqrt(1 - g3 SR + (g4 - 1)/4 SR^2))``
+
+    where ``g3`` is the skew and ``g4`` the **raw** kurtosis (3 for a normal).
+    ``SR0 = 0`` when ``N <= 1`` or ``V[SR] = 0``: with one trial there is no
+    selection to deflate.
+
+    ``N`` is never an argument of the caller's choosing - ``report.metrics_table``
+    takes it from ``speclog.count_runs()``, the row count of
+    ``reports/specifications.csv`` (global rule 6).
+    """
+    from scipy.stats import norm
+
+    if n_trials <= 1 or sr_var_trials <= 0.0:
+        sr0 = 0.0
+    else:
+        n = float(n_trials)
+        sr0 = math.sqrt(sr_var_trials) * (
+            (1.0 - EULER_GAMMA) * float(norm.ppf(1.0 - 1.0 / n))
+            + EULER_GAMMA * float(norm.ppf(1.0 - 1.0 / (n * math.e)))
+        )
+    denominator = 1.0 - skew * sr_monthly + (kurt - 1.0) / 4.0 * sr_monthly**2
+    if t_months <= 1 or denominator <= 0.0:
+        return sr0, float("nan")
+    z = (sr_monthly - sr0) * math.sqrt(t_months - 1) / math.sqrt(denominator)
+    return sr0, float(norm.cdf(z))
+
+
+def monthly_sharpe(r: pd.Series) -> float:
+    """The per-period Sharpe the deflated Sharpe takes: ``mean(r) / sd(r)``, ddof 1."""
+    if len(r) < 2:
+        return float("nan")
+    sd = float(r.std(ddof=1))
+    if sd == 0.0:
+        return float("nan")
+    return float(r.mean()) / sd

@@ -51,3 +51,143 @@ def write_explained_table(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
+
+
+# ------------------------------------------------- step 5.5: the metrics table
+
+METRICS_COLUMNS = [
+    "variant",
+    "window",
+    "ann_return",
+    "ann_vol",
+    "sharpe",
+    "max_dd",
+    "dd_peak",
+    "dd_trough",
+    "turnover",
+    "ret_2022",
+    "dd_2022",
+    "n_months",
+    "ann_return_gross",
+    "sharpe_gross",
+    "sr_monthly",
+    "skew",
+    "kurtosis",
+    "sr0",
+    "dsr",
+    "n_trials",
+    "sr_var_trials",
+]
+METRICS_TABLE_HEADER = (
+    "| variant | window | ann return | ann vol | Sharpe | max DD | DD peak | DD trough | "
+    "turnover | 2022 | DD 2022 | n | gross return | gross Sharpe | DSR |"
+)
+METRICS_TABLE_RULE = "|---|---|---:|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|"
+
+
+def _variant_series(variant: str, processed: Path) -> pd.Series:
+    """The monthly net return series of one run, indexed by date."""
+    m = pd.read_parquet(processed / f"backtest_{variant}.parquet")
+    return m.set_index("date")["r_net"].sort_index()
+
+
+def metrics_table(cfg: dict, processed: Path | None = None, spec_path=None) -> pd.DataFrame:
+    """Every logged variant, both windows, with the deflated Sharpe.
+
+    ``N`` is ``speclog.count_runs()`` - the row count of
+    ``reports/specifications.csv`` - and is never passed in. ``V[SR]`` is the
+    variance of the **monthly** Sharpes across every run that has a
+    ``metrics_<variant>.csv``, which is the set of trials whose results were
+    actually looked at.
+    """
+    from curvecarry import harmonise, metrics, speclog
+
+    p = Path(processed) if processed is not None else harmonise.PROCESSED
+    path = speclog.DEFAULT_PATH if spec_path is None else spec_path
+    n_trials = speclog.count_runs(path)
+
+    # "metrics_table.csv" is this function's own output, not a variant
+    variants = sorted(
+        name
+        for name in (
+            f.name[len("metrics_") : -len(".csv")] for f in checks.CHECKS.glob("metrics_*.csv")
+        )
+        if name != "table"
+    )
+    series = {v: _variant_series(v, p) for v in variants}
+    sharpes = [metrics.monthly_sharpe(s) for s in series.values()]
+    finite = [v for v in sharpes if pd.notna(v)]
+    sr_var = float(pd.Series(finite).var(ddof=1)) if len(finite) > 1 else 0.0
+
+    starts = {
+        "full": pd.Timestamp(cfg["sample"]["strategy_start"]),
+        "six": pd.Timestamp(cfg["sample"]["sample_full_start"]),
+    }
+    rows = []
+    for variant in variants:
+        table = pd.read_csv(checks.CHECKS / f"metrics_{variant}.csv")
+        for window, start in starts.items():
+            cell = table[table["window"] == window].set_index("metric")["value"]
+            r = series[variant]
+            r = r[r.index >= start]
+            sr_monthly = metrics.monthly_sharpe(r)
+            skew = float(r.skew())
+            kurt = float(r.kurtosis()) + metrics.NORMAL_KURTOSIS  # pandas gives excess
+            sr0, dsr = metrics.deflated_sharpe(sr_monthly, sr_var, n_trials, len(r), skew, kurt)
+            row = {"variant": variant, "window": window}
+            for key in METRICS_COLUMNS[2:14]:
+                value = cell.get(key, "")
+                row[key] = value if key in ("dd_peak", "dd_trough") else float(value)
+            row |= {
+                "sr_monthly": sr_monthly,
+                "skew": skew,
+                "kurtosis": kurt,
+                "sr0": sr0,
+                "dsr": dsr,
+                "n_trials": n_trials,
+                "sr_var_trials": sr_var,
+            }
+            rows.append(row)
+    return pd.DataFrame(rows, columns=METRICS_COLUMNS)
+
+
+def metrics_table_md(table: pd.DataFrame) -> str:
+    """The same table as markdown, percentages to 2 dp."""
+    lines = [METRICS_TABLE_HEADER, METRICS_TABLE_RULE]
+    for _, r in table.iterrows():
+        cells = [
+            str(r["variant"]),
+            str(r["window"]),
+            f"{r['ann_return']:.2%}",
+            f"{r['ann_vol']:.2%}",
+            f"{r['sharpe']:.3f}",
+            f"{r['max_dd']:.2%}",
+            str(r["dd_peak"] or "inception"),
+            str(r["dd_trough"]),
+            f"{r['turnover']:.3f}",
+            f"{r['ret_2022']:.2%}",
+            f"{r['dd_2022']:.2%}",
+            f"{r['n_months']:.0f}",
+            f"{r['ann_return_gross']:.2%}",
+            f"{r['sharpe_gross']:.3f}",
+            f"{r['dsr']:.3f}",
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    n = int(table["n_trials"].iloc[0])
+    v = float(table["sr_var_trials"].iloc[0])
+    lines.append("")
+    lines.append(
+        f"Deflated Sharpe: N = {n} (the row count of `reports/specifications.csv`), "
+        f"V[SR] = {v:.6f} across the logged runs, monthly basis. "
+        "Annualisation of every return and vol column: arithmetic, mean x 12."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def write_metrics_table(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
+    """``data/checks/metrics_table.csv`` and ``metrics_table.md``."""
+    table = metrics_table(cfg, processed)
+    checks.CHECKS.mkdir(parents=True, exist_ok=True)
+    table.to_csv(checks.METRICS_TABLE, index=False, lineterminator="\n")
+    checks.METRICS_TABLE_MD.write_text(metrics_table_md(table), encoding="utf-8")
+    return table

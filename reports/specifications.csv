@@ -3,3 +3,10 @@ run_id,timestamp_utc,git_commit,config_hash,label,note
 20260923T165738-68b55883b46e,2026-09-23T16:57:38+00:00,00fa75e,68b55883b46e,carry_unhedged,
 20260923T171251-68b55883b46e,2026-09-23T17:12:51+00:00,c3ce589,68b55883b46e,overlay_hedged,
 20260923T171252-68b55883b46e,2026-09-23T17:12:52+00:00,c3ce589,68b55883b46e,overlay_unhedged,
+20260923T171519-68b55883b46e,2026-09-23T17:15:19+00:00,5474bed,68b55883b46e,combined_hedged,
+20260923T171521-68b55883b46e,2026-09-23T17:15:21+00:00,5474bed,68b55883b46e,combined_unhedged,
+20260923T171523-73a0ac4ee762,2026-09-23T17:15:23+00:00,5474bed,73a0ac4ee762,carry_hedged_country_scope,"{""overrides"": {""weights"": {""duration_neutral_scope"": ""country""}}}"
+20260923T171527-056d2a51be66,2026-09-23T17:15:27+00:00,5474bed,056d2a51be66,carry_hedged_interbank_3m,"{""overrides"": {""hedge"": {""funding_rate"": ""interbank_3m""}}}"
+20260923T171534-726f4ec078e6,2026-09-23T17:15:34+00:00,5474bed,726f4ec078e6,carry_hedged_cost0,"{""overrides"": {""costs"": {""cost_bp_per_duration_year"": 0.0}}}"
+20260923T171537-f6d4b330dd2f,2026-09-23T17:15:37+00:00,5474bed,f6d4b330dd2f,carry_hedged_cost2x,"{""overrides"": {""costs"": {""cost_bp_per_duration_year"": 1.0}}}"
+20260923T171539-68b55883b46e,2026-09-23T17:15:39+00:00,5474bed,68b55883b46e,carry_hedged_no_gb30,"{""exclude_buckets"": [[""GB"", 30.0]]}"

@@ -57,6 +57,8 @@ UNIVERSE_CHANGES = CHECKS / "universe_changes.csv"  # step 5.1, session-5 amendm
 WEIGHTS_EMPTY_MONTHS = CHECKS / "weights_empty_months.csv"  # step 5.2
 OVERLAY_TRADES = CHECKS / "overlay_trades.csv"  # step 5.4
 OVERLAY_SKIPPED = CHECKS / "overlay_skipped.csv"  # step 5.4, a country-month with no leg duration
+METRICS_TABLE = CHECKS / "metrics_table.csv"  # step 5.5
+METRICS_TABLE_MD = CHECKS / "metrics_table.md"  # step 5.5
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",
