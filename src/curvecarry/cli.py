@@ -28,6 +28,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "ns": ("curvecarry.nelson_siegel", "build"),
     "svensson": ("curvecarry.svensson", "build"),
     "pca": ("curvecarry.pca", "build"),
+    "pca_stability": ("curvecarry.pca", "build_stability"),
 }
 NOT_BUILT = {"run": "step 5.3"}
 CHARTS_BUILT = {"1", "3"}  # step 2.4; the rest arrive with the full report in 6.4
@@ -57,9 +58,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             df = getattr(importlib.import_module(module), fn)(cfg)
         else:
             df = _loader(name).load(cfg)
-        print(
-            f"built {name}: {len(df)} rows, {df['date'].min().date()} .. {df['date'].max().date()}"
-        )
+        span = f", {df['date'].min().date()} .. {df['date'].max().date()}" if "date" in df else ""
+        print(f"built {name}: {len(df)} rows{span}")
     return 0
 
 

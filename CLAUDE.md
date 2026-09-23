@@ -246,6 +246,15 @@ closest pair is 1985-05 at 99.5 bp kept against the same 1982-03 dropped
 long-end rules"). Which side of the line a 1981–82 month falls on is
 therefore close to arbitrary. No month on or after `strategy_start` is
 anywhere near it (the largest is 68.7 bp, US 2003-07 at 20y), so nothing in
-the strategy sample turns on the threshold. **To be revisited in the Session 3
-PCA stability review**, where the pre-1997 months enter the
-expanding-window fits.
+the strategy sample turns on the threshold. ~~To be revisited in the Session 3
+PCA stability review~~ — **answered and closed, 2026-09-23, step 3.2**
+(`review/3.2.md`, `data/checks/pca_stability.csv`). It is moot, for a
+structural reason: under the issue #15 ruling the US PCA tenor set is
+`1, 2, 3, 5, 7, 10`, so **the 30-year zero of a borderline month is not an
+input to any US loading** — the month enters the fit only through its 1- to
+10-year yields. Reported anyway as the robustness check session-3 amendment 4
+asks for: excluding the 9 borderline months of the 1980s (12 pre-1997 in
+total) moves the 1980s loading vector by at most 0.008 on PC1, 0.011 on PC2
+and 0.015 on PC3, and the two vectors are collinear to five decimal places
+(cosine 0.99995, 0.99984, 0.99981). The 100 bp bootstrap threshold does not
+need revisiting.

@@ -399,3 +399,121 @@ def build(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
     loadings.to_parquet(p / "pca_loadings.parquet", index=False)
     scores.to_parquet(p / "pca_scores.parquet", index=False)
     return scores
+
+
+# --------------------------------------------------- 3.2 decade stability
+
+
+STABILITY_COLUMNS = [
+    "country",
+    "decade",
+    "component",
+    "n_months",
+    "abs_corr",
+    "abs_cosine",
+    "explained_share_decade",
+    "us_borderline_excluded",
+]
+STABILITY_COMPONENTS = 3  # PC1, PC2, PC3
+
+
+def decade_label(date: pd.Timestamp) -> str:
+    return f"{(date.year // 10) * 10}s"
+
+
+def us_borderline_months(cfg: dict, path: Path | None = None) -> list[pd.Timestamp]:
+    """Pre-``strategy_start`` US months whose 30-year zero-to-par gap exceeds the config bp.
+
+    Session-3 amendment 4, relabelled a robustness check by issue #15: the US
+    PCA set is ``1,2,3,5,7,10``, so a month with a bad 30-year zero reaches no
+    US loading through its 30-year point at all. The row is reported anyway.
+    """
+    gap = pd.read_csv(path or checks.PAR_ZERO_GAP)
+    gap["date"] = pd.to_datetime(gap["date"])
+    limit = float(cfg["pca"]["us_borderline_gap_bp"])
+    start = pd.Timestamp(cfg["sample"]["strategy_start"])
+    bad = gap[
+        (gap["country"] == "US")
+        & (gap["tenor_years"] == 30.0)
+        & (gap["date"] < start)
+        & (gap["gap_bp"].abs() > limit)
+    ]
+    return sorted(bad["date"].unique())
+
+
+def _stability_rows(changes: pd.DataFrame, country: str, cfg: dict, excluded: bool) -> list[tuple]:
+    """Per decade: |corr| of each of PC1-3 against the full-sample loading, same signs.
+
+    ``abs_corr`` is the plan's statistic, Pearson, which removes each vector's
+    mean. For PC1 that is nearly the whole vector — a level loading is close to
+    flat — so what is left is the *tilt* of the level factor, and `abs_corr`
+    swings between 0.07 and 0.99 on PC1 while the two vectors stay within 0.14
+    of each other element by element. ``abs_cosine``, the uncentred
+    ``|v_decade . v_full|``, is the answer to "is it the same vector"; both are
+    written and `review/3.2.md` reads them together. The extra column is an
+    addition to PLAN.md 3.2, declared in the session-3 review.
+    """
+    if changes.empty:
+        return []
+    tenors = np.array(changes.columns, dtype="float64")
+    full = pca(changes.to_numpy(), tenors)
+    floor = int(cfg["pca"]["stability_min_months"])
+    rows: list[tuple] = []
+    labels = pd.Index([decade_label(d) for d in changes.index], name="decade")
+    for decade, block in changes.groupby(labels, sort=True):
+        n = len(block)
+        if n < floor:
+            for k in range(STABILITY_COMPONENTS):
+                rows.append((country, decade, k + 1, n, np.nan, np.nan, np.nan, excluded))
+            continue
+        res = pca(block.to_numpy(), tenors)
+        for k in range(STABILITY_COMPONENTS):
+            a, b = res.loadings[:, k], full.loadings[:, k]
+            corr = np.corrcoef(a, b)[0, 1]
+            rows.append(
+                (
+                    country,
+                    decade,
+                    k + 1,
+                    n,
+                    abs(float(corr)),
+                    abs(float(a @ b)),
+                    float(res.explained[k]),
+                    excluded,
+                )
+            )
+    return rows
+
+
+def stability(zero_panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """``data/checks/pca_stability.csv``: decade loadings against the full sample.
+
+    The US is written twice (amendment 4): once on all of its months
+    (``us_borderline_excluded = False``) and once without the pre-1997 months
+    whose 30-year zero-to-par gap exceeds ``config.pca.us_borderline_gap_bp``.
+    A decade below ``config.pca.stability_min_months`` is written with
+    ``abs_corr`` NaN and its month count, never dropped.
+    """
+    sets = tenor_sets(zero_panel, cfg)
+    changes = monthly_changes_bp(zero_panel, cfg, sets)
+    rows: list[tuple] = []
+    for country in cfg["countries"]:
+        rows += _stability_rows(changes[country], country, cfg, False)
+    if "US" in cfg["countries"]:
+        bad = us_borderline_months(cfg)
+        us = changes["US"]
+        rows += _stability_rows(us[~us.index.isin(bad)], "US", cfg, True)
+    out = pd.DataFrame(rows, columns=STABILITY_COLUMNS)
+    return out.sort_values(
+        ["country", "us_borderline_excluded", "decade", "component"]
+    ).reset_index(drop=True)
+
+
+def build_stability(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
+    """CLI ``build --step pca_stability``: step 3.2."""
+    p = Path(processed) if processed is not None else harmonise.PROCESSED
+    zero = pd.read_parquet(p / "curves_zero.parquet")
+    out = stability(zero, cfg)
+    checks.CHECKS.mkdir(parents=True, exist_ok=True)
+    out.to_csv(checks.PCA_STABILITY, index=False, lineterminator="\n")
+    return out
