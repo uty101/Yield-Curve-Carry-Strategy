@@ -1,4 +1,4 @@
-# Session 4 status — Phase 4 complete, one decision issue open
+# Session 4 status — Phase 4 complete, fix round done, awaiting approval
 
 Date: 2026-09-23. Written under the rule of 2026-09-22 (CLAUDE.md invariant 15).
 
@@ -41,9 +41,34 @@ Tests went 196 → **223 passed + 1 xfailed**; ruff check and ruff format clean.
    windows `decisions/short_anchor.md` records; no month uses a spliced euro
    rate outside its window.
 
+## The fix round (2026-09-23, after the owner's answer to #17)
+
+Two commits, one per fix:
+
+| Commit | Fix |
+|---|---|
+| `33e5c66` | `Δy` is the bond's own yield to maturity; tolerance 5 bp to 10 years and 10 bp at 20 and 30; `(D, C)` stay at `t`; the `*_ytm` and `*_curve` columns dropped; the `xfail` removed; PLAN.md 4.2 and 6.1 amended |
+| `cb14f03` | `return_identity.csv` gains `mean_duration`, `mean_dy_ann`, `trend_bp`, `trend_residual_bp`; `review/4.2.md` updated with the post-ruling distribution, the five worst bucket-months and the trend comparison |
+
+**224 passed, no xfail**; ruff check and format clean. Issue #17 is answered
+and closed, and step 4.2's "Done when" is now met outright.
+
+The trend check: `trend_bp` and `diff_bp` share a sign in **25 of 25** flagged
+rows and the median residual is 26% of the gap, so the flags are the yield
+trend — except that at 20 and 30 years convexity is a comparable or larger
+term, and in **US 30-year over the strategy window it is the whole story**
+(gap +85.0 bp, trend +17.9, exact linear −36.7, convexity +140.8). Said
+plainly in `review/4.2.md` under Open, and carried into 6.1.
+
+The ruling is also written into **PLAN.md 6.1**: the yield-change PnL is the
+residual of the full repricing, the Taylor term is reported beside the
+identity and never inside it, and `yield_change_taylor` now takes the same
+`Δy` as 4.2 so `taylor_residual` really is the weighted 4.2 gap.
+
 ## What did not go to plan
 
-**One decision issue, #17, and the session continued past it** under the
+**One decision issue, #17 — answered 2026-09-23 and closed. While it was
+open the session continued past it** under the
 CLAUDE.md rule (a step needing a choice the plan does not make gets a
 `decision` issue; the session continues with steps that do not depend on the
 answer). 4.3 and 4.4 do not depend on it.
@@ -61,10 +86,10 @@ answer). 4.3 and 4.4 do not depend on it.
   `test_approx_within_tolerance_on_200_draws` is `xfail(strict=True)` with
   the reason pointing at #17. Nothing was substituted and nothing downstream
   reads these columns — `r_local` is the full repricing.
-- **So step 4.2's "Done when" is met only in that sense.** Said plainly here
-  and in `review/4.2.md` → Open.
+- **Resolved in the fix round above.** Step 4.2's "Done when" is met
+  outright: the six named tests plus two more, no `xfail`.
 
-**Three deviations, all in the review files in full:**
+**Three deviations that stand, all in the review files in full:**
 
 - 4.3's CLI step is `fx_hedge`, not the plan's `fx`: `fx` is already the 1.7
   FX *loader*, and a build step of that name shadows it, so `build --all`
@@ -85,10 +110,10 @@ Finished. All of Phase 4 is built, committed and pushed.
 
 - `Session 4 review` — issue **#18**.
 - `Question 4.2: the return approximation's dy, and the 2 bp tolerance` —
-  issue **#17**, open.
+  issue **#17**, answered and **closed**.
 - Session 3's review issue **#16** is closed.
 
-Last commit before this line was written: `9b20626`.
+Last commit of the fix round: `cb14f03`.
 
 Nothing starts on Session 5 until `Session 4 approved` is posted and the
 approval line is in `CLAUDE.md` → Validation status.
