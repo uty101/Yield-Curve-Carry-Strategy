@@ -1098,17 +1098,33 @@ happens for a row outside it.
     `reports/figures/chart1_rmse.png`, 6 panels, RMSE (bp) by month, NS-free
     vs NS-DL vs Svensson.
   - `chart3_betas(ns_params, out) -> Path`: `reports/figures/chart3_betas.png`,
-    3 panels (β0, β1, β2), one line per country, 1995 to the last month
-    (NS-free).
+    one line per country, 1995 to the last month. **Amended 2026-09-23, issue
+    #14 option K** (the original said 3 panels of NS-free betas): **6 panels,
+    two rows.** The top row is β0, β1, β2 from **`ns_dl`**, the fixed-λ model,
+    and is the primary series — with a free λ the betas are coefficients on
+    loadings whose shape changes month to month, so the same numeric value in
+    two months is not the same quantity and the series is not comparable
+    across time or countries; fixing λ is what makes it comparable, and is why
+    Diebold-Li fix it. The bottom row is the same three betas from `ns_free`
+    with every `lam_at_bound` month **left as a gap** — not clipped, not
+    interpolated, not forward-filled — and the gap count per country in the
+    caption. `data/checks/chart3_excluded.csv` lists every excluded
+    country-month with its λ and its betas. **No percentile clipping
+    anywhere.** Chart 1 and `chart1_rmse` are unchanged and keep NS-free:
+    what they measure is fit quality, which is where a free λ earns its place.
+    Reasoning in `decisions/lambda_bound.md`.
 - CLI `report --charts 1,3` (partial report; the full `report` is 6.4).
 
 **Test** `tests/test_charts.py` (synthetic frames, `tmp_path`).
 - `test_chart1_dates_rule`: a synthetic fit table with gaps picks the last
   December per decade and the earliest month for a missing decade.
 - `test_chart_functions_write_files`: each function writes a non-empty png.
+- `test_chart3_excludes_bound_months_as_gaps` (issue #14): a `lam_at_bound`
+  month is absent from the NS-free series, is not interpolated across, and is
+  one row of `chart3_excluded.csv`; the `ns_dl` series keeps every month.
 
-**Done when** both tests pass and the 8 pngs and
-`data/checks/chart1_dates.csv` exist.
+**Done when** the three tests pass and the 8 pngs,
+`data/checks/chart1_dates.csv` and `data/checks/chart3_excluded.csv` exist.
 
 ---
 

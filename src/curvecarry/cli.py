@@ -6,6 +6,7 @@ uv run curvecarry build --step harmonise    # 1.8: interim curves -> data/proces
 uv run curvecarry build --step zero         # 1.9: par -> zero, curves_zero.parquet, sample window
 uv run curvecarry build --step ns           # 2.2: ns_params.parquet, ns_fitted.parquet, fit checks
 uv run curvecarry build --step svensson     # 2.3: sv_params.parquet, svensson_vs_bundesbank.csv
+uv run curvecarry report --charts 1,3       # 2.4: reports/figures/*.png (the full report is 6.4)
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -26,7 +27,8 @@ STEPS: dict[str, tuple[str, str]] = {
     "ns": ("curvecarry.nelson_siegel", "build"),
     "svensson": ("curvecarry.svensson", "build"),
 }
-NOT_BUILT = {"run": "step 5.3", "report": "step 6.4"}
+NOT_BUILT = {"run": "step 5.3"}
+CHARTS_BUILT = {"1", "3"}  # step 2.4; the rest arrive with the full report in 6.4
 
 
 def _loader(name: str):
@@ -59,6 +61,17 @@ def cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    cfg = config.load()
+    want = {c.strip() for c in args.charts.split(",") if c.strip()}
+    if want - CHARTS_BUILT:
+        sys.exit(f"charts {sorted(want - CHARTS_BUILT)} are not built yet; see PLAN.md step 6.4")
+    charts = importlib.import_module("curvecarry.charts")
+    for path in charts.build(cfg):
+        print(f"wrote {path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="curvecarry")
     sub = parser.add_subparsers(dest="command")
@@ -74,6 +87,15 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--step", choices=LOADERS + list(STEPS))
     g.add_argument("--all", action="store_true")
     b.set_defaults(fn=cmd_build)
+
+    r = sub.add_parser("report", help="charts and tables (2.4 builds charts 1 and 3)")
+    r.add_argument(
+        "--charts",
+        default="1,3",
+        help='comma-separated chart numbers; only "1,3" is built (step 2.4). The full '
+        "report is step 6.4.",
+    )
+    r.set_defaults(fn=cmd_report)
 
     for name, step in NOT_BUILT.items():
         s = sub.add_parser(name, help=f"not built yet ({step})")

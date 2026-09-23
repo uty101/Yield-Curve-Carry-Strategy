@@ -37,6 +37,7 @@ FIT_SKIPPED = CHECKS / "fit_skipped.csv"  # steps 2.2 and 2.3 (PLAN.md, Phase 2 
 FIT_HOLDOUT = CHECKS / "fit_holdout.csv"  # steps 2.2 and 2.3, session-2 amendment 3
 SVENSSON_VS_BUNDESBANK = CHECKS / "svensson_vs_bundesbank.csv"  # step 2.3
 CHART1_DATES = CHECKS / "chart1_dates.csv"  # step 2.4
+CHART3_EXCLUDED = CHECKS / "chart3_excluded.csv"  # step 2.4, issue #14 option K
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",
