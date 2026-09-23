@@ -127,14 +127,18 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (162 tests after session 2 and its fix round; see the latest session review)
+uv run pytest -q                                       # make test (223 passed + 1 xfailed after session 4; see the latest session review)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet
 uv run curvecarry build --step zero        # 1.9: curves_zero.parquet, sample window, checks
 uv run curvecarry build --step ns          # 2.2: ns_params.parquet, ns_fitted.parquet, fit checks
 uv run curvecarry build --step svensson    # 2.3: sv_params.parquet, svensson_vs_bundesbank.csv
-uv run curvecarry report --charts 1,3      # 2.4: reports/figures/*.png (the full report is 6.4)
+uv run curvecarry build --step pca         # 3.1: pca_loadings.parquet, pca_scores.parquet, sets
+uv run curvecarry build --step carry       # 4.1: carry.parquet, carry_missing.csv
+uv run curvecarry build --step returns     # 4.2: returns.parquet, approx gap, universe, identity
+uv run curvecarry build --step fx_hedge    # 4.3: hedged/unhedged columns, return_coverage.csv
+uv run curvecarry report --charts 1,2,3,4  # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry run      # step 5.3
 uv run curvecarry report   # step 6.4
 ```
@@ -173,10 +177,18 @@ GSW zero curve `feds200628` (1.9 check, 2026-09-22).
 `data/interim/curves_{us,gb,de,jp,ca,fr}.parquet`, `svensson_params_de.parquet`,
 `short_rates.parquet`, `funding.parquet`, `fx.parquet`, `gsw_us.parquet` are built;
 `data/processed/curves.parquet` (1.8) and `curves_zero.parquet` (1.9) too, and
-`ns_params.parquet` + `ns_fitted.parquet` (2.2) and `sv_params.parquet` (2.3);
-the 8 figures of 2.4 are in `reports/figures/` and are committed.
+`ns_params.parquet` + `ns_fitted.parquet` (2.2), `sv_params.parquet` (2.3),
+`pca_loadings.parquet` + `pca_scores.parquet` (3.1), `carry.parquet` (4.1) and
+`returns.parquet` (4.2, with the 4.3 columns added in place) too.
+The 8 figures of 2.4, Chart 2 of 3.3 and the 7 of 4.4 are in
+`reports/figures/` and are committed.
 Re-create with `uv run curvecarry fetch --all && uv run curvecarry build --all`.
-No Phase 2 step touches `data/raw/`; the fits read `curves_zero.parquet` only.
+No Phase 2, 3 or 4 step touches `data/raw/`: the fits and the PCA read
+`curves_zero.parquet`, and Phase 4 reads that plus `funding.parquet` and
+`fx.parquet`.
+
+**The CLI step for 4.3 is `fx_hedge`, not `fx`** — `fx` is the 1.7 FX loader,
+and a build step of the same name shadows it in `build --all`.
 
 Source facts learned in the probe and the session-1 review that later steps
 depend on (full table in `decisions/sources.md`, the FR/IT ruling in
