@@ -1458,7 +1458,10 @@ window)` with `window ∈ {full, strategy}` (`full` = every month the bucket
 has a return; `strategy` = from `config.sample.strategy_start`):
 `country, tenor_years, window, n_months, r_local_ann, yield_rolldown_ann,
 carry_rolldown_ann, price_return_ann, r_short_ann, diff_bp,
-diff_carry_bp, flagged`.
+diff_carry_bp, flagged, mean_duration, mean_dy_ann, trend_bp,
+trend_residual_bp, trend_linearisation_bp, coupon_vs_zero_bp,
+linear_exact_bp, convexity_bp, accounting_sum_bp, accounting_gap_bp,
+r_local_sd_monthly, half_var_ann_bp, annualisation`.
 
 Annualisation is `12 × mean(monthly)`, in decimals; `diff_bp` is
 `(r_local_ann − yield_rolldown_ann) × 1e4`.
@@ -1487,6 +1490,41 @@ tenor's zero yield), `trend_bp = −mean_duration × mean_dy_ann × 1e4` and
 trend and nothing else, `trend_bp` should be close to it. A first-order
 comparison: a residual of a few bp on a long bucket is the convexity and the
 duration/yield cross term, not a discrepancy.
+
+**The accounting columns** (second fix round, 2026-09-23), which turn that
+sentence into numbers. `diff_bp` is split into three terms computed month by
+month and then annualised, so nothing is linearised away:
+
+- `coupon_vs_zero_bp = 12 × mean(coupon − yield)`;
+- `linear_exact_bp = 12 × mean(−duration × dy − rolldown)`, the yield-change
+  term at its own month's duration, net of the rolldown that
+  `yield_rolldown_ann` already contains;
+- `convexity_bp = 12 × mean(C·dy²/2)`, **always positive**.
+
+`accounting_sum_bp` is their sum and `accounting_gap_bp = diff_bp −
+accounting_sum_bp` is the third-order Taylor remainder — the step-4.2 `gap_bp`
+averaged over the window, and it is under 14 bp on every one of the 96 rows.
+`trend_linearisation_bp = linear_exact_bp − trend_bp` is the linearisation the
+trend comparison itself makes (mean duration × mean yield change rather than
+the mean of the product, and `dy_cm` rather than the bond's own `dy`); **it is
+the one term that carries either sign**, and with it the residual splits
+exactly:
+
+```
+trend_residual_bp = coupon_vs_zero_bp + trend_linearisation_bp
+                  + convexity_bp + accounting_gap_bp
+```
+
+**Annualisation is arithmetic throughout — `mean × 12`, never compounded** —
+on both sides of `diff_bp`, which is the basis the identity needs because
+carry and rolldown are summed rather than compounded. The `annualisation`
+column states it on every row. There is therefore **no geometric-versus-
+arithmetic wedge and no `σ²/2` term to remove**; `r_local_sd_monthly` and
+`half_var_ann_bp` are written so a reader can check that rather than take it
+on trust. What they show is that `half_var_ann_bp` tracks `convexity_bp`
+(correlation 0.998 over the 96 rows, ratio 1.13 to 1.37) — the variance term
+is real, it grows with duration, and it is already one of the three accounted
+terms rather than a missing correction.
 
 Two things the identity does not claim. It is a *mean* identity, not a
 per-month one: within a month `r_local` also contains the price effect of

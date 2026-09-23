@@ -224,6 +224,8 @@ def test_universe_and_identity_files() -> None:
             "r_local": [0.01, 0.02],
             "coupon": [0.06, 0.06],
             "duration": [9.0, 9.0],
+            "convexity": [100.0, 100.0],
+            "dy": [-0.001, 0.001],
         }
     )
     c = pd.DataFrame(
@@ -252,6 +254,31 @@ def test_universe_and_identity_files() -> None:
     assert full["mean_dy_ann"] == pytest.approx(0.0, abs=1e-15)
     assert full["trend_bp"] == pytest.approx(0.0, abs=1e-15)
     assert full["trend_residual_bp"] == pytest.approx(full["diff_bp"], abs=1e-9)
+
+    # the accounting columns (second fix round): annualisation is arithmetic, the three
+    # terms are hand-checkable, and the residual split closes exactly
+    assert full["annualisation"] == returns.ANNUALISATION
+    assert full["coupon_vs_zero_bp"] == pytest.approx((0.06 - 0.06) * 1e4, abs=1e-9)
+    assert full["linear_exact_bp"] == pytest.approx(12 * (-9.0 * 0.0 - 0.001) * 1e4, abs=1e-6)
+    assert full["convexity_bp"] == pytest.approx(12 * 0.5 * 100.0 * 1e-6 * 1e4, abs=1e-6)
+    assert full["accounting_sum_bp"] == pytest.approx(
+        full["coupon_vs_zero_bp"] + full["linear_exact_bp"] + full["convexity_bp"], abs=1e-9
+    )
+    assert full["accounting_gap_bp"] == pytest.approx(
+        full["diff_bp"] - full["accounting_sum_bp"], abs=1e-9
+    )
+    assert full["trend_residual_bp"] == pytest.approx(
+        full["coupon_vs_zero_bp"]
+        + full["trend_linearisation_bp"]
+        + full["convexity_bp"]
+        + full["accounting_gap_bp"],
+        abs=1e-9,
+    )
+    # r_local 0.01 and 0.02: sd is 1/sqrt(2) percent, and half the annualised variance
+    assert full["r_local_sd_monthly"] == pytest.approx(0.01 / np.sqrt(2.0), abs=1e-15)
+    assert full["half_var_ann_bp"] == pytest.approx(
+        0.5 * 12.0 * full["r_local_sd_monthly"] ** 2 * 1e4, abs=1e-12
+    )
 
 
 # ------------------------------------------------------------- fixtures

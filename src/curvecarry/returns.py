@@ -103,7 +103,18 @@ IDENTITY_COLUMNS = [
     "mean_dy_ann",
     "trend_bp",
     "trend_residual_bp",
+    "trend_linearisation_bp",
+    "coupon_vs_zero_bp",
+    "linear_exact_bp",
+    "convexity_bp",
+    "accounting_sum_bp",
+    "accounting_gap_bp",
+    "r_local_sd_monthly",
+    "half_var_ann_bp",
+    "annualisation",
 ]
+# every *_ann and *_bp column of return_identity.csv is on this basis, stated on every row
+ANNUALISATION = "arithmetic: mean x 12"
 CLOSED_REASON = "aged tenor beyond next curve"
 N_WORST_GAPS = 20  # the 20 largest |gap_bp| rows go beside the distribution
 
@@ -302,6 +313,39 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
     ``trend_residual_bp = diff_bp - trend_bp`` is what the trend does not
     explain. A first-order comparison, so a residual of a few bp on a long
     bucket is the convexity and the cross term, not a discrepancy.
+
+    **The accounting columns** (second fix round, issue #18). ``diff_bp`` is
+    split into three terms that are computed month by month and then
+    annualised, so nothing is linearised away:
+
+    - ``coupon_vs_zero_bp`` ``= 12 x mean(coupon - yield)`` - the par coupon
+      the bucket is bought at against the zero yield at the same tenor;
+    - ``linear_exact_bp`` ``= 12 x mean(-duration x dy - rolldown)`` - the
+      yield-change term at its own month's duration, net of the rolldown that
+      ``yield_rolldown_ann`` already contains;
+    - ``convexity_bp`` ``= 12 x mean(C dy^2 / 2)``, which is **always positive**.
+
+    ``accounting_sum_bp`` is their sum and ``accounting_gap_bp`` is
+    ``diff_bp - accounting_sum_bp``, the third-order Taylor remainder - the
+    step-4.2 ``gap_bp`` averaged over the window. The difference between
+    ``linear_exact_bp`` and ``trend_bp`` is written out as
+    ``trend_linearisation_bp``: it is the linearisation the trend comparison
+    itself makes - mean duration times mean yield change rather than the mean
+    of their product, and the constant-maturity zero change ``dy_cm`` rather
+    than the bond's own ``dy`` - and **it is the term that carries either
+    sign**. With it the residual splits exactly:
+    ``trend_residual_bp = coupon_vs_zero_bp + trend_linearisation_bp
+    + convexity_bp + accounting_gap_bp``.
+
+    **Annualisation is arithmetic throughout: ``mean x 12``, never compounded.**
+    Every ``*_ann`` column and every ``*_bp`` column on this row is on that
+    basis, which is the one the identity needs, because carry and rolldown are
+    summed rather than compounded. The ``annualisation`` column records it on
+    every row so the file states it rather than relying on this docstring.
+    There is therefore no geometric-versus-arithmetic wedge in ``diff_bp`` and
+    no ``sigma^2 / 2`` term to remove; ``r_local_sd_monthly`` and
+    ``half_var_ann_bp`` are written anyway so the reader can check that
+    against the residual instead of taking it on trust.
     """
     flag_bp = float(cfg["checks"]["identity_gap_flag_bp_per_year"])
     start = pd.Timestamp(cfg["sample"]["strategy_start"])
@@ -327,6 +371,11 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
             mean_d = float(g["duration"].mean())
             dy_ann = _ann(g["dy_cm"].dropna()) if g["dy_cm"].notna().any() else np.nan
             trend_bp = -mean_d * dy_ann * 1e4
+            coupon_bp = _ann(g["coupon"] - g["yield"]) / 12.0 * 1e4
+            linear_bp = _ann(-g["duration"] * g["dy"] - g["rolldown"]) * 1e4
+            convex_bp = _ann(0.5 * g["convexity"] * g["dy"] ** 2) * 1e4
+            sum_bp = coupon_bp + linear_bp + convex_bp
+            sd = float(g["r_local"].std(ddof=1)) if len(g) > 1 else np.nan
             rows.append(
                 {
                     "country": country,
@@ -345,6 +394,15 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
                     "mean_dy_ann": dy_ann,
                     "trend_bp": trend_bp,
                     "trend_residual_bp": diff_bp - trend_bp,
+                    "trend_linearisation_bp": linear_bp - trend_bp,
+                    "coupon_vs_zero_bp": coupon_bp,
+                    "linear_exact_bp": linear_bp,
+                    "convexity_bp": convex_bp,
+                    "accounting_sum_bp": sum_bp,
+                    "accounting_gap_bp": diff_bp - sum_bp,
+                    "r_local_sd_monthly": sd,
+                    "half_var_ann_bp": 0.5 * 12.0 * sd * sd * 1e4,
+                    "annualisation": ANNUALISATION,
                 }
             )
     return pd.DataFrame(rows, columns=IDENTITY_COLUMNS)
