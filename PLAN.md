@@ -1727,8 +1727,26 @@ and `decisions/basis.md` exists.
 - `test_floor_read_from_config_not_hardcoded`: changing the floor in a
   modified cfg changes eligibility.
 
-**Done when** the four tests pass and `data/checks/signal_exclusions.csv`
-exists.
+**Session-5 amendment 3 - universe discipline.** The signal frame is
+**joined to `data/checks/universe_by_month.csv`** (4.2): a bucket is a
+candidate at `t` only if that file lists its tenor for its country at `t`,
+so the strategy universe is the universe the return engine can actually
+price, and a bucket that exists on the curve but has no computable return
+is `eligible = False` with `excluded_reason = not_in_universe`. Three
+things are reported per month, not per sample:
+
+- `data/checks/universe_eligible.csv`: `date, n_universe, n_eligible,
+  n_below_floor, n_missing_input, n_not_in_universe, eligible_buckets`
+  - one row per month, the last column `;`-joined `CC:tenor`.
+- `data/checks/universe_changes.csv`: `date, country, tenor_years, change in
+  {enters, leaves}` - every month a bucket enters or leaves the **eligible**
+  set, against the month before. The first month of the panel is all
+  `enters`.
+- `data/checks/signal_exclusions.csv` keeps its per-month floor counts as
+  above; the per-country table is unchanged.
+
+**Done when** the four tests pass and `data/checks/signal_exclusions.csv`,
+`universe_eligible.csv` and `universe_changes.csv` exist.
 
 ## Step 5.2 — Weights
 
@@ -1738,8 +1756,12 @@ exists.
     per month on eligible rows:
     - `scope = "book"` (default): rank all eligible buckets by `signal`
       descending; `n` eligible; `k = n // 3`; if `n < config.weights.min_eligible_buckets`
-      (6) the month holds nothing and is logged to
-      `data/checks/weights_empty_months.csv`. Long leg = top `k`, short
+      the month holds nothing and is logged to
+      `data/checks/weights_empty_months.csv`. **Session-5 amendment 3
+      changes that default from 6 to 9**, pre-registered before any result
+      is seen: below 9 eligible buckets `k = n // 3` is 2 a side, which is
+      a pair trade and not a book, so the book is flat that month and the
+      month is logged. The change is a commit on its own (global rule 14). Long leg = top `k`, short
       leg = bottom `k`; ties broken by `(country, tenor_years)` order so the
       result is deterministic.
       `wd_j = +B/k` (long), `−B/k` (short), `B = config.weights.long_duration_budget`;
@@ -1759,10 +1781,38 @@ exists.
 - `test_third_rule`: 48 eligible → 16 long, 16 short; 7 → 2 and 2.
 - `test_country_scope_neutral_per_country`.
 - `test_empty_month_below_minimum_is_logged`.
+- `test_min_eligible_buckets_is_nine`: the default read from `config.toml`
+  is 9 (amendment 3 is pre-registered, so a silent revert fails a test).
 
-**Done when** the seven tests pass.
+**Session-5 amendment 4 - the invariants are tested on the real panel, not
+only on synthetic frames.** `tests/test_weights_panel.py` builds the weights
+from the real `signal.parquet` once (module-scoped fixture) and walks
+**every month of the backtest sample**, asserting on each:
+
+- `|sum_j wd_j| < 1e-10` (book scope) and `|sum_j wd_j| < 1e-10` within each
+  country (country scope);
+- no `(country, tenor_years)` appears in both legs;
+- `sum_{j in long} wd_j == config.weights.long_duration_budget` to 1e-10,
+  and `k_long == k_short`;
+- `weight_j * duration_j == wd_j` to 1e-12 **with `duration_j` taken from
+  `returns.parquet`** - the same `bondmath.par_bond_risk` output 4.1 and 4.2
+  use - so the weights cannot be sized off a second duration.
+
+A month the rule leaves flat asserts that it holds nothing and appears in
+`weights_empty_months.csv`. The test skips with a clear message if
+`data/processed/signal.parquet` is absent (a fresh clone before
+`build --step signal`), and is not skipped in this repo.
+
+**Done when** the eight synthetic tests and the real-panel walk pass.
 
 ## Step 5.3 — Carry-only backtest
+
+**The headline, fixed 2026-09-23 before any result was seen (session-5
+amendment 1).** *The headline result of this project is the **carry-only,
+hedged, book-wide duration-neutral book, net of costs, from `strategy_start`
+(1997-08-31) to `strategy_end`, on the universe available each month** - the
+`carry_hedged` variant, `full` window, `r_net`.* Everything else is a logged
+variant and is never the headline, whatever the numbers say.
 
 **Build**
 - `src/curvecarry/backtest.py`:
@@ -1821,8 +1871,15 @@ exists.
   `annualised_return = 12r`, `vol = 0`, drawdown 0; a `−10%` then `+5%`
   series → `max_drawdown = −0.10`, dates right.
 - `test_two_windows_reported`: metrics frame has `window ∈ {full, six}`.
+- **Session-5 amendment 5, timing:** `test_appending_months_does_not_change_weights_at_t`
+  - weights built on the signal panel truncated at `T0` are identical, to
+  1e-12 on `wd` and exactly on the held set, to the weights at the same
+  dates built on the panel truncated at `T0 + 24`. The signal at `t` is the
+  curve at `t` and the return it earns is the `returns.parquet` row dated
+  `t`, which spans `t -> t+1`; the test makes the first half of that
+  sentence enforceable.
 
-**Done when** the eight tests pass, `reports/specifications.csv` has two new
+**Done when** the nine tests pass, `reports/specifications.csv` has two new
 rows, and `data/checks/metrics_carry_hedged.csv`,
 `data/checks/metrics_carry_unhedged.csv` exist.
 
@@ -1874,8 +1931,13 @@ rows, and `data/checks/metrics_carry_hedged.csv`,
   crossing).
 - `test_pair_is_duration_neutral_and_sized`: `Σ wd == 0`, long `wd == B_o`.
 - `test_zscore_window_and_ddof`.
+- **Session-5 amendment 5, timing:** `test_zscore_at_t_unchanged_when_future_appended`
+  - the z-score at every `t <= T0`, not only the PC2 score, is unchanged to
+  1e-12 when 24 later months are appended. The score test above covers the
+  loadings; this covers the rolling mean and standard deviation on top of
+  them.
 
-**Done when** the five tests pass, the two overlay variants are logged, and
+**Done when** the six tests pass, the two overlay variants are logged, and
 `data/checks/overlay_trades.csv` exists.
 
 ## Step 5.5 — Combined and the metrics table
@@ -1889,7 +1951,19 @@ rows, and `data/checks/metrics_carry_hedged.csv`,
   `carry_hedged_country_scope` (`duration_neutral_scope = "country"`),
   `carry_hedged_interbank_3m` (`funding_rate = interbank_3m` for `r_short`
   in carry, `r_excess_local` and `r_short_base`; sample limited to where the series exist, stated in the
-  table). A variant's config override is recorded in its spec-log `note` as the JSON of the
+  table), and the three **session-5 amendment 2** variants, fixed before any
+  result was seen and all reported whether they help or not:
+  `carry_hedged_cost0` (`costs.cost_bp_per_duration_year = 0.0`, the book
+  priced as if trading were free), `carry_hedged_cost2x` (`= 1.0`, twice the
+  default) and `carry_hedged_no_gb30` (`GB` at 30 years excluded from the
+  universe for the **whole** sample, not only from 2016 when it enters, so
+  the comparison is a like-for-like book and not a book with a regime break
+  in it). The last exists because the GB 30-year bucket enters in 2016 and
+  the owner asked whether anything rests on it. With `carry_hedged`,
+  `carry_unhedged`, the two overlay and the two combined variants that is
+  **eleven logged runs in this session**.
+  A variant config override is recorded in its spec-log `note` as the JSON of the
+  overridden keys; the base `config.toml` is not edited. A variant's config override is recorded in its spec-log `note` as the JSON of the
   overridden keys; the base `config.toml` is not edited.
 - `metrics.deflated_sharpe(sr_monthly: float, sr_var_trials: float, n_trials: int, T: int, skew: float, kurt: float) -> tuple[float, float]`
   — Bailey & López de Prado (2014), per period (monthly), exactly project
@@ -1902,8 +1976,9 @@ rows, and `data/checks/metrics_carry_hedged.csv`,
   runs that have a `metrics_<variant>.csv` (joined on `run_id`).
 - `report.metrics_table(cfg) -> pd.DataFrame` →
   `data/checks/metrics_table.csv` and `data/checks/metrics_table.md`:
-  rows = variants (carry, overlay, combined × hedged, unhedged; the two
-  robustness rows), columns = window (`full`, `six`) × metric
+  rows = variants (carry, overlay, combined × hedged, unhedged; the five
+  robustness rows - country scope, interbank funding, cost 0, cost 2x and no
+  GB 30y), columns = window (`full`, `six`) × metric
   (`ann_return, ann_vol, sharpe, max_dd, dd_peak, dd_trough, turnover, ret_2022, dd_2022, n_months`)
   plus `dsr` and `N`.
 
@@ -1918,7 +1993,19 @@ rows, and `data/checks/metrics_carry_hedged.csv`,
   `config_hash` differs from the base and its `note` contains the key.
 
 **Done when** the four tests pass and `data/checks/metrics_table.csv` has
-all eight variants in both windows.
+all eleven variants in both windows.
+
+**Session-5 amendment 2, what the review must show.** The `Session 5 review`
+issue carries: the headline metrics table (annualised return, vol, Sharpe,
+max drawdown with its peak and trough dates, turnover, 2022 in isolation,
+gross **and** net of costs); the same table for every variant; the deflated
+Sharpe with its `N` and the `specifications.csv` row count; the eligible
+bucket count by year; and the **10 largest monthly gains and the 10 largest
+monthly losses**, each with the country-tenor legs that drove them
+(`data/checks/extreme_months.csv`: `rank, sign, date, r_net, country,
+tenor_years, leg, wd, r_bucket, contribution`, the five largest
+contributions each way per month), so the biggest months can be checked
+against the curve moves rather than taken on trust.
 
 ---
 

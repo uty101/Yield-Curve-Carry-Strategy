@@ -7,6 +7,18 @@ source URLs that were actually reachable from this machine are in
 [decisions/sources.md](decisions/sources.md). This file holds what every
 session must not violate, and how to run things on this machine.
 
+**The headline is fixed, and it was fixed before any result was seen**
+(session-5 amendment 1, 2026-09-23, `instructions/session-5.md`; the same
+sentence is in `PLAN.md` → step 5.3). *The headline result of this project
+is the **carry-only, hedged, book-wide duration-neutral book, net of costs,
+from `strategy_start` (1997-08-31) to `strategy_end`, on the universe
+available each month** — the `carry_hedged` variant, `full` window,
+`r_net`.* Everything else — unhedged, country-scope neutrality, interbank
+funding, zero and double costs, the GB 30-year exclusion, the overlay and
+the combined book — is a **logged variant** with its own row in
+`reports/specifications.csv`, is reported whether it helps or not, and is
+never the headline, whatever the numbers say.
+
 **The decomposition is the deliverable, not the Sharpe.** The question the
 brief asks is how much of a duration-neutral carry book's return was carry
 earned and how much was paid for a directional yield bet. A carry strategy
