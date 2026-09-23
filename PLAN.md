@@ -2147,6 +2147,22 @@ and the two chart-5 pngs exist.
     12 scores ending at `t`; flat for `t → t+1` when
     `v_t > quantile_{≤t}(v, rates_vol_pct)` (expanding 90th percentile of
     `v` up to and including `t`). Variant `<base>_ratesvol`.
+    **Session-6 deviation 3.** A pooled fit stacks the countries, so it has
+    one score per **country-month**, not one per month; the plan did not say
+    how they are collapsed. The pooled PC1 score at `t` is the **mean across
+    the countries with a change row at `t`** of that country's own score,
+    `(change_{c,t} − mean_c) @ loadings[:, 0]` — a level shock is common
+    across curves, and letting one country stand for the pool would make this
+    a US filter.
+    **Session-6 deviation 4.** `pca_min_months` counts **months of history**,
+    as it does in 5.4, not rows of the stacked matrix: six countries do not
+    make a 10-month panel a 60-month one.
+    **Reported result, session 6.** Calibrated this way the filter never fires
+    inside the strategy sample: its expanding threshold is set on a history
+    beginning in 1962 and dominated by the 1970s and 1980s, all 67 of its flags
+    are pre-1983, and `<base>_ratesvol` is the base run to the last decimal.
+    That is reported, not repaired — the parameters were pre-registered and
+    re-calibrating them after seeing this is what rule 6 exists to prevent.
   - Every control's parameters are read from `config.toml [risk]` and were
     fixed there in session 1; **all six variants are logged before any
     result is looked at** (the `run` function logs first, as always) and
@@ -2165,6 +2181,13 @@ and the two chart-5 pngs exist.
 - `test_rates_filter_expanding_percentile_no_lookahead`: appending months
   after `t` leaves the flag at `t` unchanged.
 - `test_attribution_2022_rows_sum_to_total`.
+
+The summary `data/checks/risk_controls.csv` puts **each control beside its
+base** on `ann_return, ann_vol, sharpe, max_dd, ret_2022, turnover,
+months_flat`, both windows — the columns session-6 amendment 2 names — and
+`data/checks/rates_vol_filter.csv` carries the filter's score, `v_t`, its
+expanding threshold and its flag, so a control that does nothing can be seen
+to do nothing.
 
 **Done when** the six tests pass, six risk-control rows are in
 `specifications.csv`, and `data/checks/attribution_2022_carry_hedged.csv`

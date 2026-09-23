@@ -15,6 +15,8 @@ uv run curvecarry build --step weights      # 5.2: weights.parquet, weights_empt
 uv run curvecarry build --step overlay      # 5.4: pc2_expanding, overlay_positions, overlay_states
 uv run curvecarry build --step overlay_trades  # after the overlay run: the per-trade anatomy
 uv run curvecarry build --step decomposition   # 6.1: decomposition_<variant>.parquet, the shares
+uv run curvecarry run --risk-controls       # 6.2: the six risk-control runs, each logged first
+uv run curvecarry build --step risk_controls  # 6.2: attribution_2022_*.csv, risk_controls.csv
 uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry report --table            # 5.5: metrics_table.csv/.md, unhedged_fx_exposure.csv
@@ -47,6 +49,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "overlay": ("curvecarry.overlay", "build"),
     "overlay_trades": ("curvecarry.overlay", "build_trades"),
     "decomposition": ("curvecarry.decomposition", "build"),
+    "risk_controls": ("curvecarry.risk_controls", "build"),
 }
 NOT_BUILT: dict[str, str] = {}
 CHARTS_BUILT = {"1", "2", "3", "4", "5"}  # 2.4, 3.3, 4.4 and 6.1
@@ -85,7 +88,15 @@ def cmd_run(args: argparse.Namespace) -> int:
     """Step 5.3. Every run is a row in reports/specifications.csv before it computes."""
     cfg = config.load()
     backtest = importlib.import_module("curvecarry.backtest")
-    names = list(backtest.VARIANTS) if args.all else [args.variant]
+    if args.risk_controls:
+        risk = importlib.import_module("curvecarry.risk_controls")
+        names = [
+            risk.variant_name(base, control)
+            for base in cfg["risk"]["risk_control_base_variants"]
+            for control in risk.CONTROLS
+        ]
+    else:
+        names = list(backtest.VARIANTS) if args.all else [args.variant]
     for name in names:
         res = backtest.run(cfg, name, note=args.note)
         net = res.metrics
@@ -149,6 +160,11 @@ def main(argv: list[str] | None = None) -> int:
     g = rn.add_mutually_exclusive_group(required=True)
     g.add_argument("--variant")
     g.add_argument("--all", action="store_true")
+    g.add_argument(
+        "--risk-controls",
+        action="store_true",
+        help="step 6.2: the three pre-registered controls on each base book, six logged runs",
+    )
     rn.add_argument("--note", default="")
     rn.set_defaults(fn=cmd_run)
 

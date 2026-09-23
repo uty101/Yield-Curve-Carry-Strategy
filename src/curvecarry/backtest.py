@@ -77,6 +77,11 @@ class Variant:
     returns_column: str  # "r_hedged" or "r_unhedged", or their interbank twins
     overrides: dict = field(default_factory=dict)
     exclude_buckets: tuple[tuple[str, float], ...] = ()
+    # step 6.2: a risk-control run is a transform of ``base_variant``'s held
+    # positions. It never changes the headline definition - it is its own
+    # logged variant, with its own row in ``reports/specifications.csv``.
+    risk_control: str = ""
+    base_variant: str = ""
 
 
 BOOK_CARRY = "carry"
@@ -121,6 +126,35 @@ VARIANTS: dict[str, Variant] = {
     ),
 }
 
+
+def _risk_control_variants() -> dict[str, Variant]:
+    """Step 6.2: the three pre-registered controls on each base book, six runs.
+
+    ``RISK_CONTROL_BASES`` must equal ``config.toml [risk]
+    risk_control_base_variants``; ``test_risk_control_bases_match_config``
+    asserts it, so a variant table and a config can never disagree about which
+    runs exist.
+    """
+    from curvecarry import risk_controls
+
+    out: dict[str, Variant] = {}
+    for base in RISK_CONTROL_BASES:
+        spec = VARIANTS[base]
+        for control in risk_controls.CONTROLS:
+            out[risk_controls.variant_name(base, control)] = Variant(
+                book=spec.book,
+                returns_column=spec.returns_column,
+                overrides=spec.overrides,
+                exclude_buckets=spec.exclude_buckets,
+                risk_control=control,
+                base_variant=base,
+            )
+    return out
+
+
+RISK_CONTROL_BASES = ("carry_hedged", "combined_hedged")
+VARIANTS |= _risk_control_variants()
+
 HEADLINE = "carry_hedged"
 
 
@@ -151,6 +185,9 @@ def variant_note(variant: Variant, note: str) -> str:
         payload["overrides"] = variant.overrides
     if variant.exclude_buckets:
         payload["exclude_buckets"] = [[c, t] for c, t in variant.exclude_buckets]
+    if variant.risk_control:
+        payload["risk_control"] = variant.risk_control
+        payload["base_variant"] = variant.base_variant
     if not payload:
         return note
     text = json.dumps(payload, sort_keys=True)
@@ -458,6 +495,27 @@ def book_positions(
     return combine_books(carry_held, overlay_held)
 
 
+def apply_risk_control(
+    spec: Variant, positions: pd.DataFrame, cfg_run: dict, processed: Path
+) -> pd.DataFrame:
+    """Step 6.2: transform a base run's held positions; a no-op for every other run.
+
+    The base's realised ``r_net`` is read from its ``backtest_<base>.parquet``,
+    so the base run must have been run first. That is a dependency between
+    logged runs, not a lookahead: the control at ``t`` uses only returns dated
+    before ``t`` (``risk_controls`` has the windows and their tests).
+    """
+    if not spec.risk_control:
+        return positions
+    from curvecarry import risk_controls
+
+    base = pd.read_parquet(processed / f"backtest_{spec.base_variant}.parquet")
+    out, _table = risk_controls.apply_control(
+        spec.risk_control, positions, base, cfg_run, processed
+    )
+    return out
+
+
 def run(
     cfg: dict,
     variant: str,
@@ -482,6 +540,7 @@ def run(
 
     held = book_positions(spec, cfg_run, returns, run_id, p, speclog_path)
     held = held[(held["date"] >= start) & (held["date"] <= end)]
+    held = apply_risk_control(spec, held, cfg_run, p)
     monthly, positions = monthly_returns(held, returns, spec, cfg_run, run_id, speclog_path)
     table = metric_rows(monthly, variant, cfg_run, run_id, speclog_path)
 
