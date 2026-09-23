@@ -11,8 +11,11 @@ reinvested and nothing is lost.
 
 ``r_local = r_local_full``. The **approximation**
 ``r_local_approx = c/12 - D dy + C dy^2 / 2`` (brief 6.3) is computed beside it
-from curve yields alone and is diagnostic only; ``gap_bp`` is the difference
-and its whole distribution is in ``data/checks/return_approx_gap.csv``.
+and is diagnostic only; ``gap_bp`` is the difference and its whole distribution
+is in ``data/checks/return_approx_gap.csv``. ``dy`` is the change in the bond's
+**own yield to maturity** (issue #17 answer 1), so ``gap_bp`` measures Taylor
+truncation plus the known ``dy/12`` ageing term - about 4 bp for a 50 bp move -
+and nothing else.
 
 Every later step works in **excess** returns:
 ``r_excess_local = r_local - r_short_local/12``, the bucket's return over its
@@ -61,12 +64,6 @@ RETURN_COLUMNS = [
     "r_local_full",
     "r_local_approx",
     "gap_bp",
-    "dy_ytm",
-    "r_local_approx_ytm",
-    "gap_bp_ytm",
-    "dy_curve",
-    "r_local_approx_curve",
-    "gap_bp_curve",
     "r_local",
     "r_short_local",
     "r_excess_local",
@@ -87,14 +84,7 @@ APPROX_GAP_COLUMNS = [
     "p99",
     "max_abs_bp",
 ]
-APPROX_WORST_COLUMNS = ["date", "country", "tenor_years", "dy", "gap_bp"]
-# the gap column of each reading of the plan's dy, and the dy column that produced it
-DY_OF = {"gap_bp": "dy", "gap_bp_ytm": "dy_ytm", "gap_bp_curve": "dy_curve"}
-GAP_TITLE = {
-    "gap_bp": "the plan's dy: par yield at the aged tenor minus the coupon",
-    "gap_bp_ytm": "candidate ytm: the change in the bond's own yield to maturity",
-    "gap_bp_curve": "candidate curve: the par move at the same tenor, plus the 4.1 rolldown",
-}
+APPROX_WORST_COLUMNS = ["date", "country", "tenor_years", "coupon", "duration", "dy", "gap_bp"]
 UNIVERSE_COLUMNS = ["date", "country", "n_tenors", "tenors", "n_total_all_countries"]
 IDENTITY_COLUMNS = [
     "country",
@@ -127,72 +117,44 @@ def taylor(c: float, d: float, cx: float, dy: float) -> float:
 def bucket_return(
     curve_t: Curve, curve_next: Curve, tenor: float, freq: int
 ) -> tuple[dict[str, float], bool]:
-    """One bucket's month: full repricing, the three approximations, and whether it closed.
+    """One bucket's month: full repricing, the approximation, and whether it closed.
 
     The pair is ``(values, closed)``. A closed bucket keeps its coupon,
     duration and convexity - they are known at ``t`` - and has
     ``r_local = 0.0`` with the rest NaN.
 
-    ``r_local_approx`` and ``gap_bp`` are **the plan's formula as written**:
-    ``dy = par_yield_from_zero(curve_next, n - 1/12, freq) - c``. That formula
-    is biased (see ``PLAN.md`` 4.2 and the session-4 decision issue): the par
-    yield at ``n - 1/12`` is not comparable to the par yield at ``n``, because
-    the aged bond's first coupon is a five-month stub while it still pays a
-    full half-coupon, so its par rate is tens of basis points lower **on a
-    curve that has not moved at all**. The two candidate repairs are computed
-    beside it and are what the decision issue asks the owner to choose between:
+    ``dy`` is **the change in the bond's own yield to maturity**,
+    ``yield_from_price(P, n - 1/12, c, freq) - c`` (issue #17 answer 1). It is
+    not the par yield at the aged tenor, which is what PLAN.md 4.2 said before
+    the ruling: that quantity is not comparable to the par yield at ``n``,
+    because the aged bond's first coupon is a five-month stub while it still
+    pays a full half-coupon, so its par rate is tens of basis points lower **on
+    a curve that has not moved at all**, and the approximation came out biased
+    by about 30 bp a month at every tenor.
 
-    - ``*_ytm``: ``dy`` is the change in the **bond's own yield to maturity**,
-      ``yield_from_price(P, n - 1/12, c, freq) - c``. Pure Taylor truncation,
-      but it reads the price ``P`` and so is not "from curve yields only".
-    - ``*_curve``: ``dy`` is the curve's move at the **same** tenor,
-      ``par_yield_from_zero(curve_next, n, freq) - c``, with the rolldown put
-      back as ``D (z(n) - z(n - 1/12))`` exactly as step 4.1 computes it. Curve
-      yields only, and it is the decomposition step 6.1 is built on.
+    ``gap_bp`` is therefore pure Taylor truncation plus one known term: ``(D, C)``
+    are taken at ``t`` on the un-aged bond, so a month of ageing leaves about
+    ``dy / 12`` of error - roughly 4 bp for a 50 bp move - whatever ``dy`` is.
+    That is the floor of the tolerance, not a fault (PLAN.md 4.2).
     """
     c, d, cx = bondmath.par_bond_risk(curve_t, tenor, freq)
     base = {"coupon": c, "duration": d, "convexity": cx}
     aged = tenor - DT
-    nan_cols = [
-        "dy",
-        "r_local_full",
-        "r_local_approx",
-        "gap_bp",
-        "dy_ytm",
-        "r_local_approx_ytm",
-        "gap_bp_ytm",
-        "dy_curve",
-        "r_local_approx_curve",
-        "gap_bp_curve",
-    ]
+    nan_cols = ["dy", "r_local_full", "r_local_approx", "gap_bp"]
     try:
         price = bondmath.price_from_zero(curve_next, aged, c, freq)
-        y_next = bondmath.par_yield_from_zero(curve_next, aged, freq)
     except ValueError:
         return ({**base, **dict.fromkeys(nan_cols, np.nan), "r_local": 0.0}, True)
     full = price / 100.0 - 1.0
-
-    dy = y_next - c
-    dy_ytm = bondmath.yield_from_price(price, aged, c, freq) - c
-    try:
-        dy_curve = bondmath.par_yield_from_zero(curve_next, tenor, freq) - c
-    except ValueError:
-        dy_curve = np.nan
-    roll = (float(curve_t.at(tenor)) - float(curve_t.at(aged))) * d
-    approx_curve = taylor(c, d, cx, dy_curve) + roll
+    dy = bondmath.yield_from_price(price, aged, c, freq) - c
+    approx = taylor(c, d, cx, dy)
     return (
         {
             **base,
             "dy": dy,
             "r_local_full": full,
-            "r_local_approx": taylor(c, d, cx, dy),
-            "gap_bp": (full - taylor(c, d, cx, dy)) * 1e4,
-            "dy_ytm": dy_ytm,
-            "r_local_approx_ytm": taylor(c, d, cx, dy_ytm),
-            "gap_bp_ytm": (full - taylor(c, d, cx, dy_ytm)) * 1e4,
-            "dy_curve": dy_curve,
-            "r_local_approx_curve": approx_curve,
-            "gap_bp_curve": (full - approx_curve) * 1e4,
+            "r_local_approx": approx,
+            "gap_bp": (full - approx) * 1e4,
             "r_local": full,
         },
         False,
@@ -242,14 +204,12 @@ def closed_rows(returns: pd.DataFrame, reason: str = CLOSED_REASON) -> pd.DataFr
     return g[CLOSED_COLUMNS].reset_index(drop=True)
 
 
-def approx_gap_rows(
-    returns: pd.DataFrame, column: str = "gap_bp"
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """``(distribution by tenor, the N_WORST_GAPS largest |column| rows)``."""
-    g = returns[~returns["closed"] & returns[column].notna()]
+def approx_gap_rows(returns: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """``(distribution by tenor, the N_WORST_GAPS largest |gap_bp| rows)``."""
+    g = returns[~returns["closed"] & returns["gap_bp"].notna()]
     rows = []
     for tenor, h in g.groupby("tenor_years", sort=True):
-        x = h[column].to_numpy()
+        x = h["gap_bp"].to_numpy()
         rows.append(
             {
                 "tenor_years": float(tenor),
@@ -265,9 +225,8 @@ def approx_gap_rows(
             }
         )
     dist = pd.DataFrame(rows, columns=APPROX_GAP_COLUMNS)
-    worst = g.reindex(g[column].abs().sort_values(ascending=False).index)
-    cols = ["date", "country", "tenor_years", DY_OF[column], column]
-    return dist, worst.head(N_WORST_GAPS)[cols].reset_index(drop=True)
+    worst = g.reindex(g["gap_bp"].abs().sort_values(ascending=False).index)
+    return dist, worst.head(N_WORST_GAPS)[APPROX_WORST_COLUMNS].reset_index(drop=True)
 
 
 # ------------------------------------------- session-4 amendment 1: universe
@@ -315,6 +274,7 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
     same net of funding, ``12 x mean(carry/12 + rolldown)``, using this
     project's ``carry = y_n - r_short``. The two differ by ``r_short_ann`` by
     construction; ``flagged`` is set on the first (see PLAN.md 4.2).
+
     """
     flag_bp = float(cfg["checks"]["identity_gap_flag_bp_per_year"])
     start = pd.Timestamp(cfg["sample"]["strategy_start"])
@@ -522,13 +482,11 @@ def build(cfg: dict, processed: Path | None = None, interim: Path | None = None)
     out.to_parquet(p / "returns.parquet", index=False)
     checks.CHECKS.mkdir(parents=True, exist_ok=True)
     closed_rows(out).to_csv(checks.CLOSED_BUCKETS, index=False, lineterminator="\n")
+    dist, worst = approx_gap_rows(out)
     with open(checks.RETURN_APPROX_GAP, "w", encoding="utf-8", newline="") as fh:
-        for i, column in enumerate(DY_OF):
-            dist, worst = approx_gap_rows(out, column)
-            fh.write(f"{'' if i == 0 else chr(10)}# {column} - {GAP_TITLE[column]}\n")
-            dist.to_csv(fh, index=False, lineterminator="\n")
-            fh.write(f"\n# the {N_WORST_GAPS} largest |{column}| rows\n")
-            worst.to_csv(fh, index=False, lineterminator="\n")
+        dist.to_csv(fh, index=False, lineterminator="\n")
+        fh.write(f"\n# the {N_WORST_GAPS} largest |gap_bp| rows\n")
+        worst.to_csv(fh, index=False, lineterminator="\n")
     universe_rows(out).to_csv(checks.UNIVERSE_BY_MONTH, index=False, lineterminator="\n")
     carry = pd.read_parquet(p / "carry.parquet")
     identity_rows(out, carry, cfg).to_csv(checks.RETURN_IDENTITY, index=False, lineterminator="\n")

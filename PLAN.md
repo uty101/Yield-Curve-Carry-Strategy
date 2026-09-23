@@ -1422,6 +1422,36 @@ six countries and repeats on each of the month's rows. The review reports
 the first and last month of every country-tenor bucket, every mid-sample
 appearance or disappearance, and the bucket count by year.
 
+**Issue #17, answered 2026-09-23: what `Δy` is, and what the tolerance is.**
+
+1. **`Δy` is the change in the bond's own yield to maturity**,
+   `yield_from_price(P, n − 1/12, c, freq) − c`. It is *not* the par yield at
+   the aged tenor, which this step first specified. That quantity is not
+   comparable to the par yield at `n`: the aged bond's first coupon is a
+   five-month stub while it still pays a full half-coupon, so its par rate is
+   tens of bp lower **on a curve that has not moved at all**, and the
+   approximation came out biased by 28 to 35 bp a month at every tenor.
+   "From curve yields only" was the owner's wording and is not a constraint;
+   the rejected alternative — the curve move at the same tenor plus the 4.1
+   rolldown — was declined because its decomposition argument does not hold
+   (6.1 cannot put a Taylor term inside an exact identity; see the ruling at
+   the head of step 6.1).
+
+2. **The tolerance is 5 bp for tenors ≤ 10 and 10 bp at 20 and 30**, and
+   `(D, C)` stay at `t` on the un-aged bond. Averaging them over the month
+   would close most of the residual but would change the `duration` column
+   that 5.2's duration budget reads, and a diagnostic does not justify moving
+   a live definition.
+
+   **The 5 bp is a known floor, not slack.** With `(D, C)` measured at `t`,
+   one month of ageing shortens the duration by about `1/12` of a year, so
+   the approximation keeps roughly `Δy/12` too much price sensitivity — about
+   **4 bp for a 50 bp move**, at every tenor, whatever `Δy` is. That term,
+   not Taylor truncation, is what sets the number: on the 200 draws the worst
+   gap is 4.80 bp at 1 year and falls to 2.67 bp at 30, the opposite of the
+   ordering a truncation error would have. `test_ageing_term_is_the_tolerance_floor`
+   measures it.
+
 **Session-4 amendment 2 (2026-09-23): the long-run identity.**
 `data/checks/return_identity.csv`, one row per `(country, tenor_years,
 window)` with `window ∈ {full, strategy}` (`full` = every month the bucket
@@ -1440,13 +1470,12 @@ Annualisation is `12 × mean(monthly)`, in decimals; `diff_bp` is
   using this project's `carry = y_n − r_short` (`decisions/short_anchor.md`).
   It differs from the first by `r_short_ann` by construction.
 
-**Which of the two the amendment means is a question for the owner**
-(`decision` issue of this session). The amendment's own words are "the
-annualised mean of (carry + rolldown)" and "over a long sample the first two
-should be close": those two clauses cannot both hold of
-`carry = y_n − r_short`, because a total return and a return over funding
-differ by the funding rate, which is 200 to 400 bp a year. Both columns are
-therefore written, nothing is lost either way, and **`flagged` is set on
+The amendment's own words are "the annualised mean of (carry + rolldown)"
+and "over a long sample the first two should be close": those two clauses
+cannot both hold of `carry = y_n − r_short`, because a total return and a
+return over funding differ by the funding rate, which is 200 to 400 bp a
+year. Both columns are therefore written, nothing is lost either way, and
+**`flagged` is set on
 `|diff_bp| > config.checks.identity_gap_flag_bp_per_year` (50), the
 funding-free reading**, because that is the one the amendment's stated
 expectation describes. `diff_carry_bp` carries the other reading.
@@ -1467,8 +1496,9 @@ satisfy it; the review says so rather than calling it a fault.
     `P = price_from_zero(curve_{t+1}, n − 1/12, c, freq)` (no coupon is
     paid within one month for freq ≤ 2; the accrued coupon is inside the
     dirty price). `r_local_full = P / 100 − 1`.
-  - Approximation (brief 6.3) from curve yields only:
-    `Δy = par_yield_from_zero(curve_{t+1}, n − 1/12, freq) − c`;
+  - Approximation (brief 6.3):
+    **`Δy = yield_from_price(P, n − 1/12, c, freq) − c`** — the change in the
+    **bond's own yield to maturity** (issue #17 answer 1, 2026-09-23);
     `r_local_approx = c/12 − D·Δy + ½·C·Δy²` with `(D, C)` from
     `par_bond_risk(curve_t, n, freq)`.
   - `gap_bp = (r_local_full − r_local_approx) × 1e4`.
@@ -1486,6 +1516,8 @@ satisfy it; the review says so rather than calling it a fault.
     — "closed at its last available price".
   - Output `data/processed/returns.parquet`:
     `date (= t), country, tenor_years, coupon, duration, convexity, dy, r_local_full, r_local_approx, gap_bp, r_local, r_short_local, r_excess_local, r_short_local_interbank_3m, r_excess_local_interbank_3m, closed`.
+    This is the whole schema: the `*_ytm` and `*_curve` candidate columns of
+    the session-4 fix round were dropped when issue #17 was answered.
   - `data/checks/return_approx_gap.csv`: the full distribution — per
     `tenor_years`: `n, mean_bp, std_bp, p01, p05, p50, p95, p99, max_abs_bp`,
     and the 20 largest `|gap_bp|` rows with their dates.
@@ -1496,12 +1528,19 @@ satisfy it; the review says so rather than calling it a fault.
 β2 ∈ [−0.03, 0.03], λ ∈ [0.3, 1.2], month-to-month shocks: parallel
 ±50 bp, slope ±25 bp uniform).
 - `test_approx_within_tolerance_on_200_draws`: 200 random
-  `(curve_t, curve_{t+1}, tenor)` draws → `|gap_bp| ≤ 2` for tenors ≤ 10
-  and `≤ 10` at 20 and 30 (the plan's tolerance; the test file lists the
+  `(curve_t, curve_{t+1}, tenor)` draws → **`|gap_bp| ≤ 5` for tenors ≤ 10
+  and `≤ 10` at 20 and 30** (issue #17 answer 2; the test file lists the
   numbers).
+- `test_ageing_term_is_the_tolerance_floor`: the residual is the **ageing of
+  `(D, C)`**, not Taylor truncation, and the 5 bp is that floor rather than
+  slack. See the amendment block above.
 - `test_unchanged_curve_return_equals_carry_plus_rolldown`: `curve_{t+1} == curve_t`
   → `r_local_full` equals `c/12 + rolldown-like term` within 1 bp, and
-  `r_local_approx` equals it within 0.1 bp.
+  `r_local_approx` equals it **inside the step tolerance, and in fact inside
+  1 bp**. Not the 0.1 bp this line said before issue #17: on a static curve
+  the residual is a constant ≈ 0.26 bp from the annual-versus-`freq`
+  compounding convention plus the `Δy/12` ageing term, which is −0.41 bp at
+  1 year and vanishes by 10.
 - `test_parallel_shift_sign`: +100 bp shift → negative return for every
   tenor; −100 bp → positive.
 - `test_closed_bucket_is_zero_and_logged`: curve at `t+1` missing 30y →
@@ -1841,6 +1880,25 @@ all eight variants in both windows.
 
 ## Step 6.1 — Decomposition
 
+**Ruling of 2026-09-23 (issue #17, carried here so nothing is built on the
+other reading).** The yield-change PnL of this step is **the residual of the
+full repricing**, `r_local − carry − rolldown`, and nothing else. The
+duration-convexity approximation is **reported beside the identity, never
+inside it**: a Taylor term cannot appear in an identity that has to hold to
+1e-10, which is the whole reason step 4.2's approximation is diagnostic.
+
+Two consequences for the text below:
+
+- `yield_change_pnl_t` is already written as the exact remainder. That is
+  the definition, not a convenience, and it is what the identity uses.
+- `yield_change_taylor_t` takes **the same `Δy` as step 4.2** — the change in
+  each bond's own yield to maturity, `yield_from_price(P_j, n_j − 1/12, c_j,
+  freq) − c_j` — and **not** the curve move at the aged tenor that this step
+  first specified. Only then is `taylor_residual_t` the weighted sum of the
+  4.2 `gap_bp`, which is what `test_taylor_residual_equals_weighted_gap`
+  asserts. With the old `Δy` the two were different quantities and that test
+  could not have passed.
+
 **Build**
 - `src/curvecarry/decomposition.py`, per variant and month `t`, on the
   held positions:
@@ -1853,11 +1911,11 @@ all eight variants in both windows.
     (amendment A);
   - `yield_change_pnl_t = Σ_j w_j (r_local_full,j − c_j/12 − rolldown_j)` —
     the exact remainder, so the identity holds to machine precision. Its
-    Taylor form `Σ_j w_j (−D_j Δy_j + ½ C_j Δy_j²)` with
-    `Δy_j = y_{t+1}(n − 1/12) − y_t(n − 1/12)` (the pure curve move at the
-    aged tenor, zero curve) is stored as `yield_change_taylor_t` and the
-    difference as `taylor_residual_t` (this is the 4.2 gap aggregated by
-    the weights);
+    Taylor form `Σ_j w_j (−D_j Δy_j + ½ C_j Δy_j²)` with **`Δy_j` the step-4.2
+    `dy`** (the change in the bond's own yield to maturity; the ruling above
+    replaces the curve move at the aged tenor first written here) is stored as
+    `yield_change_taylor_t` and the difference as `taylor_residual_t`, which is
+    then exactly the 4.2 `gap_bp` aggregated by the weights;
   - `cost_t = −cost_t` from the backtest.
   - Identity: `carry_earned + yield_change_pnl + funding + fx + cost == r_net`
     to 1e-10 every month (for hedged variants `funding` and `fx` are zero

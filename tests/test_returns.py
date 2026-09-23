@@ -5,14 +5,12 @@ beta0 in [0.01, 0.08], beta1 in [-0.04, 0.02], beta2 in [-0.03, 0.03],
 lambda in [0.3, 1.2], and month-to-month shocks of a parallel move uniform on
 +/-50 bp and a slope move uniform on +/-25 bp (PLAN.md 4.2).
 
-``test_approx_within_tolerance_on_200_draws`` is ``xfail(strict=True)``. It is
-the plan's own tolerance on the plan's own formula, and the formula misses it
-by more than an order of magnitude: see the module docstring of
-``curvecarry.returns`` and the session-4 decision issue. What the three
-readings of ``dy`` do achieve is measured in
-``test_approx_candidate_gaps_are_small_and_the_plan_dy_is_not``, which passes.
-The 2 bp half of the tolerance turns out not to be reachable by any of them,
-for a reason that has nothing to do with ``dy``; that test says why.
+``dy`` is the change in the bond's own yield to maturity and the tolerance is
+5 bp for tenors up to 10 years and 10 bp at 20 and 30 (issue #17). The 5 bp is
+not slack: ``(D, C)`` are taken at ``t`` on the un-aged bond, so a month of
+ageing leaves a known ``dy/12`` term - about 4 bp for a 50 bp move - under
+every draw. ``test_ageing_term_is_the_tolerance_floor`` measures it, so the
+number in the tolerance is accounted for rather than assumed.
 """
 
 from __future__ import annotations
@@ -27,7 +25,7 @@ from curvecarry.curves import Curve
 TENORS = [0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0]
 STANDARD = [1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0]
 N_DRAWS = 200
-TOL_SHORT_BP = 2.0  # tenors <= 10
+TOL_SHORT_BP = 5.0  # tenors <= 10 (issue #17 answer 2)
 TOL_LONG_BP = 10.0  # 20 and 30
 DT = returns.DT
 
@@ -68,43 +66,36 @@ def _tol(tenor: float) -> float:
     return TOL_SHORT_BP if tenor <= 10.0 else TOL_LONG_BP
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the plan's dy compares par yields at tenors with different stub structure; "
-    "session-4 decision issue",
-)
 def test_approx_within_tolerance_on_200_draws() -> None:
-    """The plan's tolerance on the plan's formula. Recorded as a known failure, not hidden."""
+    """|gap_bp| within 5 bp for tenors <= 10 and 10 bp at 20 and 30, on 200 draws."""
     for curve_t, curve_next, tenor in _draws():
         vals, closed = returns.bucket_return(curve_t, curve_next, tenor, freq=2)
         assert not closed
         assert abs(vals["gap_bp"]) <= _tol(tenor), (tenor, vals["gap_bp"])
 
 
-def test_approx_candidate_gaps_are_small_and_the_plan_dy_is_not() -> None:
-    """What the three readings of dy actually achieve on the plan's own draws.
+def test_ageing_term_is_the_tolerance_floor() -> None:
+    """The residual is the ageing of (D, C), not the Taylor truncation, and it is ~dy/12.
 
-    The plan's 2 bp tolerance is not reached by any of them, for a reason that
-    is not about dy at all: ``(D, C)`` are taken at ``t`` on the un-aged bond,
-    and a month of aging shortens the duration by about ``1/12`` of a year, so
-    a 50 bp move leaves ``(1/12) x 50 bp`` of error whatever dy is. Both
-    candidates land inside 5 bp; the plan's dy is out by more than 50.
+    ``(D, C)`` are measured at ``t`` on the un-aged bond; one month later the
+    duration is shorter by about ``1/12`` of a year, so the approximation keeps
+    about ``dy x 1/12`` too much price sensitivity. The test asserts that the
+    gap tracks that term rather than merely that it is small.
     """
-    worst = {c: {} for c in ("gap_bp", "gap_bp_ytm", "gap_bp_curve")}
+    worst, ratios = {}, []
     for curve_t, curve_next, tenor in _draws():
         vals, closed = returns.bucket_return(curve_t, curve_next, tenor, freq=2)
         assert not closed
-        for column, seen in worst.items():
-            seen[tenor] = max(seen.get(tenor, 0.0), abs(vals[column]))
-    for tenor in STANDARD:
-        assert worst["gap_bp"][tenor] > 50.0, (tenor, worst["gap_bp"][tenor])
-        assert worst["gap_bp_ytm"][tenor] <= 5.0, (tenor, worst["gap_bp_ytm"][tenor])
-        # the curve reading holds at 5 bp out to 10 years and drifts beyond it
-        limit = 5.0 if tenor <= 10.0 else 25.0
-        assert worst["gap_bp_curve"][tenor] <= limit, (tenor, worst["gap_bp_curve"][tenor])
-    # only the ytm reading meets the plan's 10 bp tolerance at 20 and 30 years
-    assert max(worst["gap_bp_ytm"][t] for t in (20.0, 30.0)) <= TOL_LONG_BP
-    assert max(worst["gap_bp_curve"][t] for t in (20.0, 30.0)) > TOL_LONG_BP
+        worst[tenor] = max(worst.get(tenor, 0.0), abs(vals["gap_bp"]))
+        ageing_bp = abs(vals["dy"]) / 12.0 * 1e4
+        if ageing_bp > 1.0:
+            ratios.append(abs(vals["gap_bp"]) / ageing_bp)
+    # no tenor's worst gap exceeds the ageing term by more than a factor of two
+    assert max(worst.values()) <= 2.0 * 50.0 / 12.0
+    # and the gap is the same order as the ageing term, draw by draw
+    assert 0.2 <= float(np.median(ratios)) <= 1.5, float(np.median(ratios))
+    # the long end is tighter than the short end, which a Taylor error would not be
+    assert worst[30.0] < worst[1.0]
 
 
 def test_unchanged_curve_return_equals_carry_plus_rolldown() -> None:
@@ -118,8 +109,13 @@ def test_unchanged_curve_return_equals_carry_plus_rolldown() -> None:
         c, d, _ = bondmath.par_bond_risk(curve, tenor, freq=2)
         roll = (float(curve.at(tenor)) - float(curve.at(tenor - DT))) * d
         assert vals["r_local_full"] == pytest.approx(c / 12.0 + roll, abs=1e-4)
-        assert vals["r_local_approx_curve"] == pytest.approx(c / 12.0 + roll, abs=1e-5)
-        assert vals["dy_curve"] == pytest.approx(0.0, abs=1e-15)
+        # The approximation reproduces the full repricing inside the step tolerance, and
+        # in fact inside 1 bp - far tighter. It is not the plan's original 0.1 bp: on a
+        # static curve the residual is the constant ~0.26 bp of the annual-versus-freq
+        # compounding convention plus the dy/12 ageing term, which is -0.41 bp at 1 year
+        # and vanishes by 10 (issue #17 answer 2; PLAN.md 4.2).
+        assert abs(vals["gap_bp"]) <= _tol(tenor)
+        assert abs(vals["gap_bp"]) < 1.0, (tenor, vals["gap_bp"])
 
 
 def test_parallel_shift_sign() -> None:
