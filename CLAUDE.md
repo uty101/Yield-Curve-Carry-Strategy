@@ -139,7 +139,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (279 tests after session 5; see the latest session review)
+uv run pytest -q                                       # make test (288 tests after session 5 and its fix round; see the latest session review)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet

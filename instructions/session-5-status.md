@@ -77,12 +77,43 @@ left. It was, in its own commit (`c3ce589`): the docstring now states that
    5.3 engine, and every metric reported gross as well as net.
 7. (in-session, 5.4) the issue #19 ruling written into `PLAN.md` 5.4.
 
+## Fix round (2026-09-23, on the owner's three points)
+
+| Fix | Commit | What it did |
+|---|---|---|
+| 1 Overlay anatomy | `2dc250b` | `overlay_trades.csv` is one row per trade (country, entry and exit date, direction, entry and exit z, months held, PnL in bp gross, its own cost, net), with `overlay_country_stats.csv` beside it; `build --step overlay_trades` writes both after the overlay run. `review/5.4.md` answers the two questions. |
+| 2 Unhedged caveat | `079899e` | `unhedged_fx_exposure.csv`: net notional per currency per month for the three unhedged runs, then the regression of each book on its own currency-weighted FX return. `review/5.3.md` states that duration neutrality is not currency neutrality, with the numbers. |
+| 3 DSR wording | `737faa7` | The DSR is stated as a probability against a threshold, in `review/5.5.md`, `PLAN.md` 6.4 and the foot of `metrics_table.md`; 6.4 recomputes it from the final row count and never with a smaller `N`. |
+
+`make test` **288 passed** after the fix round (280 at step 5.5), `make lint`
+clean, `ruff format --check` clean. No new rows in
+`reports/specifications.csv`: the fixes read saved runs and compute no new
+strategy, so `N` is still 11.
+
+**What the fixes found.**
+
+- **The overlay's loss is five trades, not a bleed.** 181 trades in the
+  window, 99 winners to 82 losers, median trade **+1.86 bp**; the five worst
+  cost **684 bp of the 912 bp total loss**. Strip them and the overlay is
+  flat. No single country drives it — five of six lose (JP −342, FR −244,
+  CA −213, DE −154, US −44, GB +83) and the concentration is in time:
+  2022 −392, 2016 −379, 2008 −308. The per-trade sums tie out to the run to
+  six decimals in bp.
+- **The unhedged runs are currency books.** `carry_unhedged` regresses on
+  its own currency-weighted FX term at **R² = 0.953**, beta 0.956, with an
+  annualised intercept of **−0.56%**. The book carries a mean 1.86 units of
+  foreign notional per unit of capital, to a maximum of 3.39. The hedged
+  book's correlation with the same FX term is −0.195.
+- **The DSR is 0.57 against a threshold of 0.067 over 11 trials**, and it
+  is a probability, not a Sharpe.
+
 ## Last commit
 
-`015a919` — *Step 5.5: the combined book, the eleven variants and the
-deflated Sharpe* — plus this status commit.
+`737faa7` — *Session 5 fix: the deflated Sharpe is reported as the
+probability it is* — plus this status commit.
 
 ## Next
 
-`Session 5 review` is posted. Nothing starts on Phase 6 until
-`Session 5 approved` is recorded in `CLAUDE.md` → Validation status.
+`Session 5 review` is issue #21, updated with the fix round. Nothing starts
+on Phase 6 until `Session 5 approved` is recorded in `CLAUDE.md` →
+Validation status.
