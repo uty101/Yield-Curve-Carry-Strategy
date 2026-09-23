@@ -16,14 +16,14 @@ stopped once, on issue #19, and resumed when the owner answered it.
 | Session 5 instruction | `04af7a5` | — | `instructions/session-5.md` |
 | The five amendments into PLAN.md and CLAUDE.md | `c77be42` | — | the headline sentence in both |
 | `min_eligible_buckets` 6 → 9 (rule 14, own commit) | `cf0e344` | — | `config.toml` |
-| 5.1 Signal and the universe join | `99d4ee4` | 230 | `signal.parquet`, `universe_eligible.csv`, `universe_changes.csv`, `signal_exclusions.csv` |
-| 5.2 Duration-neutral weights | `00fa75e` | 249 | `weights.parquet`, `weights_empty_months.csv` |
-| 5.3 Carry-only backtest | `ff2e794` | 260 | `specifications.csv`, `backtest_*`, `metrics_*`, `positions_*`, `extreme_months_*` |
+| 5.1 Signal and the universe join | `99d4ee4` | 231 | `signal.parquet`, `universe_eligible.csv`, `universe_changes.csv`, `signal_exclusions.csv` |
+| 5.2 Duration-neutral weights | `00fa75e` | 250 | `weights.parquet`, `weights_empty_months.csv` |
+| 5.3 Carry-only backtest | `ff2e794` | 261 | `specifications.csv`, `backtest_*`, `metrics_*`, `positions_*`, `extreme_months_*` |
 | Issue #19 ruling (own commit) | `c3ce589` | 261 | `pca.py` docstring corrected, `PLAN.md` 5.4 carries the ruling |
-| 5.4 Slope overlay | `5474bed` | 270 | `pc2_expanding.parquet`, `overlay_positions.parquet`, `overlay_trades.csv` |
-| 5.5 Combined, variants, deflated Sharpe | `015a919` | 279 | `metrics_table.csv`, `metrics_table.md`, the seven remaining runs |
+| 5.4 Slope overlay | `5474bed` | 271 | `pc2_expanding.parquet`, `overlay_positions.parquet`, `overlay_trades.csv` |
+| 5.5 Combined, variants, deflated Sharpe | `015a919` | 280 | `metrics_table.csv`, `metrics_table.md`, the seven remaining runs |
 
-`make test` **279 passed** (224 before this session), `make lint` clean.
+`make test` **280 passed** (224 before this session), `make lint` clean.
 
 ## The headline, fixed before any result was seen
 
