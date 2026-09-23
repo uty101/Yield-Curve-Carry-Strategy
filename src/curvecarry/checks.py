@@ -51,6 +51,9 @@ UNIVERSE_BY_MONTH = CHECKS / "universe_by_month.csv"  # step 4.2, session-4 amen
 RETURN_IDENTITY = CHECKS / "return_identity.csv"  # step 4.2, session-4 amendment 2
 RETURN_COVERAGE = CHECKS / "return_coverage.csv"  # step 4.3, session-4 amendment 3
 XCCY_BASIS = CHECKS / "xccy_basis.csv"  # step 4.3, if a basis series is found
+SIGNAL_EXCLUSIONS = CHECKS / "signal_exclusions.csv"  # step 5.1
+UNIVERSE_ELIGIBLE = CHECKS / "universe_eligible.csv"  # step 5.1, session-5 amendment 3
+UNIVERSE_CHANGES = CHECKS / "universe_changes.csv"  # step 5.1, session-5 amendment 3
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",
