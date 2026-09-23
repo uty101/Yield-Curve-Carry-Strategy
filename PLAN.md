@@ -1282,11 +1282,26 @@ with six country scopes, `pooled` and `pooled_20y`.
 - `pca.stability(cfg) -> pd.DataFrame` → `data/checks/pca_stability.csv`:
   per country and decade (`1960s`…`2020s`, each `<yyyy>-01..<yyyy+9>-12`),
   PCA on that decade's changes alone (same sign rules, the country's own
-  tenor set), and `abs_corr = |corr(v_k^decade, v_k^full)|` for k = 1, 2, 3;
-  columns `country, decade, component, n_months, abs_corr,
+  tenor set), and, for k = 1, 2, 3,
+  **`abs_cosine = |v_k^decade . v_k^full|`** — the uncentred inner product of
+  two unit eigenvectors — as the statistic of record, with
+  `abs_corr = |corr(v_k^decade, v_k^full)|`, the Pearson version, kept
+  beside it as a secondary column. Columns
+  `country, decade, component, n_months, abs_cosine, abs_corr,
   explained_share_decade, us_borderline_excluded`.
   A decade with fewer than `config.pca.stability_min_months` (24) months of
-  changes is written with `abs_corr = NaN` and its `n_months`.
+  changes is written with both statistics NaN and its `n_months`.
+
+  **Why the swap (session-3 fix round, 2026-09-23; the original wording of
+  session-3 amendment 4 named `abs_corr` and the owner has withdrawn it).**
+  Pearson removes each vector's mean, and for a level factor the mean is
+  almost the whole vector, so `abs_corr` on PC1 measures the *tilt* of the
+  level loading rather than whether it is the same factor: the US 1990s
+  reads `abs_corr` 0.075 while its PC1 never differs from the full-sample
+  PC1 by more than 0.137 element by element and `abs_cosine` is 0.984. The
+  cosine is the right statistic for two unit eigenvectors; `abs_corr` stays
+  in the file because the tilt is a real and sometimes interesting fact
+  about a decade, not because it answers the stability question.
 
 **Session-3 amendment 4 (2026-09-23, relabelled by issue #15): the US
 twice, as a robustness check.** Under amendment 1 as answered, the US set is

@@ -409,8 +409,8 @@ STABILITY_COLUMNS = [
     "decade",
     "component",
     "n_months",
-    "abs_corr",
     "abs_cosine",
+    "abs_corr",
     "explained_share_decade",
     "us_borderline_excluded",
 ]
@@ -442,16 +442,16 @@ def us_borderline_months(cfg: dict, path: Path | None = None) -> list[pd.Timesta
 
 
 def _stability_rows(changes: pd.DataFrame, country: str, cfg: dict, excluded: bool) -> list[tuple]:
-    """Per decade: |corr| of each of PC1-3 against the full-sample loading, same signs.
+    """Per decade: each of PC1-3 against the full-sample loading, same signs.
 
-    ``abs_corr`` is the plan's statistic, Pearson, which removes each vector's
-    mean. For PC1 that is nearly the whole vector — a level loading is close to
-    flat — so what is left is the *tilt* of the level factor, and `abs_corr`
-    swings between 0.07 and 0.99 on PC1 while the two vectors stay within 0.14
-    of each other element by element. ``abs_cosine``, the uncentred
-    ``|v_decade . v_full|``, is the answer to "is it the same vector"; both are
-    written and `review/3.2.md` reads them together. The extra column is an
-    addition to PLAN.md 3.2, declared in the session-3 review.
+    ``abs_cosine = |v_decade . v_full|`` is the statistic of record (PLAN.md
+    3.2, as amended in the session-3 fix round). ``abs_corr``, the Pearson
+    version, is kept beside it as a secondary column: Pearson removes each
+    vector's mean, and for a level factor the mean is nearly the whole vector,
+    so ``abs_corr`` on PC1 measures the *tilt* of the level loading rather
+    than whether it is the same factor — the US 1990s reads 0.075 on
+    ``abs_corr`` while its PC1 is within 0.137 of the full-sample PC1 element
+    by element and ``abs_cosine`` is 0.984.
     """
     if changes.empty:
         return []
@@ -476,8 +476,8 @@ def _stability_rows(changes: pd.DataFrame, country: str, cfg: dict, excluded: bo
                     decade,
                     k + 1,
                     n,
-                    abs(float(corr)),
                     abs(float(a @ b)),
+                    abs(float(corr)),
                     float(res.explained[k]),
                     excluded,
                 )
@@ -491,8 +491,8 @@ def stability(zero_panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     The US is written twice (amendment 4): once on all of its months
     (``us_borderline_excluded = False``) and once without the pre-1997 months
     whose 30-year zero-to-par gap exceeds ``config.pca.us_borderline_gap_bp``.
-    A decade below ``config.pca.stability_min_months`` is written with
-    ``abs_corr`` NaN and its month count, never dropped.
+    A decade below ``config.pca.stability_min_months`` is written with both
+    statistics NaN and its month count, never dropped.
     """
     sets = tenor_sets(zero_panel, cfg)
     changes = monthly_changes_bp(zero_panel, cfg, sets)

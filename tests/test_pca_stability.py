@@ -36,8 +36,8 @@ def test_self_correlation_is_one() -> None:
     out = pca.stability(panel, cfg)
     row = out[(out["decade"] == "2000s") & (out["component"] == 1)]
     assert len(row) == 1
-    assert abs(float(row["abs_corr"].iloc[0]) - 1.0) < 1e-12
     assert abs(float(row["abs_cosine"].iloc[0]) - 1.0) < 1e-12
+    assert abs(float(row["abs_corr"].iloc[0]) - 1.0) < 1e-12
 
 
 def test_stable_factor_structure_scores_high() -> None:
@@ -51,13 +51,14 @@ def test_stable_factor_structure_scores_high() -> None:
 
 
 def test_short_decade_is_nan_with_count() -> None:
-    """A decade below ``stability_min_months`` keeps its count and gets NaN correlations."""
+    """A decade below ``stability_min_months`` keeps its count and gets NaN statistics."""
     dates = pd.date_range("1999-01-31", periods=133, freq="ME")  # 12 months in the 1990s
     panel = _panel("GB", dates, TENORS, _levels_from_factors(133, 13))
     out = pca.stability(panel, _cfg())
     short = out[out["decade"] == "1990s"]
     assert len(short) == 3
     assert (short["n_months"] == 11).all()  # 12 months, less the first (no predecessor)
+    assert short["abs_cosine"].isna().all()
     assert short["abs_corr"].isna().all()
     assert short["explained_share_decade"].isna().all()
 
@@ -144,6 +145,21 @@ def test_excluding_months_changes_only_the_affected_decades() -> None:
             assert r[6] == pytest.approx(ref[6])
         if r[1] == "1990s":
             assert r[3] < ref[3]
-    # abs_corr may move in every decade, because the full-sample vector it is
-    # measured against is refitted without the excluded months
+    # both statistics may move in every decade, because the full-sample vector
+    # they are measured against is refitted without the excluded months
     assert any(r[4] != by_dec[(r[1], r[2])][4] for r in b)
+
+
+def test_abs_cosine_is_the_named_statistic_and_abs_corr_is_secondary() -> None:
+    """Fix round: `abs_cosine` comes first in the file, `abs_corr` beside it.
+
+    On a near-flat PC1 the two disagree by design — Pearson removes the mean,
+    which for a level loading is nearly the whole vector — so the column order
+    is what says which one answers "is it the same factor".
+    """
+    assert pca.STABILITY_COLUMNS.index("abs_cosine") < pca.STABILITY_COLUMNS.index("abs_corr")
+    flat = np.array([0.40, 0.41, 0.42, 0.43, 0.44, 0.45])
+    tilted = np.array([0.45, 0.44, 0.43, 0.42, 0.41, 0.40])
+    flat, tilted = flat / np.linalg.norm(flat), tilted / np.linalg.norm(tilted)
+    assert abs(float(flat @ tilted)) > 0.99  # the same level factor
+    assert abs(float(np.corrcoef(flat, tilted)[0, 1]) + 1.0) < 1e-12  # Pearson says -1
