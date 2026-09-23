@@ -99,6 +99,10 @@ IDENTITY_COLUMNS = [
     "diff_bp",
     "diff_carry_bp",
     "flagged",
+    "mean_duration",
+    "mean_dy_ann",
+    "trend_bp",
+    "trend_residual_bp",
 ]
 CLOSED_REASON = "aged tenor beyond next curve"
 N_WORST_GAPS = 20  # the 20 largest |gap_bp| rows go beside the distribution
@@ -266,6 +270,21 @@ def _ann(x: pd.Series) -> float:
     return float(x.mean() * 12.0)
 
 
+def constant_maturity_dy(carry: pd.DataFrame) -> pd.DataFrame:
+    """``carry`` with ``dy_cm``: next month's zero yield at the **same** tenor, minus this one's.
+
+    The constant-maturity yield change, which is what a trend in yields means
+    for a bucket that is rebought at tenor ``n`` every month. The last month of
+    each bucket has no successor and gets NaN.
+    """
+    d = carry.sort_values(["country", "tenor_years", "date"]).copy()
+    key = ["country", "tenor_years"]
+    nxt = d.groupby(key, sort=False)["date"].shift(-1)
+    d["dy_cm"] = d.groupby(key, sort=False)["yield"].shift(-1) - d["yield"]
+    d.loc[nxt != d["date"].map(next_month), "dy_cm"] = np.nan
+    return d
+
+
 def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """The long-run identity, per country, tenor and window.
 
@@ -275,12 +294,22 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
     project's ``carry = y_n - r_short``. The two differ by ``r_short_ann`` by
     construction; ``flagged`` is set on the first (see PLAN.md 4.2).
 
+    **The trend columns** (session-4 fix round, issue #18): if ``diff_bp`` is
+    the sample's yield trend and nothing else, then it should equal minus the
+    bucket's duration times the mean annual change in that tenor's yield.
+    ``mean_dy_ann`` is ``12 x mean(dy_cm)`` at constant maturity,
+    ``trend_bp = -mean_duration x mean_dy_ann x 1e4``, and
+    ``trend_residual_bp = diff_bp - trend_bp`` is what the trend does not
+    explain. A first-order comparison, so a residual of a few bp on a long
+    bucket is the convexity and the cross term, not a discrepancy.
     """
     flag_bp = float(cfg["checks"]["identity_gap_flag_bp_per_year"])
     start = pd.Timestamp(cfg["sample"]["strategy_start"])
     key = ["country", "tenor_years", "date"]
     df = returns[~returns["closed"]].merge(
-        carry[["country", "tenor_years", "date", "yield", "carry", "rolldown", "r_short"]],
+        constant_maturity_dy(carry)[
+            ["country", "tenor_years", "date", "yield", "carry", "rolldown", "r_short", "dy_cm"]
+        ],
         on=key,
         how="inner",
     )
@@ -295,6 +324,9 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
             r_local_ann, yr_ann = _ann(g["r_local"]), _ann(g["yield_roll"])
             diff_bp = (r_local_ann - yr_ann) * 1e4
             cr_ann = _ann(g["carry_roll"])
+            mean_d = float(g["duration"].mean())
+            dy_ann = _ann(g["dy_cm"].dropna()) if g["dy_cm"].notna().any() else np.nan
+            trend_bp = -mean_d * dy_ann * 1e4
             rows.append(
                 {
                     "country": country,
@@ -309,6 +341,10 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
                     "diff_bp": diff_bp,
                     "diff_carry_bp": (r_local_ann - cr_ann) * 1e4,
                     "flagged": bool(abs(diff_bp) > flag_bp),
+                    "mean_duration": mean_d,
+                    "mean_dy_ann": dy_ann,
+                    "trend_bp": trend_bp,
+                    "trend_residual_bp": diff_bp - trend_bp,
                 }
             )
     return pd.DataFrame(rows, columns=IDENTITY_COLUMNS)

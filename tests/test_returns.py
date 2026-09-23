@@ -223,6 +223,7 @@ def test_universe_and_identity_files() -> None:
             "closed": False,
             "r_local": [0.01, 0.02],
             "coupon": [0.06, 0.06],
+            "duration": [9.0, 9.0],
         }
     )
     c = pd.DataFrame(
@@ -236,6 +237,7 @@ def test_universe_and_identity_files() -> None:
             "r_short": [0.04, 0.04],
         }
     )
+    # a constant yield means no trend, so trend_bp is 0 and the residual is the whole gap
     ident = returns.identity_rows(r, c, _cfg())
     full = ident[ident["window"] == "full"].iloc[0]
     assert full["n_months"] == 2
@@ -246,6 +248,10 @@ def test_universe_and_identity_files() -> None:
     # the two readings differ by exactly the funding rate
     assert full["carry_rolldown_ann"] == pytest.approx(full["yield_rolldown_ann"] - 0.04)
     assert bool(full["flagged"]) is True  # 0.18 - 0.072 is far beyond 50 bp
+    assert full["mean_duration"] == 9.0
+    assert full["mean_dy_ann"] == pytest.approx(0.0, abs=1e-15)
+    assert full["trend_bp"] == pytest.approx(0.0, abs=1e-15)
+    assert full["trend_residual_bp"] == pytest.approx(full["diff_bp"], abs=1e-9)
 
 
 # ------------------------------------------------------------- fixtures

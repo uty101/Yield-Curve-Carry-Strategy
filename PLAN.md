@@ -1480,6 +1480,14 @@ year. Both columns are therefore written, nothing is lost either way, and
 funding-free reading**, because that is the one the amendment's stated
 expectation describes. `diff_carry_bp` carries the other reading.
 
+**The trend columns** (session-4 fix round): `mean_duration`,
+`mean_dy_ann` (`12 × mean` of the constant-maturity monthly change in that
+tenor's zero yield), `trend_bp = −mean_duration × mean_dy_ann × 1e4` and
+`trend_residual_bp = diff_bp − trend_bp`. If `diff_bp` is the sample's yield
+trend and nothing else, `trend_bp` should be close to it. A first-order
+comparison: a residual of a few bp on a long bucket is the convexity and the
+duration/yield cross term, not a discrepancy.
+
 Two things the identity does not claim. It is a *mean* identity, not a
 per-month one: within a month `r_local` also contains the price effect of
 the actual yield change, which averages towards zero over a long sample and
