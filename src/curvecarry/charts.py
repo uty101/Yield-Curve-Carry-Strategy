@@ -11,7 +11,7 @@ with a free lambda the betas are coefficients on loadings whose shape changes
 every month, so the same numeric value in two months is not the same quantity
 and the series is not comparable across time or countries. Fixing lambda is
 what makes it comparable, and is why Diebold-Li fix it. The bottom row is the
-same three betas from ``ns_free`` with every ``lam_at_bound`` month **left as a
+same three betas from ``ns_free`` with every ``ns_degenerate`` month **left as a
 gap** — not clipped, not interpolated, not forward-filled. There is no
 percentile clipping anywhere in this module.
 
@@ -35,7 +35,16 @@ from curvecarry import checks, harmonise, nelson_siegel  # noqa: E402
 
 FIGURES = Path("reports/figures")
 CHART1_DATES_COLUMNS = ["country", "decade", "date"]
-CHART3_EXCLUDED_COLUMNS = ["country", "date", "model", "lam", "beta0", "beta1", "beta2"]
+CHART3_EXCLUDED_COLUMNS = [
+    "country",
+    "date",
+    "model",
+    "lam",
+    "beta0",
+    "beta1",
+    "beta2",
+    "reason",
+]
 BETAS = ["beta0", "beta1", "beta2"]
 BETA_LABELS = {"beta0": "beta0 (level)", "beta1": "beta1 (slope)", "beta2": "beta2 (curvature)"}
 CHART3_START = pd.Timestamp("1995-01-01")
@@ -167,31 +176,43 @@ def chart1_rmse(params: pd.DataFrame, out: Path = FIGURES / "chart1_rmse.png") -
 
 
 def chart3_excluded(ns_params: pd.DataFrame, start: pd.Timestamp = CHART3_START) -> pd.DataFrame:
-    """The ``ns_free`` months Chart 3's lower row leaves as gaps (issue #14, option K)."""
+    """The ``ns_free`` months Chart 3's lower row leaves as gaps, and why.
+
+    ``reason`` is ``bound`` (lambda on a grid bound, betas below the threshold),
+    ``beta`` (lambda interior, some |beta| above 50 percentage points) or
+    ``both``.
+    """
     f = ns_params[
         (ns_params["model"] == "ns_free")
-        & ns_params["lam_at_bound"].astype(bool)
+        & ns_params["ns_degenerate"].astype(bool)
         & (ns_params["date"] >= start)
     ]
     out = f[["country", "date", "model", "lam", *BETAS]].copy()
-    return out.sort_values(["country", "date"]).reset_index(drop=True)
+    bound = f["lam_at_bound"].astype(bool).to_numpy()
+    beta = np.asarray(nelson_siegel.beta_degenerate(f["beta0"], f["beta1"], f["beta2"]), dtype=bool)
+    out["reason"] = np.where(bound & beta, "both", np.where(bound, "bound", "beta"))
+    return out[CHART3_EXCLUDED_COLUMNS].sort_values(["country", "date"]).reset_index(drop=True)
 
 
 def chart3_series(
     ns_params: pd.DataFrame, country: str, model: str, beta: str
 ) -> tuple[pd.Series, np.ndarray]:
-    """``(dates, values)`` for one Chart 3 line; NaN at every ``lam_at_bound`` month.
+    """``(dates, values)`` for one Chart 3 line; NaN at every ``ns_degenerate`` month.
 
     NaN rather than a dropped row, so matplotlib breaks the line there instead
-    of drawing a straight segment across the gap. Only ``ns_free`` is gapped:
-    ``ns_dl`` has a fixed lambda and never hits a bound (issue #14, option K).
+    of drawing a straight segment across the gap. The criterion is
+    ``ns_degenerate`` — ``lam_at_bound`` **or** a beta above 50 percentage
+    points — not ``lam_at_bound`` alone: a lambda just inside the bound leaves
+    the loadings nearly collinear and the betas still run away. Only the
+    ``ns_free`` panel is gapped; ``ns_dl`` has a fixed lambda and trips the beta
+    criterion in no month of any country (largest max |beta| 0.3365, GB).
     """
     g = ns_params[(ns_params["country"] == country) & (ns_params["model"] == model)].sort_values(
         "date"
     )
     y = g[beta].to_numpy(dtype="float64").copy()
     if model == "ns_free":
-        y[g["lam_at_bound"].astype(bool).to_numpy()] = np.nan  # a gap, not a clip
+        y[g["ns_degenerate"].astype(bool).to_numpy()] = np.nan  # a gap, not a clip
     return g["date"], y
 
 
@@ -202,7 +223,7 @@ def chart3_betas(
 ) -> tuple[Path, pd.DataFrame]:
     """6 panels: NS-DL betas on top (the primary series), NS-free with gaps below.
 
-    Returns ``(path, excluded)``. A ``lam_at_bound`` month is dropped from the
+    Returns ``(path, excluded)``. An ``ns_degenerate`` month is dropped from the
     NS-free series and the line is broken there — ``NaN`` rather than a missing
     row, so matplotlib leaves a gap instead of drawing across it.
     """
@@ -223,16 +244,15 @@ def chart3_betas(
                 ax.plot(dates, y * 100, "-", color=colours[country], linewidth=0.9, label=country)
             ax.grid(alpha=0.3)
             ax.set_ylabel(f"{BETA_LABELS[beta]} (%)" if j == 0 else "")
-            head = (
-                "NS-DL (fixed lambda)" if model == "ns_dl" else "NS-free (gaps at a lambda bound)"
-            )
+            head = "NS-DL (fixed lambda)" if model == "ns_dl" else "NS-free (gaps where degenerate)"
             ax.set_title(f"{head} — {beta}", fontsize=10)
     axes[0, 0].legend(fontsize=8, ncol=2, loc="best")
     caption = ", ".join(f"{c} {int(n)}" for c, n in gaps.items())
     fig.suptitle(
         "Chart 3 — Nelson-Siegel betas from 1995. Top row NS-DL at fixed lambda: the "
         "comparable series, because a free lambda changes the loadings each month.\n"
-        "Bottom row NS-free, with lam_at_bound months left as gaps (not clipped, not "
+        "Bottom row NS-free, with ns_degenerate months left as gaps (lambda on a bound, "
+        "or a beta above 50 points; not clipped, not "
         f"interpolated). Months gapped: {caption}. Listed in data/checks/chart3_excluded.csv.",
         fontsize=10,
     )

@@ -1106,10 +1106,17 @@ happens for a row outside it.
     two months is not the same quantity and the series is not comparable
     across time or countries; fixing λ is what makes it comparable, and is why
     Diebold-Li fix it. The bottom row is the same three betas from `ns_free`
-    with every `lam_at_bound` month **left as a gap** — not clipped, not
+    with every `ns_degenerate` month **left as a gap** — not clipped, not
     interpolated, not forward-filled — and the gap count per country in the
-    caption. `data/checks/chart3_excluded.csv` lists every excluded
-    country-month with its λ and its betas. **No percentile clipping
+    caption. **`ns_degenerate`** (session 2 fix round, 2026-09-23) is
+    `lam_at_bound` **or** `max(|β0|, |β1|, |β2|) > 0.5`, i.e. 50 percentage
+    points of yield: a λ just inside the bound leaves the loadings nearly
+    collinear, so a bound-only criterion let runaway betas through (GB
+    2010-02-28, λ = 0.0539, β2 = +50.2%, RMSE 3.19 bp). It is a column on
+    `ns_params.parquet` for every model, beside `lam_at_bound`, which is kept
+    because `decisions/lambda_bound.md` refers to it.
+    `data/checks/chart3_excluded.csv` lists every excluded country-month with
+    its λ, its betas and a `reason` of `bound`, `beta` or `both`. **No percentile clipping
     anywhere.** Chart 1 and `chart1_rmse` are unchanged and keep NS-free:
     what they measure is fit quality, which is where a free λ earns its place.
     Reasoning in `decisions/lambda_bound.md`.
@@ -1119,9 +1126,11 @@ happens for a row outside it.
 - `test_chart1_dates_rule`: a synthetic fit table with gaps picks the last
   December per decade and the earliest month for a missing decade.
 - `test_chart_functions_write_files`: each function writes a non-empty png.
-- `test_chart3_excludes_bound_months_as_gaps` (issue #14): a `lam_at_bound`
-  month is absent from the NS-free series, is not interpolated across, and is
-  one row of `chart3_excluded.csv`; the `ns_dl` series keeps every month.
+- `test_chart3_excludes_degenerate_months_as_gaps` (issue #14, amended in the
+  fix round): a bound-only, a beta-only and a both month are each absent from
+  the NS-free series, none is interpolated across, and each is one row of
+  `chart3_excluded.csv` with the right `reason`; the `ns_dl` series keeps every
+  month.
 
 **Done when** the three tests pass and the 8 pngs,
 `data/checks/chart1_dates.csv` and `data/checks/chart3_excluded.csv` exist.

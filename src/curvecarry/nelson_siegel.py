@@ -47,8 +47,12 @@ PARAM_COLUMNS = [
     "rmse_bp",
     "n_tenors",
     "lam_at_bound",
+    "ns_degenerate",
 ]
 LAM_BOUND_ATOL = 1e-12  # issue #14 option K: lam counts as "at a bound" within this
+# session 2 fix round: a level factor of -22% is not a level factor. 0.5 in decimal
+# yield units is 50 percentage points.
+BETA_DEGENERATE_MAX = 0.5
 FITTED_COLUMNS = ["date", "country", "model", "tenor_years", "fitted"]
 SKIPPED_COLUMNS = ["country", "date", "n_standard_tenors", "reason"]
 HOLDOUT_COLUMNS = [
@@ -113,6 +117,39 @@ def lam_at_bound(lam: float | np.ndarray, grid: tuple[float, float, float]) -> b
         x, hi, rtol=0.0, atol=LAM_BOUND_ATOL
     )
     return bool(out) if np.ndim(lam) == 0 else out
+
+
+def beta_degenerate(
+    beta0: float | np.ndarray, beta1: float | np.ndarray, beta2: float | np.ndarray
+) -> bool | np.ndarray:
+    """True where ``max(|beta0|, |beta1|, |beta2|)`` exceeds ``BETA_DEGENERATE_MAX``.
+
+    The betas are decimal yields, so the threshold is 50 **percentage points**.
+    A fit that reports a level of -22% cancelled by a slope of +22% is not
+    reporting a level and a slope, whatever its RMSE.
+    """
+    b = np.maximum(np.maximum(np.abs(beta0), np.abs(beta1)), np.abs(beta2))
+    out = np.asarray(b, dtype="float64") > BETA_DEGENERATE_MAX
+    return bool(out) if np.ndim(b) == 0 else out
+
+
+def ns_degenerate(
+    lam_bound: bool | np.ndarray,
+    beta0: float | np.ndarray,
+    beta1: float | np.ndarray,
+    beta2: float | np.ndarray,
+) -> bool | np.ndarray:
+    """``lam_at_bound`` **or** ``beta_degenerate``: the months Chart 3 leaves as gaps.
+
+    ``lam_at_bound`` alone missed months whose lambda is just inside the bound
+    and whose loadings are still nearly collinear — GB 2010-02-28 at
+    lambda = 0.0539 fits to 3.19 bp with beta2 = +50.2%. Both criteria are kept
+    as separate columns; ``decisions/lambda_bound.md`` refers to the first.
+    """
+    out = np.asarray(lam_bound, dtype=bool) | np.asarray(
+        beta_degenerate(beta0, beta1, beta2), dtype=bool
+    )
+    return bool(out) if np.ndim(out) == 0 else out
 
 
 def lambda_grid(grid: tuple[float, float, float]) -> np.ndarray:
@@ -191,6 +228,7 @@ def fit_panel(zero_panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, pd.Dat
                     f.rmse_bp,
                     f.n_tenors,
                     lam_at_bound(f.lam, grid),
+                    ns_degenerate(lam_at_bound(f.lam, grid), f.beta0, f.beta1, f.beta2),
                 )
             )
             vals = ns_loadings(tau, f.lam) @ np.array([f.beta0, f.beta1, f.beta2])
@@ -198,6 +236,7 @@ def fit_panel(zero_panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, pd.Dat
                 fitted.append((date, country, model, float(t), float(v)))
     p = pd.DataFrame(params, columns=PARAM_COLUMNS)
     p["lam_at_bound"] = p["lam_at_bound"].astype(bool)
+    p["ns_degenerate"] = p["ns_degenerate"].astype(bool)
     f = pd.DataFrame(fitted, columns=FITTED_COLUMNS)
     p = p.sort_values(["country", "date", "model"]).reset_index(drop=True)
     f = f.sort_values(["country", "date", "model", "tenor_years"]).reset_index(drop=True)

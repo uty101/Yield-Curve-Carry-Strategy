@@ -58,7 +58,7 @@ def _panel_and_params(country: str = "XX") -> tuple[pd.DataFrame, pd.DataFrame, 
     )
     ns = pd.DataFrame(
         [
-            (d, country, m, 0.04, -0.02, 0.01, lam, 3.0, 8, bound)
+            (d, country, m, 0.04, -0.02, 0.01, lam, 3.0, 8, bound, bound)
             for d in dates
             for m, lam, bound in (("ns_free", 0.05, True), ("ns_dl", 0.7, False))
         ],
@@ -73,6 +73,7 @@ def _panel_and_params(country: str = "XX") -> tuple[pd.DataFrame, pd.DataFrame, 
             "rmse_bp",
             "n_tenors",
             "lam_at_bound",
+            "ns_degenerate",
         ],
     )
     sv = pd.DataFrame(
@@ -108,7 +109,8 @@ def test_chart_functions_write_files(tmp_path: Path) -> None:
     )
     for p in [*paths, p2, p3]:
         assert p.exists() and p.stat().st_size > 0
-    assert len(excluded) == 2  # both ns_free months are at a bound in this fixture
+    assert len(excluded) == 2  # both ns_free months are degenerate in this fixture
+    assert set(excluded["reason"]) == {"bound"}
 
 
 def test_chart1_draws_the_model_not_a_polyline() -> None:
@@ -123,20 +125,34 @@ def test_chart1_draws_the_model_not_a_polyline() -> None:
     assert sv_y is not None and not np.allclose(sv_y, y)  # the 4-factor model is a different curve
 
 
-def test_chart3_excludes_bound_months_as_gaps() -> None:
-    """Issue #14: a lam_at_bound month is a gap in the NS-free series, and one excluded row.
+def test_chart3_excludes_degenerate_months_as_gaps() -> None:
+    """Session 2 fix: the gap criterion is ns_degenerate, and the reason is recorded.
 
     Not clipped, not interpolated, not forward-filled — the value is NaN, so the
-    line breaks. The ns_dl series keeps every month.
+    line breaks. The ns_dl series keeps every month. Three flavours of gap are
+    covered: lambda on a bound only, a runaway beta only, and both.
     """
     dates = pd.date_range("2000-01-31", periods=5, freq="ME")
     rows = []
     for i, d in enumerate(dates):
-        bound = i == 2  # one month in the middle sits on the bound
+        bound = i in (2, 4)  # 2 is bound-only, 4 is bound AND a runaway beta
+        beta0 = 0.6 if i in (3, 4) else 0.04 + i / 100.0  # 3 is beta-only
         rows.append(
-            (d, "XX", "ns_free", 0.04 + i, -0.02, 0.01, 0.05 if bound else 0.4, 3.0, 8, bound)
+            (
+                d,
+                "XX",
+                "ns_free",
+                beta0,
+                -0.02,
+                0.01,
+                0.05 if bound else 0.4,
+                3.0,
+                8,
+                bound,
+                bound or abs(beta0) > 0.5,
+            )
         )
-        rows.append((d, "XX", "ns_dl", 0.04 + i, -0.02, 0.01, 0.7, 5.0, 8, False))
+        rows.append((d, "XX", "ns_dl", 0.04 + i / 100.0, -0.02, 0.01, 0.7, 5.0, 8, False, False))
     ns = pd.DataFrame(
         rows,
         columns=[
@@ -150,24 +166,29 @@ def test_chart3_excludes_bound_months_as_gaps() -> None:
             "rmse_bp",
             "n_tenors",
             "lam_at_bound",
+            "ns_degenerate",
         ],
     )
     d_free, y_free = charts.chart3_series(ns, "XX", "ns_free", "beta0")
-    assert len(y_free) == 5  # the row is kept, so the x axis is unbroken
-    assert np.isnan(y_free[2])  # ... but the value is a gap
-    assert np.isfinite(y_free[[0, 1, 3, 4]]).all()
-    assert y_free[1] == 1.04 and y_free[3] == 3.04  # neighbours untouched: no interpolation
+    assert len(y_free) == 5  # the rows are kept, so the x axis is unbroken
+    assert np.isnan(y_free[[2, 3, 4]]).all()  # ... but the values are gaps
+    assert np.isfinite(y_free[[0, 1]]).all()
+    assert y_free[0] == 0.04 and y_free[1] == 0.05  # neighbours untouched: no interpolation
     assert list(d_free) == list(dates)
 
     d_dl, y_dl = charts.chart3_series(ns, "XX", "ns_dl", "beta0")
     assert np.isfinite(y_dl).all() and len(y_dl) == 5  # fixed lambda: never gapped
 
     excluded = charts.chart3_excluded(ns, pd.Timestamp("1995-01-01"))
-    assert len(excluded) == 1
-    assert excluded.loc[0, "date"] == dates[2]
-    assert excluded.loc[0, "lam"] == 0.05
-    assert excluded.loc[0, "model"] == "ns_free"
     assert list(excluded.columns) == charts.CHART3_EXCLUDED_COLUMNS
+    assert len(excluded) == 3
+    assert dict(zip(excluded["date"], excluded["reason"], strict=True)) == {
+        dates[2]: "bound",
+        dates[3]: "beta",
+        dates[4]: "both",
+    }
+    assert excluded.set_index("date").loc[dates[2], "lam"] == 0.05
+    assert set(excluded["model"]) == {"ns_free"}
 
     # the start date filters the excluded list too
-    assert len(charts.chart3_excluded(ns, pd.Timestamp("2000-04-30"))) == 0
+    assert len(charts.chart3_excluded(ns, pd.Timestamp("2000-04-30"))) == 2

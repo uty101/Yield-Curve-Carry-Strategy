@@ -119,6 +119,53 @@ def test_lam_at_bound_flags_either_end_only() -> None:
     assert dl["lam"].eq(CFG["nelson_siegel"]["ns_lambda_fixed"]).all()
 
 
+def test_ns_degenerate_is_bound_or_a_runaway_beta() -> None:
+    """Session 2 fix: the gap criterion is lam_at_bound OR max|beta| > 0.5 (50 points).
+
+    lam_at_bound alone missed months whose lambda is just inside the bound and
+    whose loadings are still nearly collinear -- GB 2010-02-28 sits at
+    lambda = 0.0539 with beta2 = +50.2% and fits to 3.19 bp.
+    """
+    lo = GRID[0]
+    assert ns.BETA_DEGENERATE_MAX == 0.5
+    assert not ns.beta_degenerate(0.04, -0.02, 0.01)
+    assert ns.beta_degenerate(0.04, -0.02, 0.5016)  # the GB 2010-02-28 case
+    assert not ns.beta_degenerate(0.5, -0.5, 0.5)  # the threshold is strict
+    assert ns.beta_degenerate(-0.51, 0.0, 0.0)
+    got = ns.beta_degenerate(np.array([0.04, 0.6]), np.array([-0.02, 0.0]), np.array([0.01, 0.0]))
+    assert got.tolist() == [False, True]
+
+    # the two criteria combine with OR, and each can fire alone
+    assert ns.ns_degenerate(False, 0.04, -0.02, 0.01) is False
+    assert ns.ns_degenerate(True, 0.04, -0.02, 0.01) is True  # bound only
+    assert ns.ns_degenerate(False, 0.04, -0.02, 0.6) is True  # beta only
+    assert ns.ns_degenerate(True, 0.04, -0.02, 0.6) is True  # both
+
+    # on a real panel: a flat curve runs the search to the bound
+    panel = pd.DataFrame(
+        {
+            "date": pd.Timestamp("2020-01-31"),
+            "country": "XX",
+            "tenor_years": TENORS,
+            "yield": np.full(TENORS.size, 0.03),
+            "standard": True,
+            "interpolated": False,
+            "bootstrapped": False,
+        }
+    )
+    params, _ = ns.fit_panel(panel, CFG)
+    assert params["ns_degenerate"].dtype == bool
+    assert "lam_at_bound" in params.columns  # kept: decisions/lambda_bound.md refers to it
+    free = params[params["model"] == "ns_free"].iloc[0]
+    assert free["ns_degenerate"] == (
+        free["lam_at_bound"] or ns.beta_degenerate(free["beta0"], free["beta1"], free["beta2"])
+    )
+    dl = params[params["model"] == "ns_dl"].iloc[0]
+    assert not dl["lam_at_bound"]  # fixed lambda is interior
+    assert dl["ns_degenerate"] == ns.beta_degenerate(dl["beta0"], dl["beta1"], dl["beta2"])
+    assert lo < CFG["nelson_siegel"]["ns_lambda_fixed"] < GRID[1]
+
+
 def test_holdout_points_split_by_country() -> None:
     """Amendment 3: GB/CA/JP contribute observed non-standard tenors, US/FR bootstrapped ones."""
     rows = []
