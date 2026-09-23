@@ -277,6 +277,7 @@ Empty at the start. Each gate writes one dated line here when it passes.
 | Session 2 (2.1, 2.2, 2.3, 2.4) | 2026-09-23 | Session 2 approved 2026-09-23 (f4ffe51), issue #13 |
 | Session 3 (3.1, 3.2, 3.3) | 2026-09-23 | Session 3 approved 2026-09-23 (5a54fb0), issue #16 |
 | Session 4 (4.1, 4.2, 4.3, 4.4) | 2026-09-23 | Session 4 approved 2026-09-23 (ea0f613), issue #18 |
+| Session 5 (5.1, 5.2, 5.3, 5.4, 5.5) | 2026-09-23 | Session 5 approved 2026-09-23 (dfa1388), issue #21 |
 
 Note on the gate: pre-1997 US 30y zero/par gaps straddle the
 `bootstrap_zero_par_tolerance_bp` threshold (100 bp) — at 30y, 1982-09 at
