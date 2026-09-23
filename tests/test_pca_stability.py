@@ -163,3 +163,33 @@ def test_abs_cosine_is_the_named_statistic_and_abs_corr_is_secondary() -> None:
     flat, tilted = flat / np.linalg.norm(flat), tilted / np.linalg.norm(tilted)
     assert abs(float(flat @ tilted)) > 0.99  # the same level factor
     assert abs(float(np.corrcoef(flat, tilted)[0, 1]) + 1.0) < 1e-12  # Pearson says -1
+
+
+def test_change_vol_is_the_sd_of_the_change_frame_in_bp() -> None:
+    """Session-3 fix round: one row per country, decade and set tenor, plus a `full` row."""
+    dates = pd.date_range("2000-01-31", periods=241, freq="ME")
+    panel = _panel("GB", dates, TENORS, _levels_from_factors(241, 21))
+    cfg = _cfg()
+    out = pca.change_vol(panel, cfg)
+    changes = pca.monthly_changes_bp(panel, cfg)["GB"]
+
+    assert set(out["decade"]) == {"2000s", "2010s", "2020s", "full"}
+    assert set(out["tenor_years"]) == set(changes.columns)
+    full = out[(out["decade"] == "full") & (out["tenor_years"] == 10.0)]
+    assert float(full["sd_bp"].iloc[0]) == pytest.approx(changes[10.0].std(ddof=1))
+    assert int(full["n_months"].iloc[0]) == len(changes)
+    d = out[(out["decade"] == "2010s") & (out["tenor_years"] == 1.0)]
+    block = changes[[x.year // 10 * 10 == 2010 for x in changes.index]]
+    assert float(d["sd_bp"].iloc[0]) == pytest.approx(block[1.0].std(ddof=1))
+    assert int(d["n_months"].iloc[0]) == len(block)
+
+
+def test_change_vol_is_in_basis_points() -> None:
+    """A 25 bp move every other month reads as an sd in bp, not in decimals."""
+    dates = pd.date_range("2000-01-31", periods=48, freq="ME")
+    vals = np.full((48, 8), 0.03)
+    vals[1::2, :] = 0.0325
+    panel = _panel("GB", dates, TENORS, vals)
+    out = pca.change_vol(panel, _cfg())
+    sd = float(out[(out["decade"] == "full") & (out["tenor_years"] == 10.0)]["sd_bp"].iloc[0])
+    assert 20.0 < sd < 30.0  # alternating +25 / -25 bp

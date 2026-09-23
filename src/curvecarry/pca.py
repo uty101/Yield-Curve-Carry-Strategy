@@ -515,5 +515,39 @@ def build_stability(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
     zero = pd.read_parquet(p / "curves_zero.parquet")
     out = stability(zero, cfg)
     checks.CHECKS.mkdir(parents=True, exist_ok=True)
+    change_vol(zero, cfg).to_csv(checks.PCA_CHANGE_VOL, index=False, lineterminator="\n")
     out.to_csv(checks.PCA_STABILITY, index=False, lineterminator="\n")
     return out
+
+
+CHANGE_VOL_COLUMNS = ["country", "decade", "tenor_years", "n_months", "sd_bp"]
+
+
+def change_vol(zero_panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """``data/checks/pca_change_vol.csv``: sd of monthly zero-yield changes in bp.
+
+    One row per ``(country, decade, tenor in that country's set)``, plus a
+    ``decade = "full"`` row per country and tenor. Session-3 fix round: the
+    stability table says a decade's loading vector moved, and nothing in it
+    says *why*. A loading vector is the eigenvector of a covariance matrix, so
+    the first place to look when one rotates is the variances on its diagonal
+    — a tenor whose changes stop moving cannot carry a factor. ``sd`` uses
+    ``ddof = 1`` like the covariance in ``pca``.
+    """
+    sets = tenor_sets(zero_panel, cfg)
+    changes = monthly_changes_bp(zero_panel, cfg, sets)
+    rows: list[tuple] = []
+    for country in cfg["countries"]:
+        c = changes[country]
+        if c.empty:
+            continue
+        labels = pd.Index([decade_label(d) for d in c.index], name="decade")
+        for decade, block in c.groupby(labels, sort=True):
+            for tenor in c.columns:
+                rows.append(
+                    (country, decade, float(tenor), len(block), float(block[tenor].std(ddof=1)))
+                )
+        for tenor in c.columns:
+            rows.append((country, "full", float(tenor), len(c), float(c[tenor].std(ddof=1))))
+    out = pd.DataFrame(rows, columns=CHANGE_VOL_COLUMNS)
+    return out.sort_values(["country", "decade", "tenor_years"]).reset_index(drop=True)

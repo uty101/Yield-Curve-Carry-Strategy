@@ -42,6 +42,7 @@ PCA_TENOR_SETS = CHECKS / "pca_tenor_sets.csv"  # step 3.1, session-3 amendment 
 PCA_DROPPED = CHECKS / "pca_dropped.csv"  # step 3.1
 PCA_EXPLAINED = CHECKS / "pca_explained.csv"  # step 3.1
 PCA_STABILITY = CHECKS / "pca_stability.csv"  # step 3.2
+PCA_CHANGE_VOL = CHECKS / "pca_change_vol.csv"  # step 3.2, session-3 fix round
 PCA_EXPLAINED_TABLE = CHECKS / "pca_explained_table.md"  # step 3.3
 SAMPLE_DAY_COLUMNS = [
     "country",
