@@ -17,6 +17,7 @@ uv run curvecarry build --step overlay_trades  # after the overlay run: the per-
 uv run curvecarry build --step decomposition   # 6.1: decomposition_<variant>.parquet, the shares
 uv run curvecarry run --risk-controls       # 6.2: the six risk-control runs, each logged first
 uv run curvecarry build --step risk_controls  # 6.2: attribution_2022_*.csv, risk_controls.csv
+uv run curvecarry build --step caveats      # 6.3: ns_lambda_bound.csv, section_6_3.md
 uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry report --table            # 5.5: metrics_table.csv/.md, unhedged_fx_exposure.csv
@@ -50,6 +51,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "overlay_trades": ("curvecarry.overlay", "build_trades"),
     "decomposition": ("curvecarry.decomposition", "build"),
     "risk_controls": ("curvecarry.risk_controls", "build"),
+    "caveats": ("curvecarry.caveats", "build"),
 }
 NOT_BUILT: dict[str, str] = {}
 CHARTS_BUILT = {"1", "2", "3", "4", "5"}  # 2.4, 3.3, 4.4 and 6.1

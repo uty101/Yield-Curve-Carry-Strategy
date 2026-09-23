@@ -300,3 +300,20 @@ def unhedged_fx_exposure(cfg: dict, processed: Path | None = None) -> tuple:
     text += "\n" + summary.to_csv(index=False, lineterminator="\n")
     checks.UNHEDGED_FX_EXPOSURE.write_text(text, encoding="utf-8")
     return table, summary
+
+
+# ------------------------------- step 6.3: what carry does not tell you
+
+
+def section_what_carry_does_not_tell_you(cfg: dict, checks_dir=None, decisions_dir=None) -> str:
+    """PLAN.md 6.3's name for the section; the text and its facts live in ``caveats``.
+
+    Session-6 deviation 5: the section is its own module. It reads eight check
+    files and a decision document and holds a page of prose, and ``report.py``
+    is already the metrics table, the explained-variance table and the FX
+    regressions. The plan's entry point is kept here so nothing has to look
+    for it.
+    """
+    from curvecarry import caveats
+
+    return caveats.section(caveats.facts(cfg, checks_dir, decisions_dir))

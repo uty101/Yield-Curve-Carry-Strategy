@@ -2203,10 +2203,32 @@ exists.
   the status in `decisions/basis.md` (measured with its table, or "not
   measured; the brief's 20–50 bp"). Every figure in the prose is a
   formatted value from one of those files; the function has no numeric
-  literals other than formatting widths. Paragraphs: the carry-earned share
-  versus yield-change share; 2022 month by month; the size of the return
-  approximation gap by tenor; the hedge and the basis; what the robustness
-  rows changed.
+  literals other than formatting widths.
+
+  **Session-6 amendment 4 fixes the topics**, each with its figure, and each
+  read from a file already in the repo:
+
+  | topic | figure | source |
+  |---|---|---|
+  | the carry-earned share against the yield-change share | cumulative, and by decade | `decomposition_shares.csv` |
+  | 2022 month by month | the year, the worst month, carry positive in all 12 | `attribution_2022_carry_hedged.csv` |
+  | the overlay is flat gross and loses its costs | −190 bp gross, 722 bp of cost, the 5 worst trades at 684 bp | `overlay_trades.csv` |
+  | duration neutrality is not currency neutrality | the 95% FX R-squared | `unhedged_fx_exposure.csv` |
+  | the funding rate is a policy rate used as a 3-month anchor | the Japanese fill windows, and the interbank robustness row | `funding_fill.csv`, `metrics_table.csv` |
+  | the cross-currency basis is not measured | the brief's range, lifted from the decision file | `decisions/basis.md` |
+  | the Nelson-Siegel lambda is unidentified on flat curves | the share of months on a grid bound, per country | `ns_lambda_bound.csv` (written by this step) |
+  | the US on-the-run richness | the CMT-vs-GSW gap at `config.sample.sample_max_tenor` years | `us_par_vs_gsw.csv` |
+  | the buckets that enter or leave mid-sample | how many, in which countries | `universe_changes.csv` |
+  | the size of the return approximation | mean and worst by tenor | `return_approx_gap.csv` |
+  | what the robustness rows changed | return and Sharpe of each | `metrics_table.csv` |
+
+  **Session-6 deviation 5.** The section lives in `src/curvecarry/caveats.py`,
+  not in `report.py`: it reads nine files and holds a page of prose, and
+  `report.py` is already three other tables. `report.section_what_carry_does_not_tell_you`
+  is kept as the entry point this line names and returns the same string.
+  **Session-6 deviation 6.** The tenor at which the on-the-run gap is quoted
+  is `config.sample.sample_max_tenor`, not a literal: which tenor is quoted
+  affects a reported number, and global rule 4 applies to it.
 - Written to `data/checks/section_6_3.md` for review before 6.4 assembles
   the report.
 
