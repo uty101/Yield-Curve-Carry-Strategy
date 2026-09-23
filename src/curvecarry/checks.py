@@ -38,6 +38,11 @@ FIT_HOLDOUT = CHECKS / "fit_holdout.csv"  # steps 2.2 and 2.3, session-2 amendme
 SVENSSON_VS_BUNDESBANK = CHECKS / "svensson_vs_bundesbank.csv"  # step 2.3
 CHART1_DATES = CHECKS / "chart1_dates.csv"  # step 2.4
 CHART3_EXCLUDED = CHECKS / "chart3_excluded.csv"  # step 2.4, issue #14 option K
+PCA_TENOR_SETS = CHECKS / "pca_tenor_sets.csv"  # step 3.1, session-3 amendment 1
+PCA_DROPPED = CHECKS / "pca_dropped.csv"  # step 3.1
+PCA_EXPLAINED = CHECKS / "pca_explained.csv"  # step 3.1
+PCA_STABILITY = CHECKS / "pca_stability.csv"  # step 3.2
+PCA_EXPLAINED_TABLE = CHECKS / "pca_explained_table.md"  # step 3.3
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",

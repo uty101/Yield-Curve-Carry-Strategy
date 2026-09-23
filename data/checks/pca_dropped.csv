@@ -1,0 +1,7 @@
+country,n_months_total,n_dropped,reason
+US,776,1,before first 10y month (0); missing a set tenor (0); no complete previous month (1)
+GB,680,4,before first 10y month (0); missing a set tenor (2); no complete previous month (2)
+DE,349,1,before first 10y month (0); missing a set tenor (0); no complete previous month (1)
+JP,624,148,before first 10y month (142); missing a set tenor (5); no complete previous month (1)
+CA,488,1,before first 10y month (0); missing a set tenor (0); no complete previous month (1)
+FR,262,1,before first 10y month (0); missing a set tenor (0); no complete previous month (1)
