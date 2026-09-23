@@ -139,7 +139,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (288 tests after session 5 and its fix round; see the latest session review)
+uv run pytest -q                                       # make test (340 tests after session 6; see the latest session review)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet
@@ -155,9 +155,19 @@ uv run curvecarry build --step weights     # 5.2: weights.parquet, weights_empty
 uv run curvecarry build --step overlay     # 5.4: pc2_expanding, overlay_positions, overlay_trades
 uv run curvecarry report --charts 1,2,3,4  # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry run --variant carry_hedged   # 5.3/5.4/5.5: one logged run; --all runs every variant
+uv run curvecarry build --step decomposition  # 6.1: decomposition_<variant>.parquet, decomposition_shares.csv
+uv run curvecarry run --risk-controls      # 6.2: the six pre-registered control runs, each logged first
+uv run curvecarry build --step risk_controls  # 6.2: attribution_2022_*.csv, risk_controls.csv, rates_vol_filter.csv
+uv run curvecarry build --step caveats     # 6.3: ns_lambda_bound.csv, section_6_3.md
 uv run curvecarry report --table           # 5.5: data/checks/metrics_table.csv and .md
-uv run curvecarry report   # step 6.4
+uv run curvecarry report                   # 6.4: every chart, reports/results.md, the README block
 ```
+
+**`build --all` stops before `decomposition`, `risk_controls` and `caveats`**:
+those three read a completed backtest and cannot run before `run`. The whole
+raw-to-report sequence is written out in the `Makefile`. `make all` is `build`
+and `report` only, because `make run` appends to the **append-only** spec log
+and so changes `N` in every deflated Sharpe in the report.
 
 ### This machine
 
@@ -205,6 +215,13 @@ Re-create with `uv run curvecarry fetch --all && uv run curvecarry build --all`.
 No Phase 2, 3 or 4 step touches `data/raw/`: the fits and the PCA read
 `curves_zero.parquet`, and Phase 4 reads that plus `funding.parquet` and
 `fx.parquet`.
+
+**Phase 6 added six runs, so `N` is 17.** The deflated Sharpe in
+`reports/results.md` and in `README.md` is computed at `speclog.count_runs()`
+at the moment the report is written, and `tests/test_report.py` asserts the
+printed `N` equals it and is never below the 11 Phase 5 left behind. The
+headline's DSR is 0.567 against a bar of about 0.95 and **does not clear it**;
+that sentence is in the README on its own, not in a footnote.
 
 **Phase 5 runs are logged before they compute.** `reports/specifications.csv`
 is append-only and its row count is `N` in the deflated Sharpe, so a

@@ -21,6 +21,7 @@ uv run curvecarry build --step caveats      # 6.3: ns_lambda_bound.csv, section_
 uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry report --table            # 5.5: metrics_table.csv/.md, unhedged_fx_exposure.csv
+uv run curvecarry report                    # 6.4: every chart, reports/results.md, the README block
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -53,6 +54,9 @@ STEPS: dict[str, tuple[str, str]] = {
     "risk_controls": ("curvecarry.risk_controls", "build"),
     "caveats": ("curvecarry.caveats", "build"),
 }
+# Steps that read a completed backtest and so cannot run before `run`; they are
+# excluded from `build --all` and are named explicitly (see the Makefile).
+POST_RUN_STEPS = ("decomposition", "risk_controls", "caveats")
 NOT_BUILT: dict[str, str] = {}
 CHARTS_BUILT = {"1", "2", "3", "4", "5"}  # 2.4, 3.3, 4.4 and 6.1
 
@@ -74,7 +78,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
 def cmd_build(args: argparse.Namespace) -> int:
     cfg = config.load()
-    names = LOADERS + list(STEPS) if args.all else [args.step]
+    names = LOADERS + [s for s in STEPS if s not in POST_RUN_STEPS] if args.all else [args.step]
     for name in names:
         if name in STEPS:
             module, fn = STEPS[name]
@@ -119,6 +123,14 @@ def cmd_report(args: argparse.Namespace) -> int:
         worst = summary["r_squared"].max()
         print(f"wrote unhedged_fx_exposure.csv: {len(summary)} unhedged runs, max R2 {worst:.3f}")
         return 0
+    if args.full or not (args.table or args.charts_given):
+        charts = importlib.import_module("curvecarry.charts")
+        for path in charts.build(cfg):
+            print(f"wrote {path}")
+        module = importlib.import_module("curvecarry.results")
+        path = module.write(cfg)
+        print(f"wrote {path} and the README block")
+        return 0
     want = {c.strip() for c in args.charts.split(",") if c.strip()}
     if want - CHARTS_BUILT:
         sys.exit(f"charts {sorted(want - CHARTS_BUILT)} are not built yet; see PLAN.md step 6.4")
@@ -151,8 +163,13 @@ def main(argv: list[str] | None = None) -> int:
         help="write data/checks/metrics_table.csv and .md (step 5.5)",
     )
     r.add_argument(
+        "--full",
+        action="store_true",
+        help="step 6.4: regenerate every chart, reports/results.md and the README block",
+    )
+    r.add_argument(
         "--charts",
-        default="1,2,3,4",
+        default="1,2,3,4,5",
         help='comma-separated chart numbers; "1,2,3,4" are built (2.4, 3.3, 4.4). The full '
         "report is step 6.4.",
     )
@@ -175,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
         s.set_defaults(fn=lambda a, step=step: print(f"not built yet; see PLAN.md {step}") or 1)
 
     args = parser.parse_args(argv)
+    # "report" with no flag at all is the full report of step 6.4
+    args.charts_given = any(a.startswith("--charts") for a in (argv or sys.argv[1:]))
     if args.command is None:
         parser.print_help()
         return 0

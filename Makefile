@@ -1,4 +1,4 @@
-.PHONY: setup test lint fetch build run report
+.PHONY: setup test lint fetch build run report all
 
 setup:
 	uv sync
@@ -9,16 +9,30 @@ test:
 lint:
 	uv run ruff check . && uv run ruff format --check .
 
-# The four targets below are placeholders until the step that builds each
-# one lands (fetch: Phase 1, build: 1.8/1.9, run: 5.3, report: 6.4).
+# Step 6.4: the four targets call the CLI. `run` logs a row in
+# reports/specifications.csv for every variant before it computes, and that
+# file is append-only, so `make run` is not idempotent: N in the deflated
+# Sharpe is its row count. Run it when you mean to add runs, not to rebuild.
 fetch:
-	@echo "fetch: not built yet (Phase 1)"
+	uv run curvecarry fetch --all
 
 build:
-	@echo "build: not built yet (steps 1.8-1.9)"
+	uv run curvecarry build --all
 
 run:
-	@echo "run: not built yet (step 5.3)"
+	uv run curvecarry run --all
 
 report:
-	@echo "report: not built yet (step 6.4)"
+	uv run curvecarry report
+
+# `build --all` stops before the three steps that read a completed backtest.
+# The whole sequence, from raw files to the report, is:
+#     make build                                  # loaders, curves, carry, returns, signal, weights, overlay
+#     uv run curvecarry run --all                 # the eleven logged runs
+#     uv run curvecarry build --step decomposition
+#     uv run curvecarry run --risk-controls       # the six logged control runs
+#     uv run curvecarry build --step risk_controls
+#     uv run curvecarry build --step caveats
+#     make report
+# Everything except the two `run` lines, which append to the spec log.
+all: build report

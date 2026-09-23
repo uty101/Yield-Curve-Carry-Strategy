@@ -290,6 +290,11 @@ def build(
     cdir = Path(checks_dir) if checks_dir is not None else checks.CHECKS
     names = variants if variants is not None else list(backtest.VARIANTS)
     names = [v for v in names if (cdir / f"positions_{v}.parquet").exists()]
+    if not names:
+        raise RuntimeError(
+            "no positions_<variant>.parquet in "
+            f"{cdir}: run `curvecarry run --all` before `build --step decomposition`"
+        )
     shares = []
     for variant in names:
         _pieces, table, rows = decompose(variant, cfg, p, cdir)

@@ -2270,8 +2270,22 @@ count Phase 5 left behind.
   section; the DSR line; the list of charts. Also regenerates the 5
   charts (1, 2, 3, 4, 5) by calling the chart functions.
 - `README.md`: the block between `<!-- results:begin -->` and
-  `<!-- results:end -->` is pasted from the metrics table in
-  `reports/results.md` by the session, verbatim.
+  `<!-- results:end -->` is written by `results.write` from **the same string**
+  it puts in `reports/results.md`, so the two cannot drift.
+  **Session-6 amendment 5** fixes what is in it: the **per-year return table
+  for the headline**, the **full variant table** (both windows, every logged
+  variant), and the **eleven-plus logged runs with their labels**, straight
+  from `reports/specifications.csv`. `tests/test_readme.py` asserts the two
+  blocks are equal and that nothing percentage-, decimal- or date-shaped
+  appears in the README outside them.
+  **Session-6 deviation 7.** The report lives in `src/curvecarry/results.py`,
+  not in `report.py`, for the reason deviation 5 gives: `report.py` is already
+  three tables and this is a page of prose plus three more.
+  **Session-6 deviation 8.** `build --all` stops before `decomposition`,
+  `risk_controls` and `caveats`, which read a completed backtest and cannot
+  run before `run`. The whole raw-to-report sequence is written out in the
+  `Makefile`; `make all` is `build` and `report` only, because `make run`
+  appends to the append-only spec log and so changes `N`.
 - CLI `report`. `Makefile` targets `fetch`, `build`, `run`, `report` now
   call the CLI (`uv run curvecarry fetch --all`, `build --all`,
   `run --all`, `report`).
