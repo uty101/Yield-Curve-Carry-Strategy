@@ -65,6 +65,42 @@ residual of the full repricing, the Taylor term is reported beside the
 identity and never inside it, and `yield_change_taylor` now takes the same
 `Δy` as 4.2 so `taylor_residual` really is the weighted 4.2 gap.
 
+## Second fix round (2026-09-23): the identity accounting
+
+One commit, `8e51b3a`. `return_identity.csv` gains nine columns so the
+explanation of the flagged gaps lives in the file rather than only in the #18
+comment: `trend_linearisation_bp`, `coupon_vs_zero_bp`, `linear_exact_bp`,
+`convexity_bp`, `accounting_sum_bp`, `accounting_gap_bp`,
+`r_local_sd_monthly`, `half_var_ann_bp`, `annualisation`.
+
+**224 passed**; ruff clean. Three results:
+
+- **The annualisation is arithmetic — `mean × 12`, never compounded** — on
+  both sides of `diff_bp` (`_ann` is `x.mean() * 12`). The `annualisation`
+  column states it on all 96 rows. So the conditional in the owner's
+  instruction does not fire: there is no geometric-versus-arithmetic wedge and
+  no `σ²/2` term to remove, and no arithmetic duplicate columns were added
+  because they would be identical to the existing ones.
+- **The residual does not track half the annualised variance.** 17 of the 25
+  flagged residuals are negative while `half_var_ann_bp` is positive by
+  construction; the ratio runs −1.83 to +2.01. What *does* track it is
+  `convexity_bp` — correlation **0.998** over all 96 rows, ratio 1.13 to 1.37.
+  The variance term the owner suspected is real and grows with duration, but
+  it is already one of the three accounted terms, not a missing correction.
+- **The residual now splits exactly**, to 0.0 and not approximately:
+  `trend_residual_bp = coupon_vs_zero_bp + trend_linearisation_bp +
+  convexity_bp + accounting_gap_bp`. `trend_linearisation_bp` is the only
+  term of either sign and it is what makes GB 30y +244 bp against CA 30y
+  −105 bp — the trend comparison's own linearisation, not compounding.
+
+**Every one of the 25 flagged rows is accounted for; none is unexplained.**
+The per-row verdict, grouped by `convexity_bp / |linear_exact_bp|`, is the
+table in `review/4.2.md` → "Per-row verdict on the 25 flagged rows": 13 rows
+trend-dominant, 5 mixed, 5 convexity-dominant, 2 where the trend
+over-explains and convexity gives it back (GB 30y), and **US 30y over the
+strategy window as the one row with no trend at all** — its mean yield change
+is −1.0 bp a year and its whole +85.0 bp gap is convexity, +140.8.
+
 ## What did not go to plan
 
 **One decision issue, #17 — answered 2026-09-23 and closed. While it was
@@ -113,7 +149,7 @@ Finished. All of Phase 4 is built, committed and pushed.
   issue **#17**, answered and **closed**.
 - Session 3's review issue **#16** is closed.
 
-Last commit of the fix round: `cb14f03`.
+Last commit of the fix rounds: `8e51b3a` (plus this status commit).
 
 Nothing starts on Session 5 until `Session 4 approved` is posted and the
 approval line is in `CLAUDE.md` → Validation status.
