@@ -1899,13 +1899,28 @@ rows, and `data/checks/metrics_carry_hedged.csv`,
 
 ## Step 5.4 — Slope overlay
 
+**Ruling of 2026-09-23 (issue #19), carried here so nothing is built on the
+other reading.** The overlay's expanding PC2 is fitted **per country, on that
+country's own change rows**, not on the pooled panel. Two reasons, the
+owner's: the overlay trades a **national 2s10s pair**, so `v2` must be the
+vector describing that country's slope rather than the average country's;
+and the pooled set is the intersection of the six country sets, `1` to `10`
+years, which would drop the long end out of the slope measure for DE, JP, CA
+and FR. Each country's expanding fit uses **that country's own tenor set**
+from `data/checks/pca_tenor_sets.csv`, the **3.1 sign convention**, and
+**`config.pca.pca_min_months` = 60**. **6.2 keeps the pooled PC1**, which is
+the right object for a book-wide volatility gauge. The contradicting
+sentence in the `pca.py` module docstring is corrected in the same session,
+in its own commit.
+
 **Build**
 - `src/curvecarry/overlay.py`:
   - `expanding_pc2_scores(changes_by_country, cfg) -> pd.DataFrame`: for
     country `c` and month `t`, if the number of complete change rows
     dated ≤ `t` is ≥ `config.pca.pca_min_months` (60): PCA (3.1 rules) on
-    rows ≤ `t`, `score_t = (Δy_t − mean_{≤t}) @ v2^{(≤t)}`; otherwise NaN.
-    Never full-sample loadings. Output
+    **country `c`'s own** rows ≤ `t`,
+    `score_t = (Δy_t − mean_{≤t}) @ v2^{(≤t)}`; otherwise NaN.
+    Never full-sample loadings, and never a pooled loading vector. Output
     `data/processed/pc2_expanding.parquet` (`country, date, score, n_months`).
   - `zscore(scores, window = config.pca.pca_z_window) -> pd.Series`:
     `(s_t − mean_{t−35..t}) / std_{t−35..t}` (ddof 1), NaN until 36 scores.

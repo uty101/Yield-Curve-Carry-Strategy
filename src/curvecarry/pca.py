@@ -26,11 +26,31 @@ non-zero element positive. 10 years is in all seven scopes, so no rule needs
 a fallback.
 
 **Two pooled fits** (issue #15 answer 5). ``pooled`` is the primary fit, on
-the intersection of the six country sets; **it is the only pooled fit any
-later step reads** — 5.4's PC2 z-score and 6.2's PC1 vol control take
-``scope == "pooled"``. ``pooled_20y`` is a secondary fit on
-``1, 2, 3, 5, 7, 10, 20`` over the months every country has complete on it,
-reported beside the primary one and read by nothing after 3.3.
+the intersection of the six country sets, which is ``1, 2, 3, 5, 7, 10``;
+**it is the only pooled fit any later step reads**. ``pooled_20y`` is a
+secondary fit on ``1, 2, 3, 5, 7, 10, 20`` over the months every country has
+complete on it, reported beside the primary one and read by nothing after
+3.3.
+
+**What each later step actually takes** (issue #19, answered 2026-09-23;
+this paragraph replaces the earlier sentence that said 5.4 takes the pooled
+scope, which contradicted PLAN.md 5.4 and was wrong):
+
+- **5.4, the slope overlay, does not read this module's stored fits at all.**
+  It builds its own **per-country expanding-window** PCA in
+  ``curvecarry.overlay`` - country ``c``'s own change rows dated at or
+  before ``t``, on country ``c``'s own tenor set from this module, with the
+  sign convention and ``pca_min_months`` below. The overlay trades a
+  national 2s10s pair, so its ``v2`` has to be the vector describing that
+  country's slope rather than the average country's; and the pooled set
+  stops at 10 years, which would drop the long end out of the slope measure
+  for DE, JP, CA and FR.
+- **6.2's PC1 volatility control takes ``scope == "pooled"``** from this
+  module. That control is a book-wide gauge of how violently rates are
+  moving, so one vector across the six countries is the right object there.
+
+The fits stored here are **full sample** and are for 3.1 to 3.3's reporting.
+Nothing that trades reads them (rule 7).
 """
 
 from __future__ import annotations
@@ -328,8 +348,10 @@ def fit_pooled(changes: dict[str, pd.DataFrame], tenors: list[float], scope: str
     """Every country's changes on ``tenors``, each demeaned by its own column means, stacked.
 
     ``scope = "pooled"`` is the primary fit and the only pooled fit any step
-    after 3.3 reads; ``scope = "pooled_20y"`` is the secondary one, on the
-    months every country has complete on the 20-year set (issue #15 answer 5).
+    after 3.3 reads - 6.2's PC1 volatility control, and nothing else;
+    ``scope = "pooled_20y"`` is the secondary one, on the months every country
+    has complete on the 20-year set (issue #15 answer 5). **5.4 does not read
+    either**: it fits its own per-country expanding PCA (issue #19).
     """
     blocks, dates = [], {}
     for country, c in changes.items():
