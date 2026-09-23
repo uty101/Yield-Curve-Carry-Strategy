@@ -55,6 +55,8 @@ SIGNAL_EXCLUSIONS = CHECKS / "signal_exclusions.csv"  # step 5.1
 UNIVERSE_ELIGIBLE = CHECKS / "universe_eligible.csv"  # step 5.1, session-5 amendment 3
 UNIVERSE_CHANGES = CHECKS / "universe_changes.csv"  # step 5.1, session-5 amendment 3
 WEIGHTS_EMPTY_MONTHS = CHECKS / "weights_empty_months.csv"  # step 5.2
+OVERLAY_TRADES = CHECKS / "overlay_trades.csv"  # step 5.4
+OVERLAY_SKIPPED = CHECKS / "overlay_skipped.csv"  # step 5.4, a country-month with no leg duration
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",

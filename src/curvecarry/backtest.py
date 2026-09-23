@@ -50,6 +50,7 @@ import pandas as pd
 
 from curvecarry import checks, harmonise, metrics, speclog
 from curvecarry import weights as wt
+from curvecarry.weights import LEG_LONG, LEG_SHORT
 
 WINDOW_FULL = "full"
 WINDOW_SIX = "six"
@@ -78,10 +79,46 @@ class Variant:
     exclude_buckets: tuple[tuple[str, float], ...] = ()
 
 
-# The variants of step 5.3. 5.4 and 5.5 add their own entries.
+BOOK_CARRY = "carry"
+BOOK_OVERLAY = "overlay"
+BOOK_COMBINED = "combined"
+
+# Steps 5.3 (the first two), 5.4 (the two overlay books) and 5.5 (the rest).
+# Eleven logged runs in this session, and every one of them is reported.
 VARIANTS: dict[str, Variant] = {
-    "carry_hedged": Variant(book="carry", returns_column="r_hedged"),
-    "carry_unhedged": Variant(book="carry", returns_column="r_unhedged"),
+    "carry_hedged": Variant(book=BOOK_CARRY, returns_column="r_hedged"),
+    "carry_unhedged": Variant(book=BOOK_CARRY, returns_column="r_unhedged"),
+    "overlay_hedged": Variant(book=BOOK_OVERLAY, returns_column="r_hedged"),
+    "overlay_unhedged": Variant(book=BOOK_OVERLAY, returns_column="r_unhedged"),
+    "combined_hedged": Variant(book=BOOK_COMBINED, returns_column="r_hedged"),
+    "combined_unhedged": Variant(book=BOOK_COMBINED, returns_column="r_unhedged"),
+    # session-5 amendment 2: five robustness runs on the headline book,
+    # fixed before any of their results were seen and all reported.
+    "carry_hedged_country_scope": Variant(
+        book=BOOK_CARRY,
+        returns_column="r_hedged",
+        overrides={"weights": {"duration_neutral_scope": "country"}},
+    ),
+    "carry_hedged_interbank_3m": Variant(
+        book=BOOK_CARRY,
+        returns_column="r_hedged_interbank_3m",
+        overrides={"hedge": {"funding_rate": "interbank_3m"}},
+    ),
+    "carry_hedged_cost0": Variant(
+        book=BOOK_CARRY,
+        returns_column="r_hedged",
+        overrides={"costs": {"cost_bp_per_duration_year": 0.0}},
+    ),
+    "carry_hedged_cost2x": Variant(
+        book=BOOK_CARRY,
+        returns_column="r_hedged",
+        overrides={"costs": {"cost_bp_per_duration_year": 1.0}},
+    ),
+    "carry_hedged_no_gb30": Variant(
+        book=BOOK_CARRY,
+        returns_column="r_hedged",
+        exclude_buckets=(("GB", 30.0),),
+    ),
 }
 
 HEADLINE = "carry_hedged"
@@ -150,6 +187,53 @@ def available_signal(
     out.loc[~keep, "eligible"] = False
     out.loc[~keep & (out["excluded_reason"] == ""), "excluded_reason"] = "unavailable_for_variant"
     return out
+
+
+def overlay_book(
+    positions: pd.DataFrame, returns: pd.DataFrame, variant: Variant, cfg: dict
+) -> pd.DataFrame:
+    """The 5.4 pairs, restricted to the sample and to pairs this variant can hold.
+
+    A pair is dropped **whole** when either leg has no return for this
+    variant: holding one side of a 2s10s pair would leave the overlay book
+    with a naked duration position, which is the one thing it is built not
+    to have.
+    """
+    start = pd.Timestamp(cfg["sample"]["strategy_start"])
+    end = pd.Timestamp(cfg["sample"]["strategy_end"])
+    p = positions[(positions["date"] >= start) & (positions["date"] <= end)].copy()
+    col = variant.returns_column
+    have = returns.loc[returns[col].notna(), ["date", "country", "tenor_years"]]
+    have = set(zip(have["date"], have["country"], have["tenor_years"], strict=True))
+    ok = np.array(
+        [
+            (d, c, t) in have
+            for d, c, t in zip(p["date"], p["country"], p["tenor_years"], strict=True)
+        ]
+    )
+    p = p[ok]
+    whole = p.groupby(["date", "country"])["tenor_years"].transform("size") == 2
+    p = p[whole]
+    p["signal"] = np.nan
+    return p[wt.WEIGHT_COLUMNS].reset_index(drop=True)
+
+
+def combine_books(carry: pd.DataFrame, overlay: pd.DataFrame) -> pd.DataFrame:
+    """Sum the two books per ``(date, country, tenor)``; both are neutral, so the sum is."""
+    both = pd.concat([carry, overlay], ignore_index=True)
+    grouped = both.groupby(["date", "country", "tenor_years"], as_index=False).agg(
+        signal=("signal", "first"),
+        duration=("duration", "first"),
+        weight=("weight", "sum"),
+        wd=("wd", "sum"),
+    )
+    grouped = grouped[grouped["wd"] != 0.0]
+    grouped["leg"] = np.where(grouped["wd"] > 0, LEG_LONG, LEG_SHORT)
+    return (
+        grouped[wt.WEIGHT_COLUMNS]
+        .sort_values(["date", "country", "tenor_years"])
+        .reset_index(drop=True)
+    )
 
 
 def bucket_returns(returns: pd.DataFrame, variant: Variant) -> pd.DataFrame:
@@ -319,6 +403,61 @@ def extreme_months(
     return pd.DataFrame(rows, columns=EXTREME_COLUMNS)
 
 
+def variant_signal(spec: Variant, cfg_run: dict, processed: Path) -> pd.DataFrame:
+    """The 5.1 signal frame this variant ranks on.
+
+    A variant that overrides ``hedge.funding_rate`` cannot use the stored
+    ``signal.parquet``: carry is ``y_n - r_short`` and ``r_short`` is the
+    funding rate, so the whole signal changes with it. Its carry and signal
+    are rebuilt in memory from ``curves_zero.parquet`` and
+    ``funding.parquet`` under the overridden config, and ``config.toml`` is
+    still not touched.
+    """
+    from curvecarry import carry as carry_mod
+    from curvecarry import signal as signal_mod
+    from curvecarry.loaders import base
+
+    if "funding_rate" not in spec.overrides.get("hedge", {}):
+        return pd.read_parquet(processed / "signal.parquet")
+    zero = pd.read_parquet(processed / "curves_zero.parquet")
+    funding = pd.read_parquet(base.INTERIM / "funding.parquet")
+    carry, _missing = carry_mod.build_carry(zero, funding, cfg_run)
+    universe = pd.read_csv(checks.UNIVERSE_BY_MONTH)
+    return signal_mod.compute_signal(carry, universe, cfg_run)
+
+
+def book_positions(
+    spec: Variant,
+    cfg_run: dict,
+    returns: pd.DataFrame,
+    run_id: str,
+    processed: Path,
+    spec_path: str | Path = speclog.DEFAULT_PATH,
+) -> pd.DataFrame:
+    """The held book of this variant: carry, overlay, or the sum of the two."""
+    speclog.require_logged(run_id, spec_path)
+    start = pd.Timestamp(cfg_run["sample"]["strategy_start"])
+    end = pd.Timestamp(cfg_run["sample"]["strategy_end"])
+
+    carry_held = pd.DataFrame(columns=wt.WEIGHT_COLUMNS)
+    if spec.book in (BOOK_CARRY, BOOK_COMBINED):
+        signal = variant_signal(spec, cfg_run, processed)
+        signal = signal[(signal["date"] >= start) & (signal["date"] <= end)]
+        usable = available_signal(signal, returns, spec, run_id, spec_path)
+        carry_held, _empty = wt.duration_neutral_weights(usable, cfg_run)
+    if spec.book == BOOK_CARRY:
+        return carry_held
+
+    overlay_held = overlay_book(
+        pd.read_parquet(processed / "overlay_positions.parquet"), returns, spec, cfg_run
+    )
+    if spec.book == BOOK_OVERLAY:
+        return overlay_held
+    if spec.book != BOOK_COMBINED:
+        raise ValueError(f"unknown book {spec.book!r}")
+    return combine_books(carry_held, overlay_held)
+
+
 def run(
     cfg: dict,
     variant: str,
@@ -337,14 +476,12 @@ def run(
     )
 
     p = Path(processed) if processed is not None else harmonise.PROCESSED
-    signal = pd.read_parquet(p / "signal.parquet")
     returns = pd.read_parquet(p / "returns.parquet")
     start = pd.Timestamp(cfg_run["sample"]["strategy_start"])
     end = pd.Timestamp(cfg_run["sample"]["strategy_end"])
-    signal = signal[(signal["date"] >= start) & (signal["date"] <= end)]
 
-    usable = available_signal(signal, returns, spec, run_id, speclog_path)
-    held, _empty = wt.duration_neutral_weights(usable, cfg_run)
+    held = book_positions(spec, cfg_run, returns, run_id, p, speclog_path)
+    held = held[(held["date"] >= start) & (held["date"] <= end)]
     monthly, positions = monthly_returns(held, returns, spec, cfg_run, run_id, speclog_path)
     table = metric_rows(monthly, variant, cfg_run, run_id, speclog_path)
 
