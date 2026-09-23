@@ -82,6 +82,18 @@ amended into steps 2.1, 2.2 and 2.3 below in the same session:
 fired, issue #12 is open and step 2.4 is not built until it is answered**;
 (3) a held-out fit test across 2.2 and 2.3 (`data/checks/fit_holdout.csv`).
 
+**Session-3 amendments (2026-09-23, `instructions/session-3.md`)** — four,
+amended into steps 3.1 and 3.2 below in the same session:
+(1) the PCA tenor set is chosen per country rather than fixed at the 8
+standard tenors, with a stop condition — **the stop condition fired: the
+pooled set is 5 tenors, fewer than 6, so issue #15 is open and no step of
+Phase 3 is built until it is answered**;
+(2) sign normalisation restated for a variable tenor set;
+(3) the input is `curves_zero.parquet` in bp of monthly change, and a month
+enters only if it and the previous month are both complete on the set;
+(4) 3.2 reports the US decade loadings twice, with and without the
+borderline pre-1997 months carried forward from the Phase 1 gate.
+
 **v2 (2026-09-16, after the review of v1 in issue #2)** — four amendments:
 (A) every bucket return is an excess return over its own funding rate and
 the hedge is the CIP identity `r_hedged = r_excess_local`; (B) the funding
@@ -1146,66 +1158,121 @@ happens for a row outside it.
 
 ## Step 3.1 — PCA on monthly yield changes
 
+**Session-3 amendment 1 (2026-09-23): the tenor set is chosen, not fixed.**
+PCA needs a fixed tenor set, so it is chosen **per country**: the largest
+set of standard tenors (`config.tenors`) present in at least
+`config.pca.tenor_presence_min` (0.95) of that country's months, counted
+from the first month the country enters the panel. The **pooled** set is the
+intersection of the six country sets. `data/checks/pca_tenor_sets.csv`
+(`country, tenors_used, tenors_excluded, months_available, months_dropped_missing_tenor`)
+records the choice and names the excluded tenors. **Stop condition:** if any
+country's set has fewer than 5 tenors, or the pooled set has fewer than 6,
+the step stops and a `decision` issue is posted.
+
+**Session-3 amendment 3 (2026-09-23): the input.** The input is the **zero**
+curves of `data/processed/curves_zero.parquet` in basis points of monthly
+change — never the fitted NS or Svensson yields of Phase 2. A month enters
+only if **both it and the previous calendar month** carry every tenor in the
+set, so a gap is never bridged into a multi-month change reported as a
+one-month one.
+
 **Build**
 - `src/curvecarry/pca.py`:
-  - `monthly_changes_bp(zero_panel, cfg) -> pd.DataFrame`: wide per
-    country, index `date`, columns the 8 standard tenors,
+  - `tenor_sets(zero_panel, cfg) -> dict[str, list[float]]` and
+    `write_tenor_sets(...)` → `data/checks/pca_tenor_sets.csv` (amendment 1);
+    raises `TenorSetTooSmall` naming the scope when the stop condition fires.
+  - `monthly_changes_bp(zero_panel, cfg) -> dict[str, pd.DataFrame]`: wide per
+    country, index `date`, columns that country's tenor set,
     `Δy_t = (y_t − y_{t−1}) × 1e4` where `t−1` is the previous calendar
-    month end **and both months are present at all 8 tenors**; otherwise
-    the row is dropped and counted in `data/checks/pca_dropped.csv`
-    (`country, n_months_total, n_dropped, reason`). Non-standard tenors are
-    excluded.
-  - `pca(changes: np.ndarray) -> PCAResult`: demean by column;
+    month end **and both months are present at every tenor in the set**;
+    otherwise the row is dropped and counted in `data/checks/pca_dropped.csv`
+    (`country, n_months_total, n_dropped, reason`). Non-standard tenors and
+    standard tenors outside the set are excluded.
+  - `pca(changes: np.ndarray, tenors) -> PCAResult`: demean by column;
     `S = np.cov(X, rowvar=False, ddof=1)`; `w, V = np.linalg.eigh(S)`;
-    sort descending; sign rule per component:
-    PC1 loading at 10y > 0; PC2 `loading(30) − loading(2) > 0`;
-    PC3 `loading(10) − ½(loading(2) + loading(30)) > 0` (belly positive;
-    the kickoff fixes PC1 and PC2, PC3 is fixed here so the sign is
-    reproducible); PC4+ first non-zero element positive.
-    `PCAResult(loadings (8×8), eigenvalues, explained (= w / w.sum()), mean, scores)`.
+    sort descending; sign rule per component (**amendment 2**, restated for a
+    variable set): PC1 loading at **10 years** > 0; PC2 loading at
+    **(longest tenor in the set) − 2 years** > 0; PC3 loading at the
+    **middle tenor of the set** > 0; PC4+ first non-zero element positive.
+    The middle tenor of a set of even size is the lower of the two middle
+    entries. A set that does not contain the tenor a rule names is a stop,
+    not a fallback (it cannot arise once the stop condition of amendment 1
+    has been met and 10 years is in every set).
+    `PCAResult(loadings (n×n), eigenvalues, explained (= w / w.sum()), mean, scores)`.
   - `fit_country(cfg) -> None` and `fit_pooled(cfg) -> None`: pooled =
-    each country's changes demeaned by its own column means, stacked as
-    rows, one PCA; scores per country-month = that country's demeaned row
-    `@ V`.
+    each country's changes **on the pooled set** demeaned by its own column
+    means, stacked as rows, one PCA; scores per country-month = that
+    country's demeaned row `@ V`.
   - Outputs `data/processed/pca_loadings.parquet`
-    (`scope ∈ {US,…,FR,pooled}, component (1–8), tenor_years, loading`),
+    (`scope ∈ {US,…,FR,pooled}, component, tenor_years, loading`),
     `data/checks/pca_explained.csv` (`scope, component, eigenvalue, explained_share, n_months`),
     `data/processed/pca_scores.parquet` (`scope, country, date, component, score`).
+    `component` runs 1..n for a set of n tenors, so it is no longer 1–8 for
+    every scope.
 - CLI `build --step pca`.
 
 **Test** `tests/test_pca.py` (synthetic).
 - `test_explained_sums_to_one`: to 1e-12.
 - `test_scores_reconstruct_changes`: `scores @ V.T + mean == changes` to
-  1e-10 with all 8 components.
-- `test_sign_rules`: after normalisation the three inequalities hold.
+  1e-10 with all components.
+- `test_sign_rules`: after normalisation the three inequalities hold, on a
+  set whose longest tenor is not 30 and whose middle tenor is not 10.
 - `test_three_factor_data_gives_three_components`: data generated from 3
-  factors → explained shares 4–8 sum < 1e-10.
+  factors → explained shares 4+ sum < 1e-10.
 - `test_missing_tenor_month_dropped_and_counted`.
+- `test_gap_month_is_not_a_multi_month_change` (**amendment 3**): a panel with
+  one month removed yields no change row spanning the gap; the month after
+  the gap is dropped and counted.
+- `test_tenor_set_is_the_95pct_set`: a synthetic country whose 30y is present
+  in 94% of months excludes 30y and keeps the rest.
+- `test_tenor_set_too_small_raises`: a pooled intersection of 5 tenors raises
+  `TenorSetTooSmall`.
 - `test_pooled_scores_are_per_country_month`: pooled score frame has one
   row per `(country, date, component)`.
 
-**Done when** the six tests pass and the three outputs exist with
-`pooled` and six country scopes.
+**Done when** the tests pass and `pca_tenor_sets.csv`, `pca_dropped.csv`,
+`pca_explained.csv`, `pca_loadings.parquet` and `pca_scores.parquet` exist
+with `pooled` and six country scopes.
 
 ## Step 3.2 — Loading stability by decade
 
 **Build**
 - `pca.stability(cfg) -> pd.DataFrame` → `data/checks/pca_stability.csv`:
-  per country and decade (`1990s` = 1990-01..1999-12, `2000s`, `2010s`,
-  `2020s`), PCA on that decade's changes alone (same sign rules), and
-  `abs_corr = |corr(v_k^decade, v_k^full)|` for k = 1, 2, 3; columns
-  `country, decade, component, n_months, abs_corr, explained_share_decade`.
+  per country and decade (`1960s`…`2020s`, each `<yyyy>-01..<yyyy+9>-12`),
+  PCA on that decade's changes alone (same sign rules, the country's own
+  tenor set), and `abs_corr = |corr(v_k^decade, v_k^full)|` for k = 1, 2, 3;
+  columns `country, decade, component, n_months, abs_corr,
+  explained_share_decade, us_borderline_excluded`.
   A decade with fewer than `config.pca.stability_min_months` (24) months of
   changes is written with `abs_corr = NaN` and its `n_months`.
+
+**Session-3 amendment 4 (2026-09-23): the US twice.** The item `CLAUDE.md`
+carries forward from the Phase 1 gate is settled here. The US decade rows
+are written **twice**: once on all months (`us_borderline_excluded = False`)
+and once excluding the pre-1997 months whose 30-year zero-to-par gap in
+`data/checks/par_zero_gap.csv` exceeds
+`config.pca.us_borderline_gap_bp` (50) (`= True`). Every other country
+has the flag `False` only. The review says whether the **1980s** loading
+vector changes materially between the two.
 
 **Test** `tests/test_pca_stability.py` (synthetic).
 - `test_self_correlation_is_one`: full sample vs itself → 1.0 to 1e-12.
 - `test_stable_factor_structure_scores_high`: two decades drawn from the
   same 3-factor model → `abs_corr > 0.99` for PC1–3.
 - `test_short_decade_is_nan_with_count`.
+- `test_us_written_twice_with_flag` (**amendment 4**): the US has both flag
+  values for every decade that has any excluded month; no other country does.
 
-**Done when** the three tests pass and `data/checks/pca_stability.csv`
+**Done when** the four tests pass and `data/checks/pca_stability.csv`
 exists.
+
+**Two new `config.toml` keys (2026-09-23).** Amendments 1 and 4 each name a
+number that global rule 4 requires to live in `config.toml`, and rule 14
+says step 0.1 writes every key the plan names. The two are therefore added
+to `[pca]` and to `config.REQUIRED_KEYS` as part of this amendment, in a
+commit of their own: `tenor_presence_min = 0.95` and
+`us_borderline_gap_bp = 50`. Named in issue #15 so the owner can object
+before they land.
 
 ## Step 3.3 — Chart 2 and the explained-variance table
 
