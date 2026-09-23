@@ -23,4 +23,6 @@
 | overlay_unhedged | full | 1.79% | 9.10% | 0.197 | -28.01% | 1998-10-31 | 2008-04-30 | 2.075 | -4.62% | -15.02% | 348 | 2.04% | 0.224 | 0.422 |
 | overlay_unhedged | six | 1.82% | 9.73% | 0.187 | -24.91% | 2005-12-31 | 2008-04-30 | 2.215 | -4.62% | -15.02% | 261 | 2.08% | 0.214 | 0.413 |
 
-Deflated Sharpe: N = 11 (the row count of `reports/specifications.csv`), V[SR] = 0.001707 across the logged runs, monthly basis. Annualisation of every return and vol column: arithmetic, mean x 12.
+**DSR is a probability, not a Sharpe**: the probability that the true Sharpe exceeds the multiple-testing threshold, here SR0 = 0.067 monthly over N = 11 trials. N is the row count of `reports/specifications.csv`, V[SR] = 0.001707 across the logged runs, monthly basis. A DSR below about 0.95 does not clear the usual bar.
+
+Annualisation of every return and vol column: arithmetic, mean x 12.

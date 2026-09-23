@@ -114,6 +114,12 @@ def deflated_sharpe(
 ) -> tuple[float, float]:
     """``(SR0, DSR)`` - Bailey & Lopez de Prado (2014), per period (monthly).
 
+    **``DSR`` is a probability, not a Sharpe ratio**: the probability that the
+    true Sharpe exceeds ``SR0``, the threshold that ``n_trials`` trials would
+    be expected to produce by selection alone. It is never comparable with
+    the Sharpe reported beside it, and a value below about 0.95 does not
+    clear the usual bar (session-5 fix 3).
+
     ``SR0 = sqrt(V[SR]) * [(1 - g) * Phi^-1(1 - 1/N) + g * Phi^-1(1 - 1/(N e))]``
     with ``g`` the Euler-Mascheroni constant, and
 

@@ -2184,6 +2184,22 @@ exists.
 
 ## Step 6.4 — Report
 
+**How the deflated Sharpe is reported (session-5 fix 3).** The deflated Sharpe is **a probability that the true Sharpe exceeds the
+multiple-testing threshold, not a Sharpe** — here **0.57 against a threshold
+of 0.067 over 11 trials, which does not clear the usual bar**. It is written that way
+in `reports/results.md` and in `README.md`, in words as well as in the
+table, so that no reader can mistake it for a risk-adjusted return.
+
+**6.4 recomputes the DSR from the final `reports/specifications.csv` row
+count and never with a smaller `N`.** `metrics.deflated_sharpe` takes `N`
+from `speclog.count_runs()` at the moment the report is written, so every
+run logged by Phase 6 — the three risk controls of 6.2 above all — is in
+it. A DSR quoted from an earlier session's smaller `N` is a number that
+flatters the result, and quoting one is a reporting error, not a rounding
+difference. `tests/test_report.py` asserts that the `N` printed in
+`reports/results.md` equals `speclog.count_runs()` and is at least the
+count Phase 5 left behind.
+
 **Build**
 - `src/curvecarry/report.py::write(cfg) -> Path` → `reports/results.md`:
   header with `git commit`, `config_hash`, `N` runs, both sample windows;
@@ -2205,7 +2221,8 @@ character for character (whitespace-normalised at line ends only).
 `tests/test_report.py::test_report_writes_from_synthetic_checks`.
 
 **Done when** both tests pass, `reports/results.md` and the 5 charts exist,
-and the README block is the pasted table.
+the README block is the pasted table, and the DSR line in the report states
+the probability, its threshold and its `N` in the words above.
 
 ---
 

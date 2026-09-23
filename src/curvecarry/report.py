@@ -177,11 +177,16 @@ def metrics_table_md(table: pd.DataFrame) -> str:
     n = int(table["n_trials"].iloc[0])
     v = float(table["sr_var_trials"].iloc[0])
     lines.append("")
+    sr0 = float(table["sr0"].iloc[0])
     lines.append(
-        f"Deflated Sharpe: N = {n} (the row count of `reports/specifications.csv`), "
-        f"V[SR] = {v:.6f} across the logged runs, monthly basis. "
-        "Annualisation of every return and vol column: arithmetic, mean x 12."
+        "**DSR is a probability, not a Sharpe**: the probability that the true Sharpe "
+        f"exceeds the multiple-testing threshold, here SR0 = {sr0:.3f} monthly over "
+        f"N = {n} trials. N is the row count of `reports/specifications.csv`, "
+        f"V[SR] = {v:.6f} across the logged runs, monthly basis. A DSR below about "
+        "0.95 does not clear the usual bar."
     )
+    lines.append("")
+    lines.append("Annualisation of every return and vol column: arithmetic, mean x 12.")
     return "\n".join(lines) + "\n"
 
 
