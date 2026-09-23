@@ -1,0 +1,15 @@
+date,country,tenor_years,reason
+1979-05-31,GB,20.0,aged tenor beyond next curve
+1980-07-31,GB,20.0,aged tenor beyond next curve
+1985-09-30,GB,20.0,aged tenor beyond next curve
+1991-07-31,GB,20.0,aged tenor beyond next curve
+1981-02-28,US,30.0,aged tenor beyond next curve
+1981-11-30,US,30.0,aged tenor beyond next curve
+1982-02-28,US,30.0,aged tenor beyond next curve
+1982-05-31,US,30.0,aged tenor beyond next curve
+1982-09-30,US,30.0,aged tenor beyond next curve
+1985-08-31,US,20.0,aged tenor beyond next curve
+1985-08-31,US,30.0,aged tenor beyond next curve
+1986-12-31,US,20.0,aged tenor beyond next curve
+1986-12-31,US,30.0,aged tenor beyond next curve
+2002-02-28,US,30.0,aged tenor beyond next curve
