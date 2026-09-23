@@ -85,6 +85,40 @@ def test_skips_below_min_tenors() -> None:
     assert skip.loc[0, "date"] == dates[1] and skip.loc[0, "n_standard_tenors"] == 4
 
 
+def test_lam_at_bound_flags_either_end_only() -> None:
+    """Issue #14 option K: lam_at_bound is True within 1e-12 of either grid bound.
+
+    ns_dl rows are False in every month by construction (lambda is fixed at 0.7,
+    an interior point), which is the control that says the flag reads lambda.
+    """
+    lo, hi = GRID[0], GRID[1]
+    assert ns.lam_at_bound(lo, GRID) and ns.lam_at_bound(hi, GRID)
+    assert ns.lam_at_bound(lo + 1e-13, GRID) and ns.lam_at_bound(hi - 1e-13, GRID)
+    assert not ns.lam_at_bound(lo + 1e-9, GRID)
+    assert not ns.lam_at_bound(0.7, GRID)
+    got = ns.lam_at_bound(np.array([lo, 0.7, hi, lo + 1e-9]), GRID)
+    assert got.tolist() == [True, False, True, False]
+
+    # a flat curve: NS has no slope decay to estimate, so the search runs to a bound
+    date = pd.Timestamp("2020-01-31")
+    panel = pd.DataFrame(
+        {
+            "date": date,
+            "country": "XX",
+            "tenor_years": TENORS,
+            "yield": np.full(TENORS.size, 0.03),
+            "standard": True,
+            "interpolated": False,
+            "bootstrapped": False,
+        }
+    )
+    params, _ = ns.fit_panel(panel, CFG)
+    assert params["lam_at_bound"].dtype == bool
+    dl = params[params["model"] == "ns_dl"]
+    assert not dl["lam_at_bound"].any()  # fixed lambda is interior, always
+    assert dl["lam"].eq(CFG["nelson_siegel"]["ns_lambda_fixed"]).all()
+
+
 def test_holdout_points_split_by_country() -> None:
     """Amendment 3: GB/CA/JP contribute observed non-standard tenors, US/FR bootstrapped ones."""
     rows = []

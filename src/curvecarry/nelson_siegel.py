@@ -46,7 +46,9 @@ PARAM_COLUMNS = [
     "lam",
     "rmse_bp",
     "n_tenors",
+    "lam_at_bound",
 ]
+LAM_BOUND_ATOL = 1e-12  # issue #14 option K: lam counts as "at a bound" within this
 FITTED_COLUMNS = ["date", "country", "model", "tenor_years", "fitted"]
 SKIPPED_COLUMNS = ["country", "date", "n_standard_tenors", "reason"]
 HOLDOUT_COLUMNS = [
@@ -93,6 +95,24 @@ def fit_fixed_lambda(tau: np.ndarray, y: np.ndarray, lam: float) -> tuple[np.nda
     x = ns_loadings(tau, lam)
     beta, *_ = np.linalg.lstsq(x, np.asarray(y, dtype="float64"), rcond=None)
     return beta, _rmse(np.asarray(y, dtype="float64"), x @ beta)
+
+
+def lam_at_bound(lam: float | np.ndarray, grid: tuple[float, float, float]) -> bool | np.ndarray:
+    """True where ``lam`` sits on either end of the grid (issue #14, option K).
+
+    A bound hit is a constraint, not an estimate: the RMSE was still falling when
+    the search ran out of grid. It is flagged rather than fixed because widening
+    the grid does not remove it — lambda -> 0 is a degeneracy of Nelson-Siegel on
+    a flat curve, where the slope loading tends to the level loading and the
+    betas run away to cancel (``decisions/lambda_bound.md``). Chart 3 leaves
+    these months as gaps in its NS-free panel.
+    """
+    lo, hi = float(grid[0]), float(grid[1])
+    x = np.asarray(lam, dtype="float64")
+    out = np.isclose(x, lo, rtol=0.0, atol=LAM_BOUND_ATOL) | np.isclose(
+        x, hi, rtol=0.0, atol=LAM_BOUND_ATOL
+    )
+    return bool(out) if np.ndim(lam) == 0 else out
 
 
 def lambda_grid(grid: tuple[float, float, float]) -> np.ndarray:
@@ -160,12 +180,24 @@ def fit_panel(zero_panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, pd.Dat
         dl = NSFit(*(float(v) for v in beta_dl), lam_dl, rmse_dl * 1e4, int(tau.size))
         for model, f in (("ns_free", free), ("ns_dl", dl)):
             params.append(
-                (date, country, model, f.beta0, f.beta1, f.beta2, f.lam, f.rmse_bp, f.n_tenors)
+                (
+                    date,
+                    country,
+                    model,
+                    f.beta0,
+                    f.beta1,
+                    f.beta2,
+                    f.lam,
+                    f.rmse_bp,
+                    f.n_tenors,
+                    lam_at_bound(f.lam, grid),
+                )
             )
             vals = ns_loadings(tau, f.lam) @ np.array([f.beta0, f.beta1, f.beta2])
             for t, v in zip(tau, vals, strict=True):
                 fitted.append((date, country, model, float(t), float(v)))
     p = pd.DataFrame(params, columns=PARAM_COLUMNS)
+    p["lam_at_bound"] = p["lam_at_bound"].astype(bool)
     f = pd.DataFrame(fitted, columns=FITTED_COLUMNS)
     p = p.sort_values(["country", "date", "model"]).reset_index(drop=True)
     f = f.sort_values(["country", "date", "model", "tenor_years"]).reset_index(drop=True)
