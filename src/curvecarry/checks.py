@@ -61,6 +61,12 @@ OVERLAY_SKIPPED = CHECKS / "overlay_skipped.csv"  # step 5.4, a country-month wi
 METRICS_TABLE = CHECKS / "metrics_table.csv"  # step 5.5
 METRICS_TABLE_MD = CHECKS / "metrics_table.md"  # step 5.5
 UNHEDGED_FX_EXPOSURE = CHECKS / "unhedged_fx_exposure.csv"  # session-5 fix 2
+DECOMPOSITION_SHARES = CHECKS / "decomposition_shares.csv"  # step 6.1
+ATTRIBUTION_2022 = CHECKS / "attribution_2022"  # step 6.2, one file per variant (suffix added)
+RISK_CONTROLS = CHECKS / "risk_controls.csv"  # step 6.2, each control against its base
+RATES_VOL_FILTER = CHECKS / "rates_vol_filter.csv"  # step 6.2, the pooled PC1 vol and its flag
+NS_LAMBDA_BOUND = CHECKS / "ns_lambda_bound.csv"  # step 6.3, the share of months lambda is pinned
+SECTION_6_3 = CHECKS / "section_6_3.md"  # step 6.3
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",

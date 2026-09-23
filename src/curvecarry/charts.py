@@ -316,6 +316,9 @@ def build(cfg: dict, processed: Path | None = None, out_dir: Path = FIGURES) -> 
     # step 4.4
     carry = pd.read_parquet(p / "carry.parquet")
     paths.extend(chart4_carry_heatmap(carry, Path(out_dir) / "chart4_carry_per_duration.png"))
+
+    # step 6.1; skipped silently until the decomposition has been built
+    paths.extend(build_chart5(cfg, p, out_dir))
     return paths
 
 
@@ -467,4 +470,62 @@ def chart4_carry_heatmap(
         fig.suptitle(f"Chart 4 — {country}: carry per year of duration", fontsize=11)
         fig.tight_layout(rect=(0, 0, 1, 0.93))
         paths.append(_save(fig, out.parent / f"chart4_{country.lower()}.png"))
+    return paths
+
+
+# ------------------------------------ step 6.1: Chart 5, the decomposition
+
+CHART5_VARIANTS = ["carry_hedged", "combined_hedged"]
+CHART5_PIECES = {
+    "carry_earned": ("carry earned", "tab:green"),
+    "yield_change_pnl": ("yield-change PnL", "tab:red"),
+    "funding": ("funding", "tab:orange"),
+    "fx": ("FX", "tab:purple"),
+    "cost": ("cost", "tab:brown"),
+}
+CHART5_NET = {"color": "black", "linewidth": 2.0, "zorder": 5}
+
+
+def chart5_decomposition(decomposition: pd.DataFrame, variant: str, out: Path) -> Path:
+    """Cumulative sum of each piece and of ``r_net``, one panel, one variant.
+
+    The pieces are **summed, not compounded**: they add to ``r_net`` month by
+    month, and only the arithmetic cumulative sum keeps that true on the
+    chart. A wealth index would not add up and would invite the reader to
+    compare a compounded line with a summed one.
+    """
+    d = decomposition.sort_values("date")
+    dates = pd.to_datetime(d["date"])
+    fig, ax = plt.subplots(figsize=(11, 6))
+    for column, (label, colour) in CHART5_PIECES.items():
+        series = d[column].cumsum()
+        if float(series.abs().max()) == 0.0:
+            continue  # a piece that is identically zero for this variant
+        ax.plot(dates, series, label=label, color=colour, linewidth=1.3)
+    ax.plot(dates, d["r_net"].cumsum(), label="r_net (sum of the pieces)", **CHART5_NET)
+    ax.axhline(0.0, color="0.5", linewidth=0.8)
+    ax.set_ylabel("cumulative sum of monthly return (decimal)")
+    ax.set_xlabel("month")
+    ax.legend(loc="best", fontsize=9)
+    worst = float(d["identity_gap"].abs().max())
+    fig.suptitle(
+        f"Chart 5 — {variant}: the decomposition, cumulative (max |identity gap| {worst:.1e})",
+        fontsize=11,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return _save(fig, Path(out))
+
+
+def build_chart5(cfg: dict, processed: Path | None = None, out_dir: Path = FIGURES) -> list[Path]:
+    """One png per variant in ``CHART5_VARIANTS`` that has a decomposition file."""
+    p = Path(processed) if processed is not None else harmonise.PROCESSED
+    paths = []
+    for variant in CHART5_VARIANTS:
+        path = p / f"decomposition_{variant}.parquet"
+        if not path.exists():
+            continue
+        d = pd.read_parquet(path)
+        paths.append(
+            chart5_decomposition(d, variant, Path(out_dir) / f"chart5_decomposition_{variant}.png")
+        )
     return paths

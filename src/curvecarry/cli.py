@@ -14,6 +14,7 @@ uv run curvecarry build --step signal       # 5.1: signal.parquet, universe join
 uv run curvecarry build --step weights      # 5.2: weights.parquet, weights_empty_months.csv
 uv run curvecarry build --step overlay      # 5.4: pc2_expanding, overlay_positions, overlay_states
 uv run curvecarry build --step overlay_trades  # after the overlay run: the per-trade anatomy
+uv run curvecarry build --step decomposition   # 6.1: decomposition_<variant>.parquet, the shares
 uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry report --table            # 5.5: metrics_table.csv/.md, unhedged_fx_exposure.csv
@@ -45,9 +46,10 @@ STEPS: dict[str, tuple[str, str]] = {
     "weights": ("curvecarry.weights", "build"),
     "overlay": ("curvecarry.overlay", "build"),
     "overlay_trades": ("curvecarry.overlay", "build_trades"),
+    "decomposition": ("curvecarry.decomposition", "build"),
 }
 NOT_BUILT: dict[str, str] = {}
-CHARTS_BUILT = {"1", "2", "3", "4"}  # steps 2.4, 3.3 and 4.4; the rest arrive in 6.4
+CHARTS_BUILT = {"1", "2", "3", "4", "5"}  # 2.4, 3.3, 4.4 and 6.1
 
 
 def _loader(name: str):

@@ -2071,11 +2071,21 @@ Two consequences for the text below:
     (amendment A);
   - `yield_change_pnl_t = Σ_j w_j (r_local_full,j − c_j/12 − rolldown_j)` —
     the exact remainder, so the identity holds to machine precision. Its
-    Taylor form `Σ_j w_j (−D_j Δy_j + ½ C_j Δy_j²)` with **`Δy_j` the step-4.2
-    `dy`** (the change in the bond's own yield to maturity; the ruling above
-    replaces the curve move at the aged tenor first written here) is stored as
-    `yield_change_taylor_t` and the difference as `taylor_residual_t`, which is
-    then exactly the 4.2 `gap_bp` aggregated by the weights;
+    Taylor form `Σ_j w_j (−D_j Δy_j + ½ C_j Δy_j² − rolldown_j)` with
+    **`Δy_j` the step-4.2 `dy`** (the change in the bond's own yield to
+    maturity; the ruling above replaces the curve move at the aged tenor first
+    written here) is stored as `yield_change_taylor_t` and the difference as
+    `taylor_residual_t`, which is then exactly the 4.2 `gap_bp` aggregated by
+    the weights.
+    **Session-6 amendment 1, deviation 1 (`review/6.1.md`).** The `− rolldown_j`
+    inside the Taylor bracket is not decoration and was missing from this line
+    until session 6. The quantity being approximated is
+    `r_local − c/12 − rolldown`; the bare Taylor price term
+    `−D Δy + ½ C Δy²` approximates `r_local − c/12`; without subtracting the
+    rolldown in both places the difference carries a leftover
+    `−Σ_j w_j rolldown_j` and `test_taylor_residual_equals_weighted_gap` — the
+    test this step's "Done when" requires — cannot pass. The bare Taylor price
+    term is `yield_change_taylor + Σ_j w_j rolldown_j`;
   - `cost_t = −cost_t` from the backtest.
   - Identity: `carry_earned + yield_change_pnl + funding + fx + cost == r_net`
     to 1e-10 every month (for hedged variants `funding` and `fx` are zero
@@ -2084,7 +2094,13 @@ Two consequences for the text below:
     (`date, carry_earned, yield_change_pnl, yield_change_taylor, taylor_residual, funding, fx, cost, r_net, identity_gap`),
     `data/checks/decomposition_shares.csv` (`variant, window, piece, cumulative, share`
     where `cumulative` is the sum of the monthly piece and `share` its
-    fraction of the summed `r_net`).
+    fraction of the summed `r_net`). **Session-6 amendment 1, deviation 2**:
+    `window` takes the two sample windows **and each decade** of the full
+    window (`1990s`, `2000s`, `2010s`, `2020s`), because the session-6
+    instruction asks for the shares cumulative *and by decade*; a decade with
+    fewer than 12 months of the sample gets no row. A `piece = r_net` row
+    carries the window total, so the file reads without a second file. A
+    **closed** bucket contributes zero to every piece: it earned nothing.
   - `charts.chart5_decomposition(...)` →
     `reports/figures/chart5_decomposition_<variant>.png`: cumulative sum of
     each piece and of `r_net`, for `carry_hedged` and `combined_hedged`.
