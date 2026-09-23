@@ -17,22 +17,24 @@ def _fitted(dates: list[str], country: str = "XX") -> pd.DataFrame:
 
 
 def test_chart1_dates_rule() -> None:
-    """Last December with a fit per decade; the earliest fitted month for a missing decade."""
-    # a country with Decembers in the 2000s and 2010s only, and a first month in 2003-07
+    """Last December with a fit per decade; no row at all for a decade the country misses."""
+    # Decembers in the 2000s and 2010s; a 2020s month that is not a December; nothing in the 1990s
     dates = ["2003-07-31", "2005-12-31", "2009-12-31", "2014-12-31", "2019-12-31", "2021-06-30"]
-    got = charts.chart1_dates(_fitted(dates), DECADES).set_index("decade")["date"]
+    out = charts.chart1_dates(_fitted(dates), DECADES)
+    got = out.set_index("decade")["date"]
     assert got[2000] == pd.Timestamp("2009-12-31")  # the LAST December of the decade
     assert got[2010] == pd.Timestamp("2019-12-31")
-    assert got[1990] == pd.Timestamp("2003-07-31")  # decade absent -> earliest fitted month
-    assert got[2020] == pd.Timestamp("2003-07-31")  # 2021-06 is not a December -> same fallback
+    assert 1990 not in got.index  # no fitted month in the decade -> no row (fix round)
+    assert got[2020] == pd.Timestamp("2021-06-30")  # months but no December -> last month of it
+    assert len(out) == 3
+    assert out["date"].notna().all()  # the file holds only real dates
 
-    # two countries get independent fallbacks
+    # two countries, each with its own missing decades
     two = pd.concat([_fitted(dates, "AA"), _fitted(["2015-12-31"], "BB")], ignore_index=True)
-    out = charts.chart1_dates(two, DECADES)
-    assert len(out) == len(DECADES) * 2
-    bb = out[out["country"] == "BB"].set_index("decade")["date"]
-    assert bb[2010] == pd.Timestamp("2015-12-31")
-    assert bb[1990] == bb[2000] == bb[2020] == pd.Timestamp("2015-12-31")
+    both = charts.chart1_dates(two, DECADES)
+    bb = both[both["country"] == "BB"].set_index("decade")["date"]
+    assert bb.index.tolist() == [2010] and bb[2010] == pd.Timestamp("2015-12-31")
+    assert len(both) == 4
 
 
 def _panel_and_params(country: str = "XX") -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -101,7 +103,8 @@ def test_chart_functions_write_files(tmp_path: Path) -> None:
     zero, ns, sv = _panel_and_params()
     params = pd.concat([ns, sv], ignore_index=True)
     dates = charts.chart1_dates(params, DECADES)
-    paths = charts.chart1_fit(zero, params, dates, tmp_path)
+    assert sorted(dates["decade"]) == [2000, 2010]  # the fixture has no 1990s or 2020s month
+    paths = charts.chart1_fit(zero, params, dates, DECADES, tmp_path)
     assert len(paths) == 1 and paths[0].name == "chart1_fit_xx.png"
     p2 = charts.chart1_rmse(params, tmp_path / "chart1_rmse.png")
     p3, excluded = charts.chart3_betas(
@@ -111,6 +114,25 @@ def test_chart_functions_write_files(tmp_path: Path) -> None:
         assert p.exists() and p.stat().st_size > 0
     assert len(excluded) == 2  # both ns_free months are degenerate in this fixture
     assert set(excluded["reason"]) == {"bound"}
+
+
+def test_chart1_empty_panel_for_a_missing_decade(tmp_path: Path) -> None:
+    """A decade with no fitted month gets an empty panel, not another decade's curve.
+
+    The figure still has one panel per configured decade, so the six countries
+    stay comparable side by side (session 2 fix round).
+    """
+    zero, ns, sv = _panel_and_params()
+    params = pd.concat([ns, sv], ignore_index=True)
+    dates = charts.chart1_dates(params, DECADES)
+    assert 1990 not in set(dates["decade"]) and 2020 not in set(dates["decade"])
+    paths = charts.chart1_fit(zero, params, dates, DECADES, tmp_path)
+    assert len(paths) == 1 and paths[0].stat().st_size > 0
+    # a country with no fitted month in ANY configured decade has nothing to draw
+    far = charts.chart1_dates(params, [1950])
+    assert far.empty
+    assert charts.chart1_fit(zero, params, far, [1950], tmp_path / "empty") == []
+    assert charts.NO_FIT_TEXT.count(chr(10)) == 1  # two lines of centred grey text
 
 
 def test_chart1_draws_the_model_not_a_polyline() -> None:

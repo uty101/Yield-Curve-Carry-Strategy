@@ -1090,10 +1090,15 @@ happens for a row outside it.
   - `chart1_fit(zero_panel, fitted, dates: dict[str, list[pd.Timestamp]], out_dir) -> list[Path]`:
     per country one figure `reports/figures/chart1_fit_<cc>.png` with 4
     panels: observed points, NS-free line, Svensson line, on the 4 dates.
-    Dates: for each decade in `config.report.chart1_decades` the last
-    December month end with a fit; if a country lacks that decade, the
-    earliest fitted month. The chosen dates go to
-    `data/checks/chart1_dates.csv` (`country, decade, date`).
+    Dates: for each decade in `config.report.chart1_decades` the last December
+    month end with a fit; where a decade has fitted months but no fitted
+    December, its last fitted month. **Amended 2026-09-23 (session 2 fix
+    round):** where a country has **no** fitted month in a decade, `chart1_dates`
+    emits **no row** — the file holds only real dates — and the panel is drawn
+    empty, captioned "no fitted months in this decade". The earlier rule fell
+    back to the country's earliest fitted month, which put France's 2004-11-30
+    curve under a panel headed by the 1990s. The chosen dates go to
+    `data/checks/chart1_dates.csv` (`country, decade, date`; 23 rows, not 24).
   - `chart1_rmse(ns_params, sv_params, out) -> Path`:
     `reports/figures/chart1_rmse.png`, 6 panels, RMSE (bp) by month, NS-free
     vs NS-DL vs Svensson.

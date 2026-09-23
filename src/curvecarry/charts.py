@@ -56,6 +56,7 @@ RMSE_STYLE = {
     "sv": ("Svensson", "tab:red"),
 }
 DPI = 130
+NO_FIT_TEXT = "no fitted months\nin this decade"  # chart 1, a decade the country never reaches
 
 
 def _save(fig: plt.Figure, path: Path) -> Path:
@@ -68,18 +69,22 @@ def _save(fig: plt.Figure, path: Path) -> Path:
 def chart1_dates(fitted: pd.DataFrame, decades: list[int]) -> pd.DataFrame:
     """One date per country per decade: the last December month end with a fit.
 
-    If a country has no fitted December in a decade, the **earliest fitted month**
-    of that country is used instead (PLAN.md 2.4). A decade the country does not
-    reach at all still gets that fallback row, so every country has one panel per
-    decade and the figures are comparable.
+    Where a decade has no fitted December but the country does have fitted months
+    in it, that decade's **last fitted month** is used. Where the country has no
+    fitted month in the decade at all, **no row is emitted**: the file holds only
+    real dates, and ``chart1_fit`` draws an empty panel for the missing decade
+    (session 2 fix round; the earlier fallback to the country's earliest month
+    put a date in one decade's panel that belonged to another).
     """
     rows = []
     for country, g in fitted.groupby("country", sort=True):
         dates = pd.DatetimeIndex(sorted(g["date"].unique()))
-        first = dates.min()
         for decade in decades:
-            dec = dates[(dates.year >= decade) & (dates.year < decade + 10) & (dates.month == 12)]
-            rows.append((country, int(decade), dec.max() if len(dec) else first))
+            inside = dates[(dates.year >= decade) & (dates.year < decade + 10)]
+            if not len(inside):
+                continue
+            december = inside[inside.month == 12]
+            rows.append((country, int(decade), (december if len(december) else inside).max()))
     out = pd.DataFrame(rows, columns=CHART1_DATES_COLUMNS)
     return out.sort_values(["country", "decade"]).reset_index(drop=True)
 
@@ -108,19 +113,41 @@ def chart1_fit(
     zero_panel: pd.DataFrame,
     params: pd.DataFrame,
     dates: pd.DataFrame,
+    decades: list[int],
     out_dir: Path = FIGURES,
 ) -> list[Path]:
-    """One figure per country, 4 panels: observed standard tenors, NS-free, Svensson."""
+    """One figure per country, one panel per decade: observed tenors, NS-free, Svensson.
+
+    A decade with no row in ``dates`` — the country has no fitted month in it —
+    gets an empty panel saying so, rather than a repeat of another decade's
+    curve. A country with no row for **any** configured decade has no month to
+    draw and gets no figure at all.
+    """
     out_dir = Path(out_dir)
     obs = nelson_siegel.standard_points(zero_panel)
     grid = np.linspace(*TENOR_GRID, 300)
     paths = []
     for country, d in dates.groupby("country", sort=True):
-        d = d.sort_values("decade")
-        fig, axes = plt.subplots(1, len(d), figsize=(4.2 * len(d), 3.6), sharey=False)
+        by_decade = dict(zip(d["decade"], d["date"], strict=True))
+        fig, axes = plt.subplots(1, len(decades), figsize=(4.2 * len(decades), 3.6), sharey=False)
         axes = np.atleast_1d(axes)
-        for ax, (_, row) in zip(axes, d.iterrows(), strict=True):
-            date = pd.Timestamp(row["date"])
+        for ax, decade in zip(axes, decades, strict=True):
+            if int(decade) not in by_decade:
+                ax.set_title(f"{country} {decade}s", fontsize=10)
+                ax.text(
+                    0.5,
+                    0.5,
+                    NO_FIT_TEXT,
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    color="grey",
+                    transform=ax.transAxes,
+                )
+                ax.set_xticks([])
+                ax.set_yticks([])
+                continue
+            date = pd.Timestamp(by_decade[int(decade)])
             o = obs[(obs["country"] == country) & (obs["date"] == date)].sort_values("tenor_years")
             ax.plot(
                 o["tenor_years"],
@@ -138,8 +165,9 @@ def chart1_fit(
             ax.set_title(f"{country} {date.date()}", fontsize=10)
             ax.set_xlabel("tenor (years)")
             ax.grid(alpha=0.3)
-        axes[0].set_ylabel("zero yield (%)")
-        axes[0].legend(fontsize=8, loc="best")
+        drawn = [ax for ax, dec in zip(axes, decades, strict=True) if int(dec) in by_decade]
+        drawn[0].set_ylabel("zero yield (%)")
+        drawn[0].legend(fontsize=8, loc="best")  # the first panel that has something in it
         fig.suptitle(
             f"Chart 1 — {country}: fitted against observed zero curve, "
             "one month per decade (last December with a fit)",
@@ -269,10 +297,11 @@ def build(cfg: dict, processed: Path | None = None, out_dir: Path = FIGURES) -> 
     fitted = pd.read_parquet(p / "ns_fitted.parquet")
     params = pd.concat([ns_params, sv_params], ignore_index=True)
 
-    dates = chart1_dates(fitted, list(cfg["report"]["chart1_decades"]))
+    decades = [int(x) for x in cfg["report"]["chart1_decades"]]
+    dates = chart1_dates(fitted, decades)
     checks.CHECKS.mkdir(parents=True, exist_ok=True)
     dates.to_csv(checks.CHART1_DATES, index=False, lineterminator="\n")
-    paths = chart1_fit(zero, params, dates, out_dir)
+    paths = chart1_fit(zero, params, dates, decades, out_dir)
     paths.append(chart1_rmse(params, Path(out_dir) / "chart1_rmse.png"))
     path3, excluded = chart3_betas(ns_params, Path(out_dir) / "chart3_betas.png")
     excluded.to_csv(checks.CHART3_EXCLUDED, index=False, lineterminator="\n")
