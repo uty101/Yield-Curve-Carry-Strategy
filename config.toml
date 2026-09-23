@@ -65,6 +65,13 @@ min_tenors = 5                        # a country-month with fewer observed stan
 pca_min_months = 60                   # minimum months before an expanding-window PCA produces a score
 pca_z_window = 36                     # rolling window for the PC2 z-score (6.7)
 stability_min_months = 24             # a decade with fewer months of changes is not reported in 3.2
+tenor_presence_min = 0.95             # 3.1, session-3 amendment 1 (issue #15): a standard tenor is in a country's PCA
+                                      # tenor set if it is present in at least this share of that country's months from
+                                      # the first month the country has a 10-year zero (option C; PLAN.md 3.1)
+us_borderline_gap_bp = 50             # 3.2, session-3 amendment 4 (issue #15): the US decade rows are written a second
+                                      # time excluding the pre-1997 months whose 30-year zero-to-par gap in
+                                      # data/checks/par_zero_gap.csv exceeds this. A robustness check: 30y is not in the
+                                      # US PCA set under option C, so those months reach no loading through 30y
 
 # ----------------------------------------------------------------- strategy
 [signal]

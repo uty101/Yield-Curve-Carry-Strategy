@@ -47,6 +47,8 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "pca.pca_min_months",
     "pca.pca_z_window",
     "pca.stability_min_months",
+    "pca.tenor_presence_min",
+    "pca.us_borderline_gap_bp",
     "signal.yield_floor",
     "weights.long_duration_budget",
     "weights.duration_neutral_scope",
