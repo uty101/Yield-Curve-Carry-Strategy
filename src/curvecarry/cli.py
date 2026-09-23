@@ -16,7 +16,7 @@ uv run curvecarry build --step overlay      # 5.4: pc2_expanding, overlay_positi
 uv run curvecarry build --step overlay_trades  # after the overlay run: the per-trade anatomy
 uv run curvecarry run --variant carry_hedged  # 5.3: one logged run; --all runs every variant built
 uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
-uv run curvecarry report --table            # 5.5: data/checks/metrics_table.csv and .md
+uv run curvecarry report --table            # 5.5: metrics_table.csv/.md, unhedged_fx_exposure.csv
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -96,9 +96,13 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_report(args: argparse.Namespace) -> int:
     cfg = config.load()
     if args.table:
-        table = importlib.import_module("curvecarry.report").write_metrics_table(cfg)
+        module = importlib.import_module("curvecarry.report")
+        table = module.write_metrics_table(cfg)
         n = int(table["n_trials"].iloc[0])
         print(f"wrote metrics_table.csv: {table['variant'].nunique()} variants, N = {n}")
+        _rows, summary = module.unhedged_fx_exposure(cfg)
+        worst = summary["r_squared"].max()
+        print(f"wrote unhedged_fx_exposure.csv: {len(summary)} unhedged runs, max R2 {worst:.3f}")
         return 0
     want = {c.strip() for c in args.charts.split(",") if c.strip()}
     if want - CHARTS_BUILT:

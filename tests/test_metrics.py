@@ -141,3 +141,82 @@ def test_variant_override_is_in_note_and_hash() -> None:
     )
     assert "exclude_buckets" in backtest.variant_note(gb, "")
     assert "GB" in backtest.variant_note(gb, "")
+
+
+# ------------------------- session-5 fix 2: the unhedged runs are currency books
+
+
+def _fx_frames() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    idx = pd.date_range("2010-01-31", periods=6, freq="ME")
+    rng = np.random.default_rng(5)
+    rows, ret = [], []
+    for date in idx:
+        for country, weight in (("DE", 0.5), ("FR", 0.25), ("JP", -0.75), ("US", 1.0)):
+            fx = 0.0 if country == "US" else float(rng.normal(0, 0.02))
+            rows.append(
+                {
+                    "date": date,
+                    "country": country,
+                    "tenor_years": 5.0,
+                    "leg": "long" if weight > 0 else "short",
+                    "duration": 5.0,
+                    "weight": weight,
+                    "wd": weight * 5.0,
+                    "r": 0.0,
+                }
+            )
+            ret.append({"date": date, "country": country, "tenor_years": 5.0, "fx_return": fx})
+    cfg = {
+        "base_currency": "USD",
+        "countries": ["US", "DE", "JP", "FR"],
+        "currency": {"US": "USD", "DE": "EUR", "JP": "JPY", "FR": "EUR"},
+    }
+    return pd.DataFrame(rows), pd.DataFrame(ret), cfg
+
+
+def test_net_notional_is_summed_per_currency_not_per_country() -> None:
+    """DE and FR are one exposure, because they are one currency."""
+    positions, returns, cfg = _fx_frames()
+    table = report.fx_exposure_rows(positions, returns, cfg)
+    first = table[table["date"] == table["date"].min()].set_index("currency")
+    assert set(first.index) == {"EUR", "JPY", "USD"}
+    assert first.loc["EUR", "net_notional"] == pytest.approx(0.75)  # 0.5 DE + 0.25 FR
+    assert first.loc["JPY", "net_notional"] == pytest.approx(-0.75)
+    assert first.loc["USD", "net_notional"] == pytest.approx(1.0)
+    # the contribution is the notional times the currency's own move
+    de_fx = returns[(returns["country"] == "DE") & (returns["date"] == table["date"].min())]
+    fr_fx = returns[(returns["country"] == "FR") & (returns["date"] == table["date"].min())]
+    expected = 0.5 * float(de_fx["fx_return"].iloc[0]) + 0.25 * float(fr_fx["fx_return"].iloc[0])
+    assert first.loc["EUR", "contribution"] == pytest.approx(expected)
+
+
+def test_a_book_that_is_only_fx_regresses_to_r_squared_one() -> None:
+    """The regression recovers the FX term when the book is nothing else."""
+    positions, returns, cfg = _fx_frames()
+    table = report.fx_exposure_rows(positions, returns, cfg)
+    term = table[table["currency"] != "USD"].groupby("date")["contribution"].sum()
+    monthly = pd.DataFrame({"date": term.index, "r_gross": term.to_numpy() + 0.001})
+
+    out = report.fx_regression(table, monthly, "USD")
+    assert out["r_squared"] == pytest.approx(1.0, abs=1e-12)
+    assert out["beta"] == pytest.approx(1.0, abs=1e-12)
+    assert out["alpha_ann"] == pytest.approx(0.012, abs=1e-12)
+    assert out["n_months"] == 6
+
+    # a book with no currency exposure at all has none of its variance explained
+    flat = pd.DataFrame({"date": term.index, "r_gross": [0.001, -0.002] * 3})
+    assert report.fx_regression(table, flat, "USD")["r_squared"] < 0.9
+
+
+def test_months_with_no_foreign_exposure_are_zero_not_missing() -> None:
+    """Dropping them would regress on the subsample where the exposure was on."""
+    positions, returns, cfg = _fx_frames()
+    table = report.fx_exposure_rows(positions, returns, cfg)
+    dates = sorted(table["date"].unique())
+    # the book covers two months the exposure table never mentions
+    extra = list(pd.date_range(dates[-1], periods=3, freq="ME"))[1:]
+    monthly = pd.DataFrame(
+        {"date": list(dates) + extra, "r_gross": [0.001] * (len(dates) + len(extra))}
+    )
+    out = report.fx_regression(table, monthly, "USD")
+    assert out["n_months"] == len(dates) + len(extra)

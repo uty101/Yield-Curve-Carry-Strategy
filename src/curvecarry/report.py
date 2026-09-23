@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from curvecarry import checks
@@ -191,3 +192,106 @@ def write_metrics_table(cfg: dict, processed: Path | None = None) -> pd.DataFram
     table.to_csv(checks.METRICS_TABLE, index=False, lineterminator="\n")
     checks.METRICS_TABLE_MD.write_text(metrics_table_md(table), encoding="utf-8")
     return table
+
+
+# -------------------------------- session-5 fix 2: what the unhedged runs are
+
+UNHEDGED_VARIANTS = ("carry_unhedged", "overlay_unhedged", "combined_unhedged")
+FX_EXPOSURE_COLUMNS = ["variant", "date", "currency", "net_notional", "fx_return", "contribution"]
+FX_REGRESSION_COLUMNS = [
+    "variant",
+    "n_months",
+    "beta",
+    "alpha_ann",
+    "r_squared",
+    "sd_book",
+    "sd_fx_term",
+    "mean_abs_net_notional",
+    "max_abs_net_notional",
+]
+
+
+def fx_exposure_rows(positions: pd.DataFrame, returns: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Net notional per currency per month, and the FX return it was exposed to.
+
+    The book is neutral in **duration**; it is not neutral in **notional**,
+    and notional is what carries currency risk. A bucket's capital weight is
+    an exposure to that country's currency, so the net exposure to a currency
+    is the sum of the weights of every bucket in it (DE and FR share EUR).
+    """
+    currency = cfg["currency"]
+    fx = returns[["date", "country", "tenor_years", "fx_return"]]
+    p = positions.merge(fx, on=["date", "country", "tenor_years"], how="left")
+    p["currency"] = p["country"].map(currency)
+    p["contribution"] = p["weight"] * p["fx_return"]
+    grouped = p.groupby(["date", "currency"], as_index=False).agg(
+        net_notional=("weight", "sum"),
+        contribution=("contribution", "sum"),
+    )
+    # the currency's own FX return, for reference: the contribution per unit of notional
+    with np.errstate(invalid="ignore", divide="ignore"):
+        grouped["fx_return"] = grouped["contribution"] / grouped["net_notional"].replace(
+            0.0, np.nan
+        )
+    return grouped[FX_EXPOSURE_COLUMNS[1:]]
+
+
+def fx_regression(exposure: pd.DataFrame, monthly: pd.DataFrame, base: str) -> dict:
+    """Regress the book's monthly unhedged return on its own currency-weighted FX return."""
+    term = exposure[exposure["currency"] != base].groupby("date")["contribution"].sum()
+    r = monthly.set_index("date")["r_gross"].sort_index()
+    # a month the book held nothing foreign has an FX term of exactly zero, not a
+    # missing one; dropping those months would regress on the subsample where the
+    # exposure was on, which is the subsample that flatters the hedged reading
+    term = term.reindex(r.index).fillna(0.0)
+    joined = pd.concat([r.rename("book"), term.rename("fx")], axis=1).dropna()
+    if len(joined) < 3:
+        return dict.fromkeys(FX_REGRESSION_COLUMNS[1:], float("nan")) | {"n_months": len(joined)}
+    x = joined["fx"].to_numpy()
+    y = joined["book"].to_numpy()
+    beta, alpha = np.polyfit(x, y, 1)
+    fitted = alpha + beta * x
+    ss_res = float(((y - fitted) ** 2).sum())
+    ss_tot = float(((y - y.mean()) ** 2).sum())
+    net = (
+        exposure[exposure["currency"] != base]
+        .groupby("date")["net_notional"]
+        .apply(lambda s: float(np.abs(s).sum()))
+    )
+    return {
+        "n_months": len(joined),
+        "beta": float(beta),
+        "alpha_ann": float(alpha * 12),
+        "r_squared": 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan"),
+        "sd_book": float(joined["book"].std(ddof=1)),
+        "sd_fx_term": float(joined["fx"].std(ddof=1)),
+        "mean_abs_net_notional": float(net.mean()),
+        "max_abs_net_notional": float(net.max()),
+    }
+
+
+def unhedged_fx_exposure(cfg: dict, processed: Path | None = None) -> tuple:
+    """``data/checks/unhedged_fx_exposure.csv``: the per-month table, then the regressions."""
+    from curvecarry import harmonise
+
+    p = Path(processed) if processed is not None else harmonise.PROCESSED
+    returns = pd.read_parquet(p / "returns.parquet")
+    base_currency = str(cfg["base_currency"])
+    tables, summaries = [], []
+    for variant in UNHEDGED_VARIANTS:
+        positions = pd.read_parquet(checks.CHECKS / f"positions_{variant}.parquet")
+        monthly = pd.read_parquet(p / f"backtest_{variant}.parquet")
+        rows = fx_exposure_rows(positions, returns, cfg)
+        rows.insert(0, "variant", variant)
+        tables.append(rows)
+        summaries.append({"variant": variant} | fx_regression(rows, monthly, base_currency))
+    table = pd.concat(tables, ignore_index=True)[FX_EXPOSURE_COLUMNS]
+    summary = pd.DataFrame(summaries, columns=FX_REGRESSION_COLUMNS)
+
+    checks.CHECKS.mkdir(parents=True, exist_ok=True)
+    out = table.copy()
+    out["date"] = pd.to_datetime(out["date"]).dt.date.astype(str)
+    text = out.to_csv(index=False, lineterminator="\n")
+    text += "\n" + summary.to_csv(index=False, lineterminator="\n")
+    checks.UNHEDGED_FX_EXPOSURE.write_text(text, encoding="utf-8")
+    return table, summary

@@ -60,6 +60,7 @@ OVERLAY_COUNTRY_STATS = CHECKS / "overlay_country_stats.csv"  # session-5 fix 1
 OVERLAY_SKIPPED = CHECKS / "overlay_skipped.csv"  # step 5.4, a country-month with no leg duration
 METRICS_TABLE = CHECKS / "metrics_table.csv"  # step 5.5
 METRICS_TABLE_MD = CHECKS / "metrics_table.md"  # step 5.5
+UNHEDGED_FX_EXPOSURE = CHECKS / "unhedged_fx_exposure.csv"  # session-5 fix 2
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",
