@@ -236,6 +236,7 @@ Empty at the start. Each gate writes one dated line here when it passes.
 | Session 1, part B (1.8, 1.9, gate) | 2026-09-22 | Session 1 part B approved 2026-09-22 (48324a1), issue #11 |
 | Session 1 (1.1–1.9 and the gate) | 2026-09-22 | Session 1 approved 2026-09-22 (2151a99): Phase 1 complete, both parts approved |
 | Phase 1 gate: `coverage.csv` and `par_zero_gap.csv` reviewed; `strategy_start` set | 2026-09-22 | Phase 1 gate passed: `strategy_start` 1997-08-31, `sample_full_start` 2004-11-30; bootstrap verified on the GSW par curve (max 1.4 bp); no bootstrap drops on or after `strategy_start` |
+| Session 2 (2.1, 2.2, 2.3, 2.4) | 2026-09-23 | Session 2 approved 2026-09-23 (f4ffe51), issue #13 |
 
 Note on the gate: pre-1997 US 30y zero/par gaps straddle the
 `bootstrap_zero_par_tolerance_bp` threshold (100 bp) — at 30y, 1982-09 at
