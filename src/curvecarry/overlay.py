@@ -81,7 +81,43 @@ POSITION_COLUMNS = [
     "weight",
     "wd",
 ]
-TRADE_COLUMNS = ["date", "country", "event", "state", "z"]
+TRADE_COLUMNS = [
+    "country",
+    "entry_date",
+    "exit_date",
+    "direction",
+    "entry_z",
+    "exit_z",
+    "months_held",
+    "pnl_bp",
+    "cost_bp",
+    "pnl_net_bp",
+    "still_open",
+    "in_sample",
+]
+COUNTRY_STAT_COLUMNS = [
+    "country",
+    "trades",
+    "months_in_market",
+    "months_in_sample",
+    "share_in_market",
+    "hit_rate",
+    "mean_pnl_bp",
+    "median_pnl_bp",
+    "total_pnl_net_bp",
+    "months_armed_not_traded",
+    "months_no_score_under_min",
+    "months_no_z_short_window",
+]
+STATE_DETAIL_COLUMNS = [
+    "date",
+    "z",
+    "state",
+    "armed_steep",
+    "armed_flat",
+    "signal_present",
+    "blocked",
+]
 SKIPPED_COLUMNS = ["date", "country", "state", "reason"]
 
 PC2 = 1  # zero-based index of the second component
@@ -115,29 +151,37 @@ def zscore(scores: pd.Series, window: int) -> pd.Series:
     return (s - mean) / sd
 
 
-def states(z: pd.Series, cfg: dict) -> pd.Series:
-    """The state machine of the module docstring, over one country's z-score series."""
+def state_detail(z: pd.Series, cfg: dict) -> pd.DataFrame:
+    """The state machine month by month, with the two armed flags and why nothing traded.
+
+    ``signal_present`` is a month whose ``|z|`` is beyond ``z_entry``;
+    ``blocked`` is such a month that stayed flat anyway because the relevant
+    flag was disarmed. Both are recorded so that "the overlay did nothing"
+    can be told apart from "the overlay was not allowed to do anything"
+    (session-5 fix 1).
+    """
     entry = float(cfg["overlay"]["z_entry"])
     exit_level = float(cfg["overlay"]["z_exit"])
     state = STATE_FLAT
     armed_steep = armed_flat = True
-    out = []
+    rows = []
     previous = np.nan
-    for value in z.astype("float64"):
+    for date, value in z.astype("float64").items():
         if np.isfinite(previous) and np.isfinite(value):
-            crossed = np.sign(previous - exit_level) != np.sign(value - exit_level)
-            if crossed:
+            if np.sign(previous - exit_level) != np.sign(value - exit_level):
                 armed_steep = armed_flat = True
         if not np.isfinite(value):
             state = STATE_FLAT
             armed_steep = armed_flat = False
-            out.append(state)
+            rows.append((date, value, state, armed_steep, armed_flat, False, False))
             previous = value
             continue
         if state == STATE_STEEP and value >= exit_level:
             state = STATE_FLAT
         elif state == STATE_FLAT_ENER and value <= exit_level:
             state = STATE_FLAT
+        signal_present = abs(value) > entry
+        blocked = False
         if state == STATE_FLAT:
             if value < -entry and armed_steep:
                 state = STATE_STEEP
@@ -145,9 +189,16 @@ def states(z: pd.Series, cfg: dict) -> pd.Series:
             elif value > entry and armed_flat:
                 state = STATE_FLAT_ENER
                 armed_flat = False
-        out.append(state)
+            elif signal_present:
+                blocked = True
+        rows.append((date, value, state, armed_steep, armed_flat, signal_present, blocked))
         previous = value
-    return pd.Series(out, index=z.index, name="state")
+    return pd.DataFrame(rows, columns=STATE_DETAIL_COLUMNS).set_index("date")
+
+
+def states(z: pd.Series, cfg: dict) -> pd.Series:
+    """The state machine of the module docstring, over one country's z-score series."""
+    return state_detail(z, cfg)["state"].rename("state")
 
 
 def pair_rows(
@@ -195,24 +246,25 @@ def _durations(returns: pd.DataFrame, cfg: dict) -> dict[tuple[pd.Timestamp, str
 def build_positions(
     scores: pd.DataFrame, returns: pd.DataFrame, cfg: dict
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """``(positions, trades, skipped)`` from the expanding scores."""
+    """``(positions, state detail, skipped)`` from the expanding scores.
+
+    The second frame is one row per country-month - ``z``, the state and the
+    armed flags - and is what the trade anatomy of ``trade_anatomy`` is cut
+    from. The per-trade file is written after a run, because a trade's PnL
+    only exists once the returns have been earned.
+    """
     window = int(cfg["pca"]["pca_z_window"])
     overlay_tenors = [float(t) for t in cfg["overlay"]["overlay_tenors"]]
     durations = _durations(returns, cfg)
-    positions, trades, skipped = [], [], []
+    positions, details, skipped = [], [], []
     for country, g in scores.groupby("country", sort=True):
         g = g.sort_values("date")
         z = zscore(g.set_index("date")["score"], window)
-        state = states(z, cfg)
-        previous = STATE_FLAT
-        for date, s in state.items():
+        detail = state_detail(z, cfg)
+        detail.insert(0, "country", country)
+        details.append(detail.reset_index())
+        for date, s in detail["state"].items():
             value = float(z.loc[date])
-            if s != previous:
-                event = "exit" if s == STATE_FLAT else "enter"
-                trades.append(
-                    {"date": date, "country": country, "event": event, "state": s, "z": value}
-                )
-            previous = s
             if s == STATE_FLAT:
                 continue
             have = {t: durations.get((date, country, t)) for t in overlay_tenors}
@@ -230,11 +282,8 @@ def build_positions(
     pos = pd.DataFrame(positions, columns=POSITION_COLUMNS)
     if len(pos):
         pos = pos.sort_values(["date", "country", "tenor_years"]).reset_index(drop=True)
-    return (
-        pos,
-        pd.DataFrame(trades, columns=TRADE_COLUMNS),
-        pd.DataFrame(skipped, columns=SKIPPED_COLUMNS),
-    )
+    detail = pd.concat(details, ignore_index=True) if details else pd.DataFrame()
+    return pos, detail, pd.DataFrame(skipped, columns=SKIPPED_COLUMNS)
 
 
 def build(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
@@ -244,11 +293,201 @@ def build(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
     returns = pd.read_parquet(p / "returns.parquet")
     changes = pca.monthly_changes_bp(zero, cfg)
     scores = expanding_pc2_scores(changes, cfg)
-    positions, trades, skipped = build_positions(scores, returns, cfg)
+    positions, detail, skipped = build_positions(scores, returns, cfg)
     p.mkdir(parents=True, exist_ok=True)
     scores.to_parquet(p / "pc2_expanding.parquet", index=False)
     positions.to_parquet(p / "overlay_positions.parquet", index=False)
+    detail.to_parquet(p / "overlay_states.parquet", index=False)
     checks.CHECKS.mkdir(parents=True, exist_ok=True)
-    trades.to_csv(checks.OVERLAY_TRADES, index=False, lineterminator="\n")
     skipped.to_csv(checks.OVERLAY_SKIPPED, index=False, lineterminator="\n")
     return positions
+
+
+# ------------------------------------------------- session-5 fix 1: anatomy
+
+WORST_TRADES = 5  # the worst trades listed in the review
+
+
+def monthly_pnl_bp(positions: pd.DataFrame) -> pd.Series:
+    """``(country, date) -> bp`` the overlay earned that month, gross of costs.
+
+    ``positions`` is a run's ``positions_<variant>.parquet``: the pairs that
+    were actually held, with the return each leg earned.
+    """
+    p = positions.copy()
+    p["contribution"] = p["weight"] * p["r"]
+    return p.groupby(["country", "date"])["contribution"].sum() * 1e4
+
+
+def trade_anatomy(
+    detail: pd.DataFrame,
+    positions: pd.DataFrame,
+    cfg: dict,
+    sample_months: set | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """``(one row per trade, one row per country)``.
+
+    A **trade** is a maximal run of consecutive months in a non-flat state
+    for one country. Its PnL is the sum of that country's monthly overlay
+    contributions over the months held, in bp of book. Its cost is the
+    overlay's own round trip at ``config.costs.cost_bp_per_duration_year``:
+    entering moves two legs by ``B_o`` each, so ``sum |d(wD)| = 2 B_o``, and
+    leaving does the same. A trade still open at the end of the sample is
+    charged the entry only, and is marked ``still_open``.
+
+    ``sample_months`` is the set of months the run actually covered. A leg
+    whose month is outside it was never charged by the engine and is not
+    charged here either, so the per-trade costs sum to the run's own cost to
+    the last decimal (``test_trade_pnl_ties_out_to_the_run``).
+    """
+    budget = float(cfg["overlay"]["overlay_duration_budget"])
+    cost_bp_per_year = float(cfg["costs"]["cost_bp_per_duration_year"])
+    leg_cost_bp = cost_bp_per_year * 2.0 * budget  # one side of the round trip, in bp
+    start = pd.Timestamp(cfg["sample"]["strategy_start"])
+    end = pd.Timestamp(cfg["sample"]["strategy_end"])
+    pnl = monthly_pnl_bp(positions)
+
+    trades = []
+    for country, g in detail.groupby("country", sort=True):
+        g = g.sort_values("date").reset_index(drop=True)
+        run: list[int] = []
+        for i in range(len(g) + 1):
+            in_state = i < len(g) and g.loc[i, "state"] != STATE_FLAT
+            if in_state and (not run or g.loc[run[-1], "state"] == g.loc[i, "state"]):
+                run.append(i)
+                continue
+            if run:
+                first = g.loc[run[0]]
+                exits = i < len(g)
+                dates = [pd.Timestamp(g.loc[k, "date"]) for k in run]
+                earned = float(sum(pnl.get((country, d), 0.0) for d in dates))
+                exit_date = pd.Timestamp(g.loc[i, "date"]) if exits else None
+
+                def charged(month: pd.Timestamp) -> float:
+                    if sample_months is None:
+                        return leg_cost_bp
+                    return leg_cost_bp if month in sample_months else 0.0
+
+                cost = charged(pd.Timestamp(first["date"]))
+                if exits:
+                    cost += charged(exit_date)
+                trades.append(
+                    {
+                        "country": country,
+                        "entry_date": pd.Timestamp(first["date"]).date().isoformat(),
+                        "exit_date": exit_date.date().isoformat() if exits else "",
+                        "direction": first["state"],
+                        "entry_z": float(first["z"]),
+                        "exit_z": float(g.loc[i, "z"]) if exits else float("nan"),
+                        "months_held": len(run),
+                        "pnl_bp": earned,
+                        "cost_bp": cost,
+                        "pnl_net_bp": earned - cost,
+                        "still_open": not exits,
+                        "in_sample": bool(
+                            pd.Timestamp(first["date"]) >= start
+                            and pd.Timestamp(first["date"]) <= end
+                        ),
+                    }
+                )
+                run = []
+            if in_state:
+                run = [i]
+    trade_frame = pd.DataFrame(trades, columns=TRADE_COLUMNS)
+    return trade_frame, country_stats(trade_frame, detail, cfg)
+
+
+def country_stats(trades: pd.DataFrame, detail: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Per country, over the strategy window: how often it traded and how it did."""
+    start = pd.Timestamp(cfg["sample"]["strategy_start"])
+    end = pd.Timestamp(cfg["sample"]["strategy_end"])
+    d = detail.copy()
+    d["date"] = pd.to_datetime(d["date"])
+    d = d[(d["date"] >= start) & (d["date"] <= end)]
+    live = trades[trades["in_sample"]] if len(trades) else trades
+
+    rows = []
+    for country in sorted(d["country"].unique()):
+        g = d[d["country"] == country]
+        t = live[live["country"] == country] if len(live) else live
+        closed = t[~t["still_open"]] if len(t) else t
+        months = int((g["state"] != STATE_FLAT).sum())
+        no_score = int(g["z"].isna().sum())
+        rows.append(
+            {
+                "country": country,
+                "trades": int(len(t)),
+                "months_in_market": months,
+                "months_in_sample": int(len(g)),
+                "share_in_market": months / len(g) if len(g) else float("nan"),
+                "hit_rate": (
+                    float((closed["pnl_net_bp"] > 0).mean()) if len(closed) else float("nan")
+                ),
+                "mean_pnl_bp": float(t["pnl_net_bp"].mean()) if len(t) else float("nan"),
+                "median_pnl_bp": float(t["pnl_net_bp"].median()) if len(t) else float("nan"),
+                "total_pnl_net_bp": float(t["pnl_net_bp"].sum()) if len(t) else 0.0,
+                "months_armed_not_traded": int(g["blocked"].sum()),
+                "months_no_score_under_min": no_score,
+                "months_no_z_short_window": 0,
+            }
+        )
+    out = pd.DataFrame(rows, columns=COUNTRY_STAT_COLUMNS)
+    return out
+
+
+def split_no_z(detail: pd.DataFrame, scores: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Split the NaN-z months into "no score yet" and "score, but fewer than 36 of them".
+
+    ``z`` is NaN for two different reasons and they mean different things: the
+    expanding PCA has not reached ``pca_min_months`` rows, or it has but the
+    rolling z window has not yet filled. The country table reports them apart.
+    """
+    minimum = int(cfg["pca"]["pca_min_months"])
+    start = pd.Timestamp(cfg["sample"]["strategy_start"])
+    end = pd.Timestamp(cfg["sample"]["strategy_end"])
+    s = scores.copy()
+    s["date"] = pd.to_datetime(s["date"])
+    s = s[(s["date"] >= start) & (s["date"] <= end)]
+    d = detail.copy()
+    d["date"] = pd.to_datetime(d["date"])
+    merged = d.merge(s[["country", "date", "n_months"]], on=["country", "date"], how="left")
+    merged = merged[(merged["date"] >= start) & (merged["date"] <= end)]
+    no_z = merged[merged["z"].isna()]
+    rows = []
+    for country in sorted(merged["country"].unique()):
+        g = no_z[no_z["country"] == country]
+        rows.append(
+            {
+                "country": country,
+                "months_no_score_under_min": int((g["n_months"] < minimum).sum()),
+                "months_no_z_short_window": int((g["n_months"] >= minimum).sum()),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_trades(
+    cfg: dict, variant: str = "overlay_hedged", processed: Path | None = None
+) -> pd.DataFrame:
+    """CLI ``build --step overlay_trades``: the per-trade file and the country table.
+
+    It runs **after** ``run --variant overlay_hedged``, because a trade has no
+    PnL until the run has earned it. It logs nothing and computes no new
+    strategy: it reads the saved positions of a run that is already in
+    ``reports/specifications.csv``.
+    """
+    p = Path(processed) if processed is not None else harmonise.PROCESSED
+    detail = pd.read_parquet(p / "overlay_states.parquet")
+    scores = pd.read_parquet(p / "pc2_expanding.parquet")
+    positions = pd.read_parquet(checks.CHECKS / f"positions_{variant}.parquet")
+    monthly = pd.read_parquet(p / f"backtest_{variant}.parquet")
+    months = set(pd.to_datetime(monthly["date"]))
+    trades, stats = trade_anatomy(detail, positions, cfg, sample_months=months)
+    split = split_no_z(detail, scores, cfg)
+    stats = stats.drop(columns=["months_no_score_under_min", "months_no_z_short_window"]).merge(
+        split, on="country", how="left"
+    )
+    checks.CHECKS.mkdir(parents=True, exist_ok=True)
+    trades.to_csv(checks.OVERLAY_TRADES, index=False, lineterminator="\n")
+    stats.to_csv(checks.OVERLAY_COUNTRY_STATS, index=False, lineterminator="\n")
+    return trades

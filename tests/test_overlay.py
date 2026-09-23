@@ -139,8 +139,9 @@ def test_states_are_per_country_and_positions_follow_them() -> None:
             for t in (2.0, 10.0)
         ]
     )
-    pos, trades, skipped = overlay.build_positions(scores, returns, cfg)
+    pos, detail, skipped = overlay.build_positions(scores, returns, cfg)
     assert len(skipped) == 0
+    assert set(detail["state"]) <= {"flat", "steepener", "flattener"}
     last = pos[pos["date"] == idx[-1]]
     us = last[last["country"] == "US"]
     gb = last[last["country"] == "GB"]
@@ -150,7 +151,6 @@ def test_states_are_per_country_and_positions_follow_them() -> None:
     assert gb[gb["leg"] == "long"]["tenor_years"].iloc[0] == 10.0
     for _, g in pos.groupby(["date", "country"]):
         assert g["wd"].sum() == pytest.approx(0.0, abs=1e-15)
-    assert set(trades["event"]) <= {"enter", "exit"}
 
 
 def test_pair_without_a_leg_duration_is_skipped_whole() -> None:
@@ -168,7 +168,7 @@ def test_pair_without_a_leg_duration_is_skipped_whole() -> None:
             for d in idx  # the 10-year leg has no duration at all
         ]
     )
-    pos, _trades, skipped = overlay.build_positions(scores, returns, cfg)
+    pos, _detail, skipped = overlay.build_positions(scores, returns, cfg)
     assert len(pos) == 0
     assert len(skipped) >= 1
     assert set(skipped["reason"]) == {"no duration for a leg"}
@@ -194,3 +194,162 @@ def test_warm_up_nans_leave_the_overlay_disarmed_until_z_crosses() -> None:
     got = list(overlay.states(z, cfg))
     assert got[4] == "flat"
     assert got[6] == "steepener"
+
+
+# ------------------------------------------- session-5 fix 1: trade anatomy
+
+
+def _detail(country: str, states: list[str], zs: list[float]) -> pd.DataFrame:
+    idx = pd.date_range("2010-01-31", periods=len(states), freq="ME")
+    return pd.DataFrame(
+        {
+            "country": country,
+            "date": idx,
+            "z": zs,
+            "state": states,
+            "armed_steep": True,
+            "armed_flat": True,
+            "signal_present": [abs(v) > 1.5 for v in zs],
+            "blocked": False,
+        }
+    )
+
+
+def _positions(country: str, dates, contributions) -> pd.DataFrame:
+    """One leg per month carrying the whole contribution, so the PnL is known."""
+    return pd.DataFrame(
+        [
+            {
+                "date": d,
+                "country": country,
+                "tenor_years": 2.0,
+                "leg": "long",
+                "duration": 2.0,
+                "weight": 1.0,
+                "wd": 2.0,
+                "r": c,
+            }
+            for d, c in zip(dates, contributions, strict=True)
+        ]
+    )
+
+
+def _anatomy_cfg() -> dict:
+    cfg = _cfg()
+    cfg["overlay"]["overlay_duration_budget"] = 2.0
+    cfg["costs"] = {"cost_bp_per_duration_year": 0.5}
+    cfg["sample"] = {
+        "strategy_start": pd.Timestamp("2010-01-31"),
+        "strategy_end": pd.Timestamp("2011-12-31"),
+    }
+    return cfg
+
+
+def test_a_trade_is_a_run_of_months_with_its_own_pnl() -> None:
+    """Two separate trades, not one: the flat month between them splits the run."""
+    detail = _detail(
+        "US",
+        ["flat", "steepener", "steepener", "flat", "flattener", "flat"],
+        [0.1, -1.6, -1.0, 0.2, 1.7, -0.1],
+    )
+    dates = list(detail["date"])
+    pos = _positions("US", [dates[1], dates[2], dates[4]], [0.001, 0.002, -0.004])
+    trades, _stats = overlay.trade_anatomy(detail, pos, _anatomy_cfg())
+
+    assert len(trades) == 2
+    first, second = trades.iloc[0], trades.iloc[1]
+    assert first["direction"] == "steepener"
+    assert first["entry_date"] == dates[1].date().isoformat()
+    assert first["exit_date"] == dates[3].date().isoformat()
+    assert first["months_held"] == 2
+    assert first["entry_z"] == pytest.approx(-1.6)
+    assert first["exit_z"] == pytest.approx(0.2)
+    assert first["pnl_bp"] == pytest.approx(30.0)  # (0.001 + 0.002) x 1e4
+    assert first["cost_bp"] == pytest.approx(4.0)  # 0.5 bp x 2 x B_o, twice
+    assert first["pnl_net_bp"] == pytest.approx(26.0)
+    assert not first["still_open"]
+
+    assert second["direction"] == "flattener"
+    assert second["months_held"] == 1
+    assert second["pnl_bp"] == pytest.approx(-40.0)
+
+
+def test_a_trade_still_open_at_the_end_pays_only_the_entry() -> None:
+    detail = _detail("US", ["flat", "steepener", "steepener"], [0.1, -1.6, -1.2])
+    dates = list(detail["date"])
+    pos = _positions("US", [dates[1], dates[2]], [0.001, 0.001])
+    trades, _stats = overlay.trade_anatomy(detail, pos, _anatomy_cfg())
+
+    assert len(trades) == 1
+    row = trades.iloc[0]
+    assert bool(row["still_open"])
+    assert row["exit_date"] == ""
+    assert row["cost_bp"] == pytest.approx(2.0)
+    assert row["pnl_net_bp"] == pytest.approx(20.0 - 2.0)
+
+
+def test_country_stats_count_the_market_and_the_hit_rate() -> None:
+    detail = pd.concat(
+        [
+            _detail(
+                "US",
+                ["flat", "steepener", "steepener", "flat", "flattener", "flat"],
+                [0.1, -1.6, -1.0, 0.2, 1.7, -0.1],
+            ),
+            _detail("GB", ["flat"] * 6, [0.1] * 6),
+        ],
+        ignore_index=True,
+    )
+    dates = sorted(detail["date"].unique())
+    pos = _positions("US", [dates[1], dates[2], dates[4]], [0.001, 0.002, -0.004])
+    _trades, stats = overlay.trade_anatomy(detail, pos, _anatomy_cfg())
+
+    us = stats[stats["country"] == "US"].iloc[0]
+    assert us["trades"] == 2
+    assert us["months_in_market"] == 3
+    assert us["months_in_sample"] == 6
+    assert us["share_in_market"] == pytest.approx(0.5)
+    assert us["hit_rate"] == pytest.approx(0.5)  # one winner, one loser
+    assert us["total_pnl_net_bp"] == pytest.approx(26.0 - 44.0)
+
+    gb = stats[stats["country"] == "GB"].iloc[0]
+    assert gb["trades"] == 0
+    assert gb["months_in_market"] == 0
+    assert np.isnan(gb["hit_rate"])
+
+
+def test_a_month_armed_but_not_traded_is_counted() -> None:
+    """The warm-up disarm again, this time counted rather than only asserted."""
+    cfg = _cfg(window=5)
+    idx = pd.date_range("2010-01-31", periods=8, freq="ME")
+    z = overlay.zscore(pd.Series([0.0, 0.0, 0.0, 0.0, 3.0, -1.0, -20.0, -20.0], index=idx), 5)
+    detail = overlay.state_detail(z, cfg)
+    # index 4 has |z| > 1.5 and stays flat because the warm-up NaNs disarmed it
+    assert bool(detail.iloc[4]["signal_present"])
+    assert detail.iloc[4]["state"] == "flat"
+    assert bool(detail.iloc[4]["blocked"])
+    # and a NaN month is not counted as blocked, because there was no signal
+    assert not bool(detail.iloc[0]["blocked"])
+    assert int(detail["blocked"].sum()) == 1
+
+
+def test_trade_pnl_ties_out_to_the_run() -> None:
+    """Every month of the run belongs to exactly one trade, so the sums must agree."""
+    detail = _detail(
+        "US",
+        ["flat", "steepener", "steepener", "flat", "flattener", "flat"],
+        [0.1, -1.6, -1.0, 0.2, 1.7, -0.1],
+    )
+    dates = list(detail["date"])
+    held = [dates[1], dates[2], dates[4]]
+    contributions = [0.001, 0.002, -0.004]
+    pos = _positions("US", held, contributions)
+    trades, _stats = overlay.trade_anatomy(detail, pos, _anatomy_cfg(), sample_months=set(dates))
+
+    assert trades["pnl_bp"].sum() == pytest.approx(sum(contributions) * 1e4)
+    # two round trips, all four legs inside the sample
+    assert trades["cost_bp"].sum() == pytest.approx(8.0)
+
+    # a leg outside the covered months is not charged, because the engine never charged it
+    short = overlay.trade_anatomy(detail, pos, _anatomy_cfg(), sample_months=set(dates[:3]))[0]
+    assert short["cost_bp"].sum() == pytest.approx(2.0)
