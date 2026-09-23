@@ -71,6 +71,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "risk.rates_vol_pct",
     "risk.risk_control_base_variants",
     "report.chart1_decades",
+    "checks.identity_gap_flag_bp_per_year",
 )
 
 

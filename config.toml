@@ -100,6 +100,13 @@ FR = "FR"
 [costs]
 cost_bp_per_duration_year = 0.5       # bp per year of duration traded, applied to sum |delta(w*D)|
 
+# ------------------------------------------------------------------ checks
+[checks]
+identity_gap_flag_bp_per_year = 50    # 4.2, session-4 amendment 2: data/checks/return_identity.csv flags a
+                                      # country-tenor whose annualised mean r_local differs from its annualised
+                                      # mean (yield/12 + rolldown) by more than this, in bp a year. A reporting
+                                      # threshold on a check, not a gate: nothing stops on it
+
 # -------------------------------------------------------- risk controls (6.2)
 [risk]
 target_vol = 0.05                     # annualised vol target for the vol-scaled variant
