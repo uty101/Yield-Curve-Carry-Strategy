@@ -3,7 +3,6 @@
 **Date** 2026-09-23. **Last commit** `68f7eeb` (plus this file).
 **Issues** #13 closed on the Session 2 approval, #12 closed as resolved in
 Session 2, #15 answered and closed. **Session 3 review issue** posted after
-the push.
 
 `uv run pytest -q` → **193 passed** (162 at the end of Session 2, +31).
 `ruff check` clean, `ruff format --check` clean.
