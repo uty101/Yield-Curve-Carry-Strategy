@@ -98,6 +98,26 @@ Where each country's observed short end starts, and what that does to the
 | CA | 0.25 | BoC zero curve (0.25-year steps) | interpolated between 0.75 and 1 |
 | FR | 1 | TEC 1 is the shortest | **flat: rolldown = 0** |
 
+**Correction, 2026-09-23, step 4.1.** The table above reads as though each
+country's shortest observed tenor is the same in every month. It is not, and
+`data/checks/carry_missing.csv` is what showed it:
+
+| Country | months with no observed tenor below 1 − 1/12 | when |
+|---|---|---|
+| FR | 262 of 262 (all) | always: TEC 1 is the shortest |
+| JP | 598 of 598 at the 1-year bucket, and 12 months at 2 and 3 years | always at 1y; the 12 are months whose curve starts at 2, 3 or 4 years |
+| US | 236 of 776 | 1962-01 .. 1981-08, before DGS3MO and DGS6MO start |
+| GB | 128 of 680 (126 starting at 1.0, 2 at 1.5) | scattered across the whole sample in 46 runs, 1970-01 .. 2025-12, longest 8 months |
+| CA, DE | 0 | 0.25 observed in every month |
+
+The GB row is the one the table got wrong: the BoE nominal spot curve does
+not always publish a point below 1 year, so GB's 1-year rolldown is exactly
+0 in 128 months of 680 (18.8%) rather than never. The US row is right about
+the mechanism and wrong about the period — before 1981-09 the US short end
+is the 1-year too. Nothing about the rule changes: the flat short end is
+still the convention, still the only exception to rule 13, and every one of
+these months is counted in `n_flat_short_end` rather than filled.
+
 So JP's and FR's 1-year buckets carry no rolldown; their carry is
 unaffected. `data/checks/carry_missing.csv` reports `n_flat_short_end` per
 country — the number of 1-year bucket-months where `y_roll` fell in the

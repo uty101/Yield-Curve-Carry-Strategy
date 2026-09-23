@@ -7,6 +7,7 @@ uv run curvecarry build --step zero         # 1.9: par -> zero, curves_zero.parq
 uv run curvecarry build --step ns           # 2.2: ns_params.parquet, ns_fitted.parquet, fit checks
 uv run curvecarry build --step svensson     # 2.3: sv_params.parquet, svensson_vs_bundesbank.csv
 uv run curvecarry build --step pca          # 3.1: pca_loadings.parquet, pca_scores.parquet, sets
+uv run curvecarry build --step carry        # 4.1: carry.parquet, carry_missing.csv
 uv run curvecarry report --charts 1,2,3     # 2.4, 3.3: reports/figures/*.png (full report 6.4)
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
@@ -29,6 +30,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "svensson": ("curvecarry.svensson", "build"),
     "pca": ("curvecarry.pca", "build"),
     "pca_stability": ("curvecarry.pca", "build_stability"),
+    "carry": ("curvecarry.carry", "build"),
 }
 NOT_BUILT = {"run": "step 5.3"}
 CHARTS_BUILT = {"1", "2", "3"}  # steps 2.4 and 3.3; the rest arrive with the report in 6.4

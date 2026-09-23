@@ -44,6 +44,13 @@ PCA_EXPLAINED = CHECKS / "pca_explained.csv"  # step 3.1
 PCA_STABILITY = CHECKS / "pca_stability.csv"  # step 3.2
 PCA_CHANGE_VOL = CHECKS / "pca_change_vol.csv"  # step 3.2, session-3 fix round
 PCA_EXPLAINED_TABLE = CHECKS / "pca_explained_table.md"  # step 3.3
+CARRY_MISSING = CHECKS / "carry_missing.csv"  # step 4.1
+RETURN_APPROX_GAP = CHECKS / "return_approx_gap.csv"  # step 4.2
+CLOSED_BUCKETS = CHECKS / "closed_buckets.csv"  # steps 4.2 and 4.3
+UNIVERSE_BY_MONTH = CHECKS / "universe_by_month.csv"  # step 4.2, session-4 amendment 1
+RETURN_IDENTITY = CHECKS / "return_identity.csv"  # step 4.2, session-4 amendment 2
+RETURN_COVERAGE = CHECKS / "return_coverage.csv"  # step 4.3, session-4 amendment 3
+XCCY_BASIS = CHECKS / "xccy_basis.csv"  # step 4.3, if a basis series is found
 SAMPLE_DAY_COLUMNS = [
     "country",
     "date",
