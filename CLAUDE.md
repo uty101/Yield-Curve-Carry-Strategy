@@ -139,7 +139,7 @@ Everything goes through `uv`; the lockfile is the environment. Python 3.12.
 
 ```bash
 uv sync                                                # once, and after pyproject changes
-uv run pytest -q                                       # make test (224 tests after session 4 and its fix round; see the latest session review)
+uv run pytest -q                                       # make test (279 tests after session 5; see the latest session review)
 uv run ruff check . && uv run ruff format --check .    # make lint
 uv run curvecarry fetch    # Phase 1 (placeholder until then)
 uv run curvecarry build --step harmonise   # 1.8: data/processed/curves.parquet
@@ -150,8 +150,12 @@ uv run curvecarry build --step pca         # 3.1: pca_loadings.parquet, pca_scor
 uv run curvecarry build --step carry       # 4.1: carry.parquet, carry_missing.csv
 uv run curvecarry build --step returns     # 4.2: returns.parquet, approx gap, universe, identity
 uv run curvecarry build --step fx_hedge    # 4.3: hedged/unhedged columns, return_coverage.csv
+uv run curvecarry build --step signal      # 5.1: signal.parquet, the universe join, exclusion checks
+uv run curvecarry build --step weights     # 5.2: weights.parquet, weights_empty_months.csv
+uv run curvecarry build --step overlay     # 5.4: pc2_expanding, overlay_positions, overlay_trades
 uv run curvecarry report --charts 1,2,3,4  # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
-uv run curvecarry run      # step 5.3
+uv run curvecarry run --variant carry_hedged   # 5.3/5.4/5.5: one logged run; --all runs every variant
+uv run curvecarry report --table           # 5.5: data/checks/metrics_table.csv and .md
 uv run curvecarry report   # step 6.4
 ```
 
@@ -190,14 +194,24 @@ GSW zero curve `feds200628` (1.9 check, 2026-09-22).
 `short_rates.parquet`, `funding.parquet`, `fx.parquet`, `gsw_us.parquet` are built;
 `data/processed/curves.parquet` (1.8) and `curves_zero.parquet` (1.9) too, and
 `ns_params.parquet` + `ns_fitted.parquet` (2.2), `sv_params.parquet` (2.3),
-`pca_loadings.parquet` + `pca_scores.parquet` (3.1), `carry.parquet` (4.1) and
-`returns.parquet` (4.2, with the 4.3 columns added in place) too.
+`pca_loadings.parquet` + `pca_scores.parquet` (3.1), `carry.parquet` (4.1),
+`returns.parquet` (4.2, with the 4.3 columns added in place), `signal.parquet`
+(5.1), `weights.parquet` (5.2), `pc2_expanding.parquet` +
+`overlay_positions.parquet` (5.4) and one `backtest_<variant>.parquet` per
+logged run (5.3 to 5.5) too.
 The 8 figures of 2.4, Chart 2 of 3.3 and the 7 of 4.4 are in
 `reports/figures/` and are committed.
 Re-create with `uv run curvecarry fetch --all && uv run curvecarry build --all`.
 No Phase 2, 3 or 4 step touches `data/raw/`: the fits and the PCA read
 `curves_zero.parquet`, and Phase 4 reads that plus `funding.parquet` and
 `fx.parquet`.
+
+**Phase 5 runs are logged before they compute.** `reports/specifications.csv`
+is append-only and its row count is `N` in the deflated Sharpe, so a
+throw-away run pollutes a reported number. Anything exploratory passes
+`speclog_path=` a scratch file and `write=False` to `backtest.run`; the
+eleven session-5 rows are the eleven variants amendment 2 fixed in advance
+and nothing else.
 
 **The CLI step for 4.3 is `fx_hedge`, not `fx`** — `fx` is the 1.7 FX loader,
 and a build step of the same name shadows it in `build --all`.
