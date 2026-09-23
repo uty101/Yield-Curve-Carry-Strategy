@@ -354,6 +354,161 @@ def identity_rows(returns: pd.DataFrame, carry: pd.DataFrame, cfg: dict) -> pd.D
     return pd.DataFrame(rows, columns=IDENTITY_COLUMNS)
 
 
+# -------------------------------------- step 4.3: hedged and unhedged returns
+
+
+FX_COLUMNS = [
+    "r_short_base",
+    "fx_return",
+    "r_hedged",
+    "r_unhedged",
+    "hedge_carry",
+    "r_hedged_interbank_3m",
+    "r_unhedged_interbank_3m",
+    "hedge_carry_interbank_3m",
+]
+COVERAGE_COLUMNS = [
+    "date",
+    "country",
+    "n_buckets",
+    "has_r_local",
+    "has_r_hedged",
+    "has_r_unhedged",
+    "reason",
+    "funding_kind",
+    "funding_source",
+    "funding_area",
+    "fx_currency",
+]
+NO_FX = "no_fx"
+
+
+def base_country(cfg: dict) -> str:
+    """The country whose currency is ``config.base_currency`` (the US)."""
+    for country, currency in cfg["currency"].items():
+        if currency == cfg["base_currency"]:
+            return country
+    raise KeyError(f"no country has currency {cfg['base_currency']!r}")
+
+
+def fx_log_change(fx: pd.DataFrame, currency: str) -> dict[pd.Timestamp, float]:
+    """``date t -> ln(S_{t+1}) - ln(S_t)`` for one currency; ``S`` is base per foreign."""
+    g = fx[fx["currency"] == currency].sort_values("date")
+    spot = dict(zip(g["date"], g["spot"], strict=True))
+    out = {}
+    for date, s in spot.items():
+        nxt = spot.get(next_month(date))
+        if nxt is not None and s > 0 and nxt > 0:
+            out[pd.Timestamp(date)] = float(np.log(nxt) - np.log(s))
+    return out
+
+
+def add_fx(returns: pd.DataFrame, funding: pd.DataFrame, fx: pd.DataFrame, cfg: dict):
+    """Step 4.3: the hedged and unhedged excess returns, and the no-FX log rows.
+
+    ``r_hedged = r_excess_local``: under covered interest parity the FX-hedged
+    excess return in the base currency **is** the local excess return, so no FX
+    series enters it (``decisions/basis.md``). ``r_unhedged`` converts the local
+    return at spot and finances it in the base currency.
+    """
+    home = base_country(cfg)
+    out = returns.copy()
+    changes = {c: fx_log_change(fx, cfg["currency"][c]) for c in out["country"].unique()}
+    out["fx_return"] = [
+        0.0 if c == home else changes[c].get(pd.Timestamp(d), np.nan)
+        for c, d in zip(out["country"], out["date"], strict=True)
+    ]
+    home_rows = out["country"] == home
+    for kind, suffix in (
+        (cfg["hedge"]["funding_rate"], ""),
+        (cfg["hedge"]["funding_rate_robustness"], "_interbank_3m"),
+    ):
+        rates = carry_mod.funding_lookup(funding, kind)
+        base_rate = out["date"].map(lambda d, r=rates: r.get((home, pd.Timestamp(d)), np.nan))
+        if suffix == "":
+            out["r_short_base"] = base_rate
+        out[f"r_hedged{suffix}"] = out[f"r_excess_local{suffix}"]
+        out[f"r_unhedged{suffix}"] = out["r_local"] + out["fx_return"] - base_rate / 12.0
+        out[f"hedge_carry{suffix}"] = (base_rate - out[f"r_short_local{suffix}"]) / 12.0
+        out.loc[home_rows, f"hedge_carry{suffix}"] = 0.0
+        out.loc[home_rows, f"r_unhedged{suffix}"] = out.loc[home_rows, f"r_excess_local{suffix}"]
+    no_fx = out[out["r_unhedged"].isna() & ~out["closed"]].copy()
+    no_fx["reason"] = NO_FX
+    return out, no_fx[CLOSED_COLUMNS].reset_index(drop=True)
+
+
+def funding_area(country: str, date: pd.Timestamp, cfg: dict) -> str:
+    """The BIS area the funding rate came from: the legacy euro code before the splice."""
+    if cfg["currency"][country] != "EUR":
+        return country
+    before = pd.Timestamp(date) < pd.Timestamp(cfg["hedge"]["eur_splice"])
+    return cfg["hedge"]["eur_legacy"][country] if before else "XM"
+
+
+def coverage_rows(returns: pd.DataFrame, funding: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Amendment 3: per country and month, which of the three returns exist and why not."""
+    kind = cfg["hedge"]["funding_rate"]
+    src = {
+        (c, pd.Timestamp(d)): s
+        for c, d, s in zip(
+            *[funding[funding["kind"] == kind][k] for k in ("country", "date", "source")],
+            strict=True,
+        )
+    }
+    home = base_country(cfg)
+    rows = []
+    for (date, country), g in returns.groupby(["date", "country"], sort=True):
+        live = g[~g["closed"]]
+        has_local = bool(len(live))
+        has_hedged = bool(live["r_hedged"].notna().any())
+        has_unhedged = bool(live["r_unhedged"].notna().any())
+        if not has_local:
+            reason = "no_bucket"
+        elif not has_hedged:
+            reason = "no_funding_local"
+        elif not has_unhedged:
+            reason = NO_FX if live["fx_return"].isna().all() else "no_funding_base"
+        else:
+            reason = ""
+        rows.append(
+            {
+                "date": date,
+                "country": country,
+                "n_buckets": int(len(live)),
+                "has_r_local": has_local,
+                "has_r_hedged": has_hedged,
+                "has_r_unhedged": has_unhedged,
+                "reason": reason,
+                "funding_kind": kind,
+                "funding_source": src.get((country, pd.Timestamp(date)), ""),
+                "funding_area": funding_area(country, date, cfg),
+                "fx_currency": "" if country == home else cfg["currency"][country],
+            }
+        )
+    return pd.DataFrame(rows, columns=COVERAGE_COLUMNS)
+
+
+def build_fx(cfg: dict, processed: Path | None = None, interim: Path | None = None):
+    """CLI ``build --step fx``: the 4.3 columns on ``returns.parquet`` and its two checks."""
+    from curvecarry.loaders import base
+
+    p = Path(processed) if processed is not None else harmonise.PROCESSED
+    i = Path(interim) if interim is not None else base.INTERIM
+    out = pd.read_parquet(p / "returns.parquet")
+    funding = pd.read_parquet(i / "funding.parquet")
+    fx = pd.read_parquet(i / "fx.parquet")
+    out, no_fx = add_fx(out, funding, fx, cfg)
+    out.to_parquet(p / "returns.parquet", index=False)
+    checks.CHECKS.mkdir(parents=True, exist_ok=True)
+    pd.concat([closed_rows(out), no_fx], ignore_index=True).sort_values(
+        ["country", "date", "tenor_years"]
+    ).to_csv(checks.CLOSED_BUCKETS, index=False, lineterminator="\n")
+    coverage_rows(out, funding, cfg).to_csv(
+        checks.RETURN_COVERAGE, index=False, lineterminator="\n"
+    )
+    return out
+
+
 def build(cfg: dict, processed: Path | None = None, interim: Path | None = None) -> pd.DataFrame:
     """CLI ``build --step returns``: ``returns.parquet`` and the four check files."""
     from curvecarry.loaders import base

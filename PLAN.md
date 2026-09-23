@@ -1571,7 +1571,10 @@ falls inside the windows `decisions/short_anchor.md` records.
   50 bp in stress periods. If one is found, the size of the CIP error by
   year for each currency pair is tabulated there and in
   `data/checks/xccy_basis.csv`.
-- CLI `build --step fx`.
+- CLI `build --step fx_hedge`. **Not `fx`**, as first written here: `fx` is
+  already the name of the step-1.7 FX *loader* in `cli.LOADERS`, and a
+  build step of the same name shadows it, so `build --all` would silently
+  stop rebuilding `data/interim/fx.parquet`. Renamed in session 4.
 
 **Test** `tests/test_fx_hedge.py` (synthetic).
 - `test_hedged_is_local_excess_return`: `r_hedged == r_local − r_short_local/12`
