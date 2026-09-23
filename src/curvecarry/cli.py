@@ -10,7 +10,7 @@ uv run curvecarry build --step pca          # 3.1: pca_loadings.parquet, pca_sco
 uv run curvecarry build --step carry        # 4.1: carry.parquet, carry_missing.csv
 uv run curvecarry build --step returns      # 4.2: returns.parquet, approx gap, universe, identity
 uv run curvecarry build --step fx_hedge     # 4.3: hedged/unhedged columns, return_coverage.csv
-uv run curvecarry report --charts 1,2,3     # 2.4, 3.3: reports/figures/*.png (full report 6.4)
+uv run curvecarry report --charts 1,2,3,4   # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry fetch --all / build --all  # build --all runs every loader, then the build steps
 """
 
@@ -37,7 +37,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "fx_hedge": ("curvecarry.returns", "build_fx"),
 }
 NOT_BUILT = {"run": "step 5.3"}
-CHARTS_BUILT = {"1", "2", "3"}  # steps 2.4 and 3.3; the rest arrive with the report in 6.4
+CHARTS_BUILT = {"1", "2", "3", "4"}  # steps 2.4, 3.3 and 4.4; the rest arrive in 6.4
 
 
 def _loader(name: str):
@@ -99,8 +99,8 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("report", help="charts and tables (2.4 builds charts 1 and 3)")
     r.add_argument(
         "--charts",
-        default="1,2,3",
-        help='comma-separated chart numbers; "1,2,3" are built (2.4 and 3.3). The full '
+        default="1,2,3,4",
+        help='comma-separated chart numbers; "1,2,3,4" are built (2.4, 3.3, 4.4). The full '
         "report is step 6.4.",
     )
     r.set_defaults(fn=cmd_report)

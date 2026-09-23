@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from curvecarry import charts
 
@@ -240,3 +241,38 @@ def test_chart2_writes_file(tmp_path: Path) -> None:
 def test_chart2_draws_countries_and_pooled_but_not_the_secondary() -> None:
     """The secondary pooled fit is reported, never drawn beside the six countries."""
     assert charts.chart2_country_scopes(_loadings()) == ["US", "DE"]
+
+
+# ---------------------------------------------------- step 4.4: Chart 4
+
+
+def _carry() -> pd.DataFrame:
+    """Two countries on different tenor sets, over four months, one bucket absent."""
+    rows = []
+    for country, tenors in (("US", [1.0, 10.0, 30.0]), ("JP", [1.0, 10.0])):
+        for i, date in enumerate(pd.date_range("2020-01-31", periods=4, freq="ME")):
+            for t in tenors:
+                if country == "US" and t == 30.0 and i < 2:
+                    continue  # the bucket enters halfway through
+                rows.append((date, country, t, 0.001 * (i - 1) * t, max(t * 0.9, 1.0)))
+    return pd.DataFrame(rows, columns=["date", "country", "tenor_years", "carry", "duration"])
+
+
+def test_chart4_writes_files(tmp_path: Path) -> None:
+    paths = charts.chart4_carry_heatmap(_carry(), tmp_path / "chart4_carry_per_duration.png")
+    assert [p.name for p in paths] == [
+        "chart4_carry_per_duration.png",
+        "chart4_us.png",
+        "chart4_jp.png",
+    ]
+    assert all(p.exists() and p.stat().st_size > 0 for p in paths)
+
+
+def test_chart4_rows_are_grouped_by_country_and_absent_buckets_are_nan() -> None:
+    """Rows follow CHART4_COUNTRY_ORDER then ascending tenor; a month with no bucket is NaN."""
+    wide = charts.carry_per_duration(_carry())
+    assert list(wide.index) == ["US-1y", "US-10y", "US-30y", "JP-1y", "JP-10y"]
+    assert wide.loc["US-30y"].isna().sum() == 2  # the two months before it enters
+    assert wide.loc["US-10y"].notna().all()
+    # the value is carry/duration in bp, not a decimal
+    assert wide.loc["US-10y"].iloc[2] == pytest.approx(0.001 * 10.0 / 9.0 * 1e4)

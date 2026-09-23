@@ -312,6 +312,10 @@ def build(cfg: dict, processed: Path | None = None, out_dir: Path = FIGURES) -> 
     paths.append(chart2_loadings(loadings, Path(out_dir) / "chart2_loadings.png"))
     explained = pd.read_csv(checks.PCA_EXPLAINED)
     paths.append(report.write_explained_table(explained, cfg))
+
+    # step 4.4
+    carry = pd.read_parquet(p / "carry.parquet")
+    paths.extend(chart4_carry_heatmap(carry, Path(out_dir) / "chart4_carry_per_duration.png"))
     return paths
 
 
@@ -363,3 +367,104 @@ def chart2_loadings(loadings: pd.DataFrame, out: Path = FIGURES / "chart2_loadin
     )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     return _save(fig, Path(out))
+
+
+# ---------------------------------------- step 4.4: Chart 4, carry per duration
+
+
+CHART4_COUNTRY_ORDER = ["US", "GB", "DE", "FR", "JP", "CA"]  # rows are grouped by country
+CHART4_CMAP = "RdBu_r"  # diverging, centred at 0; red is positive carry
+CHART4_NAN_COLOUR = "0.85"  # a bucket-month that does not exist is grey, never white
+CHART4_CLIP_PCT = 99.0  # the colour scale is symmetric at this percentile of |value|
+
+
+def carry_per_duration(carry: pd.DataFrame) -> pd.DataFrame:
+    """``carry / duration`` in bp per year per year of duration, one column per month.
+
+    The index is ``country-tenor`` in ``CHART4_COUNTRY_ORDER`` then ascending
+    tenor; the columns are every month in the frame, so a bucket that does not
+    exist that month is NaN and is drawn grey rather than as zero.
+    """
+    d = carry.copy()
+    d["value"] = d["carry"] / d["duration"] * 1e4
+    d["row"] = d["country"] + "-" + d["tenor_years"].map(lambda t: f"{t:g}y")
+    wide = d.pivot_table(index="row", columns="date", values="value")
+    order = [
+        f"{c}-{t:g}y"
+        for c in CHART4_COUNTRY_ORDER
+        for t in sorted(d[d["country"] == c]["tenor_years"].unique())
+    ]
+    return wide.reindex([r for r in order if r in wide.index])
+
+
+def _chart4_scale(values: np.ndarray) -> float:
+    """The symmetric colour limit: the ``CHART4_CLIP_PCT`` percentile of |value|."""
+    finite = values[np.isfinite(values)]
+    return float(np.percentile(np.abs(finite), CHART4_CLIP_PCT)) if finite.size else 1.0
+
+
+def _chart4_heatmap(ax, wide: pd.DataFrame, limit: float):
+    """Draw one heatmap; returns the image for the colour bar."""
+    cmap = plt.get_cmap(CHART4_CMAP).with_extremes(bad=CHART4_NAN_COLOUR)
+    dates = pd.DatetimeIndex(wide.columns)
+    img = ax.imshow(
+        np.ma.masked_invalid(wide.to_numpy(dtype="float64")),
+        aspect="auto",
+        cmap=cmap,
+        vmin=-limit,
+        vmax=limit,
+        interpolation="nearest",
+        extent=(dates[0].toordinal(), dates[-1].toordinal(), len(wide), 0),
+    )
+    ax.set_yticks(np.arange(len(wide)) + 0.5)
+    ax.set_yticklabels(wide.index, fontsize=6)
+    ticks = [d.toordinal() for d in dates if d.month == 1 and d.year % 10 == 0]
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([pd.Timestamp.fromordinal(t).year for t in ticks], fontsize=8)
+    return img
+
+
+def chart4_carry_heatmap(
+    carry: pd.DataFrame, out: Path = FIGURES / "chart4_carry_per_duration.png"
+) -> list[Path]:
+    """Chart 4: carry per year of duration, all buckets and one small multiple per country.
+
+    The colour scale is diverging and centred at zero, so the sign of the carry
+    is readable at a glance; it is clipped symmetrically at the 99th percentile
+    of |carry/duration| so that the 1980s do not wash out the rest. A bucket
+    that does not exist in a month is grey, which is what makes the GB 30-year
+    entering in 2016 and the US 30-year's 2002-2005 absence visible.
+    """
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    wide = carry_per_duration(carry)
+    limit = _chart4_scale(wide.to_numpy(dtype="float64"))
+
+    fig, ax = plt.subplots(figsize=(14, 9))
+    img = _chart4_heatmap(ax, wide, limit)
+    for i in range(1, len(CHART4_COUNTRY_ORDER)):
+        boundary = sum(1 for r in wide.index if r.split("-")[0] in CHART4_COUNTRY_ORDER[:i])
+        ax.axhline(boundary, color="black", linewidth=0.8)
+    ax.set_xlabel("month")
+    fig.colorbar(img, ax=ax, label="carry per year of duration (bp per year)")
+    fig.suptitle(
+        "Chart 4 — carry per year of duration, by country-tenor bucket "
+        f"(scale clipped at +/-{limit:.0f} bp; grey = bucket does not exist)",
+        fontsize=11,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    paths = [_save(fig, out)]
+
+    for country in CHART4_COUNTRY_ORDER:
+        rows = [r for r in wide.index if r.split("-")[0] == country]
+        if not rows:
+            continue
+        sub = wide.loc[rows].dropna(axis=1, how="all")
+        fig, ax = plt.subplots(figsize=(11, 3.2))
+        img = _chart4_heatmap(ax, sub, limit)
+        ax.set_xlabel("month")
+        fig.colorbar(img, ax=ax, label="bp per year of duration")
+        fig.suptitle(f"Chart 4 — {country}: carry per year of duration", fontsize=11)
+        fig.tight_layout(rect=(0, 0, 1, 0.93))
+        paths.append(_save(fig, out.parent / f"chart4_{country.lower()}.png"))
+    return paths
