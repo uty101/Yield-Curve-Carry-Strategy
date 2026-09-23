@@ -214,3 +214,29 @@ def test_chart3_excludes_degenerate_months_as_gaps() -> None:
 
     # the start date filters the excluded list too
     assert len(charts.chart3_excluded(ns, pd.Timestamp("2000-04-30"))) == 2
+
+
+def _loadings() -> pd.DataFrame:
+    """Two countries on different tenor sets, plus both pooled scopes."""
+    rows = []
+    sets = {
+        "US": [1.0, 2.0, 3.0, 5.0, 7.0, 10.0],
+        "DE": [1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0],
+        "pooled": [1.0, 2.0, 3.0, 5.0, 7.0, 10.0],
+        "pooled_20y": [1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0],
+    }
+    for scope, tenors in sets.items():
+        for k in (1, 2, 3):
+            for i, t in enumerate(tenors):
+                rows.append((scope, k, t, 0.4 - 0.02 * k * i))
+    return pd.DataFrame(rows, columns=["scope", "component", "tenor_years", "loading"])
+
+
+def test_chart2_writes_file(tmp_path: Path) -> None:
+    p = charts.chart2_loadings(_loadings(), tmp_path / "chart2_loadings.png")
+    assert p.exists() and p.stat().st_size > 0
+
+
+def test_chart2_draws_countries_and_pooled_but_not_the_secondary() -> None:
+    """The secondary pooled fit is reported, never drawn beside the six countries."""
+    assert charts.chart2_country_scopes(_loadings()) == ["US", "DE"]

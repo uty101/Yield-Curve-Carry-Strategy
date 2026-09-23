@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from curvecarry import checks, harmonise, nelson_siegel  # noqa: E402
+from curvecarry import checks, harmonise, nelson_siegel, report  # noqa: E402
 
 FIGURES = Path("reports/figures")
 CHART1_DATES_COLUMNS = ["country", "decade", "date"]
@@ -306,4 +306,60 @@ def build(cfg: dict, processed: Path | None = None, out_dir: Path = FIGURES) -> 
     path3, excluded = chart3_betas(ns_params, Path(out_dir) / "chart3_betas.png")
     excluded.to_csv(checks.CHART3_EXCLUDED, index=False, lineterminator="\n")
     paths.append(path3)
+
+    # step 3.3
+    loadings = pd.read_parquet(p / "pca_loadings.parquet")
+    paths.append(chart2_loadings(loadings, Path(out_dir) / "chart2_loadings.png"))
+    explained = pd.read_csv(checks.PCA_EXPLAINED)
+    paths.append(report.write_explained_table(explained, cfg))
     return paths
+
+
+# ------------------------------------------------- step 3.3: Chart 2, PCA
+
+
+PC_PANELS = [1, 2, 3]
+PC_TITLES = {1: "PC1 (level)", 2: "PC2 (slope)", 3: "PC3 (curvature)"}
+POOLED_STYLE = {"color": "black", "linestyle": "--", "linewidth": 2.0, "zorder": 5}
+
+
+def chart2_country_scopes(loadings: pd.DataFrame) -> list[str]:
+    """The scopes chart 2 draws as country lines: everything but the two pooled fits."""
+    from curvecarry.pca import PRIMARY_POOLED, SECONDARY_POOLED
+
+    return [s for s in loadings["scope"].unique() if s not in (PRIMARY_POOLED, SECONDARY_POOLED)]
+
+
+def chart2_loadings(loadings: pd.DataFrame, out: Path = FIGURES / "chart2_loadings.png") -> Path:
+    """Three panels, PC1 to PC3: loading against tenor, one line per country.
+
+    The primary pooled fit is the dashed black line. Each country is drawn on
+    its own tenor set, which is why the lines end at different tenors: the US
+    and GB sets stop at 10 years, DE runs to 30 (step 3.1, issue #15). The
+    secondary ``pooled_20y`` fit is not drawn — it is a reported robustness
+    column, and putting it on the same axes would invite reading it as a
+    seventh country.
+    """
+    scopes = chart2_country_scopes(loadings)
+    from curvecarry.pca import PRIMARY_POOLED
+
+    fig, axes = plt.subplots(1, len(PC_PANELS), figsize=(14, 4.2), sharex=True)
+    for ax, k in zip(np.atleast_1d(axes), PC_PANELS, strict=True):
+        for scope in sorted(scopes):
+            g = loadings[(loadings["scope"] == scope) & (loadings["component"] == k)]
+            g = g.sort_values("tenor_years")
+            ax.plot(g["tenor_years"], g["loading"], marker="o", markersize=3, label=scope)
+        g = loadings[(loadings["scope"] == PRIMARY_POOLED) & (loadings["component"] == k)]
+        g = g.sort_values("tenor_years")
+        ax.plot(g["tenor_years"], g["loading"], label="pooled", **POOLED_STYLE)
+        ax.axhline(0.0, color="0.7", linewidth=0.8, zorder=0)
+        ax.set_title(PC_TITLES[k])
+        ax.set_xlabel("tenor (years)")
+    np.atleast_1d(axes)[0].set_ylabel("loading")
+    np.atleast_1d(axes)[0].legend(fontsize=8, ncol=2)
+    fig.suptitle(
+        "Chart 2 — PCA loadings on monthly zero-yield changes, per country and pooled",
+        fontsize=11,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    return _save(fig, Path(out))

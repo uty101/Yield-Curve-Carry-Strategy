@@ -31,7 +31,7 @@ STEPS: dict[str, tuple[str, str]] = {
     "pca_stability": ("curvecarry.pca", "build_stability"),
 }
 NOT_BUILT = {"run": "step 5.3"}
-CHARTS_BUILT = {"1", "3"}  # step 2.4; the rest arrive with the full report in 6.4
+CHARTS_BUILT = {"1", "2", "3"}  # steps 2.4 and 3.3; the rest arrive with the report in 6.4
 
 
 def _loader(name: str):
@@ -93,8 +93,8 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("report", help="charts and tables (2.4 builds charts 1 and 3)")
     r.add_argument(
         "--charts",
-        default="1,3",
-        help='comma-separated chart numbers; only "1,3" is built (step 2.4). The full '
+        default="1,2,3",
+        help='comma-separated chart numbers; "1,2,3" are built (2.4 and 3.3). The full '
         "report is step 6.4.",
     )
     r.set_defaults(fn=cmd_report)
