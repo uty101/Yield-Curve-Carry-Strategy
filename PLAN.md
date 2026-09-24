@@ -2163,6 +2163,26 @@ and the two chart-5 pngs exist.
     are pre-1983, and `<base>_ratesvol` is the base run to the last decimal.
     That is reported, not repaired — the parameters were pre-registered and
     re-calibrating them after seeing this is what rule 6 exists to prevent.
+  - (d) `rates_vol_filter_rolling`: **session-6 amendment 9, pre-registered
+    2026-09-24 before the run.** Identical to (c) in every respect — the same
+    pooled PC1 score, the same `v_t`, the same arming rule, the same
+    application to the weights — except that the `rates_vol_pct` percentile is
+    computed on a **rolling window of `risk.rates_vol_window_months` (120)
+    months of `v`** instead of expanding from the first available month.
+    Variant `<base>_ratesvol_rolling`.
+    **Why it exists.** The expanding version never fires inside the strategy
+    sample: its threshold is anchored on 1967–1985, when pooled PC1 vol ran
+    two to three times its post-1997 level, and the largest in-sample ratio of
+    `v` to the threshold in force is 0.68 (session-6 fix 1,
+    `data/checks/ratesvol_filter.csv`). **That is a null about the threshold,
+    not about the idea.** The rolling variant is the live test of the idea and
+    is reported beside the dead one, whether it helps or not. The expanding
+    variant is kept and still reported: it was pre-registered and rule 6 does
+    not let a logged run be withdrawn because it did nothing.
+    `config.rates_vol_window_months` is a **new key**, added in its own commit
+    under global rule 14, and both runs are logged before they compute, so
+    **N rises to 19** and every deflated Sharpe in the report is recomputed at
+    the larger N.
   - Every control's parameters are read from `config.toml [risk]` and were
     fixed there in session 1; **all six variants are logged before any
     result is looked at** (the `run` function logs first, as always) and

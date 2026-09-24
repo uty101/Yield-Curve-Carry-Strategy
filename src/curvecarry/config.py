@@ -69,6 +69,7 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "risk.dd_stop",
     "risk.dd_reentry_months",
     "risk.rates_vol_pct",
+    "risk.rates_vol_window_months",
     "risk.risk_control_base_variants",
     "report.chart1_decades",
     "checks.identity_gap_flag_bp_per_year",

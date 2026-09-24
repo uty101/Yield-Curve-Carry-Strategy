@@ -117,7 +117,14 @@ vol_window_months = 12                # trailing window for realised vol
 max_leverage = 2.0                    # cap on the vol-target scalar
 dd_stop = 0.10                        # drawdown from peak that flattens the book
 dd_reentry_months = 3                 # months flat before re-entry after a stop
-rates_vol_pct = 0.90                  # expanding percentile of pooled PC1 12m vol above which the book is flat
+rates_vol_pct = 0.90                  # percentile of pooled PC1 12m vol above which the book is flat
+rates_vol_window_months = 120         # session-6 amendment 9, pre-registered 2026-09-24 before the run: the
+                                      # window of the *rolling* variant of the same filter. The expanding
+                                      # version anchors its 90th percentile on 1967-1985, when pooled PC1 vol
+                                      # ran 2-3x its post-1997 level, so it never fires in the sample (max
+                                      # ratio 0.68); that is a null about the threshold, not about the idea.
+                                      # <base>_ratesvol_rolling recomputes the same percentile on a trailing
+                                      # window of this many months of vol and is the live test of the idea
 risk_control_base_variants = ["carry_hedged", "combined_hedged"]  # the books each control in 6.2 is applied to
 
 # ------------------------------------------------------------------ report

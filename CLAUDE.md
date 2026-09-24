@@ -117,7 +117,7 @@ to make a run pass.
 | 11 | If a data source is unreachable, stop and say so. A substitution is written into `decisions/` before it is used. | review |
 | 12 | Tests never use the network. Every `parse()` is tested on a fixture in `tests/fixtures/` (first 50 rows of the real download, made by `scripts/make_fixture.py`). Every review follows `review/TEMPLATE.md`. | `test_reviews_follow_template` (reviews); network side is review (a test that needs the internet is a bug) |
 | 13 | Interpolation in yield is linear in tenor, between observed tenors only. One interpolation function in the package; every module uses it. No extrapolation, ever: a tenor beyond the longest observed is missing. | pending 1.8 |
-| 14 | `config.toml` is written in full in step 0.1 with every key the plan names. A later step may change a default only if the step says so, and that change is a commit on its own. | `test_config_loads_every_named_key`; the default-change rule is review |
+| 14 | `config.toml` is written in full in step 0.1 with every key the plan names. A later step may change a default only if the step says so, and that change is a commit on its own. A key added later follows the same rule: `risk.rates_vol_window_months` was added 2026-09-24 in its own commit under session-6 amendment 9. | `test_config_loads_every_named_key`; the default-change rule is review |
 | 15 | Every session writes `instructions/session-N-status.md` and pushes it, however the session ends; the owner's instruction for the session is in `instructions/session-N.md`, saved verbatim. | review |
 
 Two consequences worth spelling out:
