@@ -29,8 +29,10 @@ Fix rounds (2026-09-24), six commits:
 | `e62b539` | the documented pipeline sequence double-logged eight runs |
 | `98ba198` | two defects the determinism check found (CRLF writers, `overlay_trades` in `build --all`) |
 | `5309db9` | `unhedged_fx_exposure.csv` written LF, as the writer now says |
+| `f1353f3` | N counts distinct labels; the two rebuild checks named; the stale status text; the wrong `fetch --source` hint |
+| `af771ef` | `decomposition_shares.csv` covers all 19 variants |
 
-Tests: 288 at the end of session 5, **350** after the fix rounds.
+Tests: 288 at the end of session 5, **354** after the fix rounds.
 `uv run ruff check .` and `uv run ruff format --check .` clean.
 `reports/specifications.csv` has **19** rows — the two rolling runs of
 amendment 9 — and every deflated Sharpe in the report is recomputed at
@@ -118,14 +120,23 @@ is impossible rather than merely absent.
 unique labels, timestamps monotonic; `speclog.count_runs()` returns 19 and the
 report prints `N = 19`.
 
-**Fresh clone, fetch included, `results.md` byte for byte — NOT ACHIEVED, and
-not achievable as specified.** Blocked on the day by the Banque de France
-endpoint (`ConnectionResetError 10054` on four attempts; 8 of 10 TEC series on
-the first, none after), and impossible in principle for two reasons: the spec
-log is append-only and `N` is its row count, so a rebuild that runs the
-backtests reports a different `N` and a different DSR on every row; and the
-report header stamps the git commit. "Byte for byte" and "19 rows" cannot both
-be true of one rebuild. The owner has been asked to choose the standard.
+**Fresh clone with a refetch — this is the availability check, not a
+reproduction test** (owner's ruling, 2026-09-24). All ten sources answered and
+every loader parsed; the BdF refetch moved 10 of 2,584 FR rows, all at the
+incomplete 2026-09-30, none on or before `strategy_end`. See
+`decisions/sources.md`. My earlier report that three BdF retries failed was
+wrong: they were typed `fetch --source bdf` and never ran, because the CLI
+takes the loader name `fr`.
+
+**Reproduction from fixed raw inputs — every number reproduces.** A full
+rebuild (`build --all`, `run --all`, the post-run steps, `report`) leaves
+`N = 19` and the headline DSR at 0.573 even though the spec log goes from 19
+rows to 38, which is the point of the label-based `N`. Of 83 committed
+`data/checks` files, 63 are byte-identical, 19 differ only in the per-execution
+`run_id` column, and 1 differs in the audit-trail row count in its footnote.
+The remaining question for the owner is whether execution metadata — `run_id`,
+the row count `M`, the runs listing — counts as an allowed difference alongside
+the commit stamp.
 
 **Determinism from fixed raw inputs — PASS**, and it is the check worth
 keeping. Clone the tracked tree, copy the existing `data/raw/` in, wipe
