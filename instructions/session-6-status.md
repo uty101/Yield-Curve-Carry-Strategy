@@ -18,15 +18,19 @@ Before them: `d8ac521` recorded the Session 5 approval in `CLAUDE.md` and
 issue #21 was closed; `186c83d` saved the owner's instruction verbatim to
 `instructions/session-6.md`.
 
-Fix round (2026-09-24), three commits:
+Fix rounds (2026-09-24), six commits:
 
 | commit | what it is |
 |---|---|
 | `0ad6bf6` | the rates-vol null is diagnosed, not asserted |
 | `406a876` | config key `rates_vol_window_months`, pre-registered at 120 (its own commit, rule 14) |
 | `f5a4868` | the rolling rates-vol filter, the live test of a dead threshold |
+| `080dd09` | the rolling filter carries its selection caveat everywhere; the expanding-fit fact and its guard tests |
+| `e62b539` | the documented pipeline sequence double-logged eight runs |
+| `98ba198` | two defects the determinism check found (CRLF writers, `overlay_trades` in `build --all`) |
+| `5309db9` | `unhedged_fx_exposure.csv` written LF, as the writer now says |
 
-Tests: 288 at the end of session 5, **348** after the fix round.
+Tests: 288 at the end of session 5, **350** after the fix rounds.
 `uv run ruff check .` and `uv run ruff format --check .` clean.
 `reports/specifications.csv` has **19** rows — the two rolling runs of
 amendment 9 — and every deflated Sharpe in the report is recomputed at
@@ -101,6 +105,36 @@ internally inconsistent or silent on a detail with one self-consistent
 reading, and each is recorded in full in its step's review file, in the
 commit message and in the amended PLAN.md.
 
+## Wrap-up checks (2026-09-24)
+
+**README and results.md tie — PASS.**
+`tests/test_readme.py::test_readme_results_equal_results_md`. The shared block
+is 13,484 characters and is written into both files from one string, so drift
+is impossible rather than merely absent.
+
+**`specifications.csv` — PASS.** 19 rows, 19 unique `run_id`, 0 duplicates, 19
+unique labels, timestamps monotonic; `speclog.count_runs()` returns 19 and the
+report prints `N = 19`.
+
+**Fresh clone, fetch included, `results.md` byte for byte — NOT ACHIEVED, and
+not achievable as specified.** Blocked on the day by the Banque de France
+endpoint (`ConnectionResetError 10054` on four attempts; 8 of 10 TEC series on
+the first, none after), and impossible in principle for two reasons: the spec
+log is append-only and `N` is its row count, so a rebuild that runs the
+backtests reports a different `N` and a different DSR on every row; and the
+report header stamps the git commit. "Byte for byte" and "19 rows" cannot both
+be true of one rebuild. The owner has been asked to choose the standard.
+
+**Determinism from fixed raw inputs — PASS**, and it is the check worth
+keeping. Clone the tracked tree, copy the existing `data/raw/` in, wipe
+interim and processed, `build --all`: all six core parquets reproduce bit for
+bit and every committed `data/checks` file byte for byte.
+
+Two incidental findings, both recorded rather than worked around: a partial
+fetch is **not resumable the same day** (the dated filename collides, which is
+invariant 5 working as intended), and a scratch path of ~200 characters breaks
+`scipy` on this machine through Windows MAX_PATH.
+
 ## Open questions for the owner
 
 - **6.2, the rates-vol filter.** Closed. Diagnosed as a null in fix 1 and then
@@ -127,6 +161,11 @@ commit message and in the amended PLAN.md.
   breaches overlap.
 - **6.4, the report header commit.** `git_commit()` stamps the report with the
   parent commit, because the report is written and then committed.
+- **What "reproducible" should mean here.** Either the standard becomes
+  "deterministic given fixed raw inputs", with the fetch verified separately
+  against the sha256s in `data/raw/manifest.json`; or the report gains an
+  `--as-of` pin and a way to rebuild at a fixed `N`, which needs a new config
+  key and a `decision` issue. Not chosen.
 
 ## Where to look
 
