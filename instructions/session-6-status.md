@@ -1,8 +1,9 @@
 # Session 6 status — Phase 6, steps 6.1 to 6.4
 
-Date: 2026-09-23. Last commit of the session: see `git log` on `main`.
-Outcome: **finished**. All four steps built, each with its own commit, its own
-`review/X.Y.md` and its "Done when" met; `make test` and `make lint` pass.
+Date: 2026-09-23, fix round 2026-09-24. Last commit of the session: see
+`git log` on `main`. Outcome: **finished, one fix round done, awaiting the
+owner's approval line**. All four steps built, each with its own commit, its
+own `review/X.Y.md` and its "Done when" met; `make test` and `make lint` pass.
 
 ## What was built
 
@@ -17,8 +18,16 @@ Before them: `d8ac521` recorded the Session 5 approval in `CLAUDE.md` and
 issue #21 was closed; `186c83d` saved the owner's instruction verbatim to
 `instructions/session-6.md`.
 
-Tests: 288 at the end of session 5, **340** now. `uv run ruff check .` and
-`uv run ruff format --check .` clean.
+Fix round (2026-09-24), one commit:
+
+| commit | what it is |
+|---|---|
+| `0ad6bf6` | Session 6 fix: the rates-vol null is diagnosed, not asserted |
+
+Tests: 288 at the end of session 5, **343** after the fix round.
+`uv run ruff check .` and `uv run ruff format --check .` clean.
+`reports/specifications.csv` still has **17** rows: the fix round logged no
+runs, so the deflated Sharpe keeps its N of 17.
 
 ## The headline answer to the brief
 
@@ -80,10 +89,16 @@ commit message and in the amended PLAN.md.
 
 ## Open questions for the owner
 
-- **6.2, the rates-vol filter.** A filter whose expanding window started at
-  `strategy_start` rather than at the first available month would be a
-  different, unregistered control. It was not run and not logged. If the owner
-  wants one it needs a `decision` issue and a new config key.
+- **6.2, the rates-vol filter.** Closed as a diagnosed null in the fix round.
+  The rule fires at 9.5% of its 705 armed months, which is the ~10% an
+  expanding 90th percentile implies, but all 67 triggers are pre-1983: the
+  threshold is set by 1962-1982, when pooled PC1 vol ran two to three times
+  its post-1997 level. Inside the sample the largest trailing vol is 0.679 of
+  the threshold in force. `data/checks/ratesvol_filter.csv` has the month-by-
+  month evidence and three tests keep a null distinguishable from a no-op.
+  **Still open:** a filter whose expanding window started at `strategy_start`
+  would be a different, unregistered control. It was not run and not logged.
+  If the owner wants one it needs a `decision` issue and a new config key.
 - **6.2, overlapping drawdown breaches.** `carry_hedged_ddstop` flattens five
   months, not the three `dd_reentry_months` names, because each month the
   drawdown is still below the stop re-arms the window. That is the rule as
@@ -97,5 +112,5 @@ commit message and in the amended PLAN.md.
 `README.md` first, then `reports/results.md`,
 `data/checks/decomposition_shares.csv`,
 `data/checks/attribution_2022_carry_hedged.csv`,
-`data/checks/risk_controls.csv` and
+`data/checks/risk_controls.csv`, `data/checks/ratesvol_filter.csv` and
 `reports/figures/chart5_decomposition_carry_hedged.png`.
