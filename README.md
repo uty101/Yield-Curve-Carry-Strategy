@@ -115,6 +115,15 @@ The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.573**, and
 
 **That does not clear the usual bar.** A deflated Sharpe is conventionally read as clearing it at about 0.95, and 0.573 is below that: after 19 trials, the evidence that this book's true Sharpe is above the selection threshold is weak.
 
+### The one control that helped, and why it is not a result
+
+`carry_hedged_ratesvol_rolling` is the only one of the four pre-registered risk controls that improves the headline book: Sharpe 0.285 against 0.265, volatility 2.03% against 2.23%, worst drawdown -8.63% against -10.37%. Four things have to be said next to that.
+
+- **It is one of 19 logged runs.** Its own deflated Sharpe is 0.614 against a threshold of SR0 = 0.066 monthly over those 19 trials — higher than the headline's 0.573, and still far short of any sensible bar.
+- **The improvement is largely one event.** 2022 goes from -4.41% to -1.43%, and the annual return *falls*, 0.59% to 0.58%. The gain is risk reduction concentrated in a single episode, not a better book.
+- **Half of its specification was chosen after seeing a result.** The 120-month window was pre-registered in `config.toml`, in its own commit, before the run existed. The decision to try a *rolling* percentile at all was taken after seeing that the pre-registered *expanding* one never fires in the sample. That is one degree of freedom this project did not pay for in advance, and `N` does not price it.
+- **It stays a logged variant and is never the headline**, which is the carry-only hedged book fixed before any result was seen.
+
 ### Every logged run
 
 19 runs, each logged in `reports/specifications.csv` **before** it computed. A variant with no row did not happen.

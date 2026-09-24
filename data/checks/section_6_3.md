@@ -94,6 +94,24 @@ tenor, with a worst single bucket-month of 42 bp at
 20 years. Every return in this report is a full
 repricing.
 
+**And the one risk control that helped is not a result.** Of the four
+pre-registered controls, only the rolling rates-vol filter improves the
+headline: Sharpe 0.285 against 0.265, worst
+drawdown -8.63% against -10.37%. Four things belong beside
+that. It is **one of 19 logged runs**, and its own deflated Sharpe
+is 0.614 against the headline's 0.573 — higher, and
+still far short of any sensible bar. **The improvement is largely one event**:
+2022 goes from -4.41% to -1.43% while the annual
+return *falls*, 0.59% to 0.58%, so the gain is
+risk reduction concentrated in a single episode rather than a better book.
+**Half of its specification was chosen after a result was seen**: the
+120-month window was pre-registered in its own commit before the run existed,
+but the decision to try a rolling percentile at all came after the
+pre-registered expanding one turned out never to fire (its Sharpe is
+0.265, the headline's to three places, because it never
+trades differently). `N` does not price that degree of freedom. It **stays a
+logged variant and is never the headline**.
+
 **What the robustness rows changed.** Country-scope neutrality instead of
 book-wide takes the headline to 0.19% a year at
 0.120; excluding the GB 30-year, 0.63% at

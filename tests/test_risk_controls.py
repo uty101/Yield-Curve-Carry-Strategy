@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from curvecarry import backtest, config, risk_controls
+from curvecarry import backtest, config, pca, risk_controls
 
 DATES = pd.date_range("2000-01-31", periods=40, freq="ME")
 
@@ -417,3 +417,64 @@ def test_eight_risk_control_variants_and_two_percentile_methods():
         assert name in backtest.VARIANTS
         assert backtest.VARIANTS[name].risk_control == control
         assert method in (risk_controls.EXPANDING, risk_controls.ROLLING)
+
+
+def test_pooled_pc1_scores_are_expanding_and_never_full_sample():
+    """The score at ``t`` uses only months <= t, and the minimum is counted in months.
+
+    This is what keeps full-sample loadings out of the one control that helps.
+    Truncating the panel after ``t`` must leave every score at or before ``t``
+    bit-identical, and the first score must appear exactly ``pca_min_months``
+    months in - not ``pca_min_months`` stacked rows, which six countries would
+    reach six times sooner.
+    """
+    cfg = _cfg()
+    minimum = int(cfg["pca"]["pca_min_months"])
+    n = 40
+    idx = pd.date_range("2000-01-31", periods=n, freq="ME")
+    rng = np.random.default_rng(21)
+    tenors = [1.0, 2.0, 5.0, 10.0]
+    changes = {
+        c: pd.DataFrame(rng.normal(0.0, 10.0, (n, len(tenors))), index=idx, columns=tenors)
+        for c in ("US", "GB", "DE")
+    }
+    full = risk_controls.pooled_pc1_scores(changes, cfg)
+
+    cut = 25
+    truncated = {k: v.iloc[:cut] for k, v in changes.items()}
+    part = risk_controls.pooled_pc1_scores(truncated, cfg)
+    merged = full.merge(part, on="date", suffixes=("_full", "_part"))
+    assert len(merged) == cut
+    # not "close to": the expanding fit sees exactly the same matrix either way
+    assert float((merged["score_full"] - merged["score_part"]).abs().max()) == 0.0
+
+    scored = full[full["score"].notna()]
+    assert len(scored) == n - minimum + 1
+    first = scored["date"].min()
+    assert int((full["date"] <= first).sum()) == minimum
+
+
+def test_pooled_pc1_score_differs_from_a_full_sample_fit():
+    """A full-sample fit would give a different score, so the expanding one is real.
+
+    Without this the previous test would also pass on an implementation that
+    fitted once on everything: identical is identical either way.
+    """
+    cfg = _cfg()
+    n = 40
+    idx = pd.date_range("2000-01-31", periods=n, freq="ME")
+    rng = np.random.default_rng(22)
+    tenors = [1.0, 2.0, 5.0, 10.0]
+    # a regime break in the second half, so the full-sample loadings differ
+    block = rng.normal(0.0, 10.0, (n, len(tenors)))
+    block[n // 2 :, -1] *= 8.0
+    changes = {c: pd.DataFrame(block, index=idx, columns=tenors) for c in ("US", "GB")}
+    scores = risk_controls.pooled_pc1_scores(changes, cfg)
+
+    early = scores[scores["score"].notna()].iloc[0]
+    at = pd.Timestamp(early["date"])
+    x = np.vstack([v.to_numpy() - v.to_numpy().mean(axis=0) for v in changes.values()])
+    res = pca.pca(x, np.array(tenors, dtype="float64"))
+    row = changes["US"].loc[at].to_numpy() - changes["US"].to_numpy().mean(axis=0)
+    full_sample_score = float(row @ res.loadings[:, risk_controls.PC1])
+    assert abs(float(early["score"]) - full_sample_score) > 1e-6

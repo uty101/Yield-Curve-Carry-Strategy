@@ -134,15 +134,21 @@ def _write_synthetic(tmp_path: Path) -> tuple[Path, Path]:
                 "variant": v,
                 "window": "full",
                 "ann_return": r,
-                "sharpe": s,
+                "sharpe": sh,
+                "max_dd": dd,
+                "ret_2022": y22,
+                "dsr": dsr,
+                "n_trials": 19,
             }
-            for v, r, s in [
-                ("carry_hedged", 0.0059, 0.2645),
-                ("carry_hedged_interbank_3m", 0.0064, 0.2838),
-                ("carry_hedged_country_scope", 0.0019, 0.1196),
-                ("carry_hedged_no_gb30", 0.0063, 0.2799),
-                ("carry_hedged_cost0", 0.0077, 0.3442),
-                ("carry_hedged_cost2x", 0.0041, 0.1851),
+            for v, r, sh, dd, y22, dsr in [
+                ("carry_hedged", 0.0059, 0.2645, -0.1037, -0.0441, 0.573),
+                ("carry_hedged_interbank_3m", 0.0064, 0.2838, -0.0955, -0.0468, 0.615),
+                ("carry_hedged_country_scope", 0.0019, 0.1196, -0.0894, -0.0218, 0.281),
+                ("carry_hedged_no_gb30", 0.0063, 0.2799, -0.1035, -0.0449, 0.606),
+                ("carry_hedged_cost0", 0.0077, 0.3442, -0.0969, -0.0415, 0.727),
+                ("carry_hedged_cost2x", 0.0041, 0.1851, -0.1104, -0.0467, 0.408),
+                ("carry_hedged_ratesvol", 0.0059, 0.2645, -0.1037, -0.0441, 0.573),
+                ("carry_hedged_ratesvol_rolling", 0.0058, 0.2848, -0.0863, -0.0143, 0.614),
             ]
         ]
     ).to_csv(c / "metrics_table.csv", index=False)
@@ -211,6 +217,8 @@ def test_section_6_3_renders_from_synthetic_inputs(tmp_path: Path):
         "34.6%",  # the worst lambda-on-bound share
         "-8.0 bp",  # the on-the-run mean at 10 years
         "1990s",  # the losing decade
+        "19",  # the number of logged runs, in the selection caveat
+        "0.614",  # the rolling control's own deflated Sharpe
     ):
         assert expected in text, expected
 
@@ -227,6 +235,10 @@ def test_section_6_3_covers_every_amendment_4_topic(tmp_path: Path):
         "Nelson-Siegel lambda is unidentified",
         "on-the-run",
         "enter and leave mid-sample",
+        "one risk control that helped is not a result",
+        "logged runs",
+        "chosen after a result was seen",
+        "never the headline",
     ):
         assert phrase in text, phrase
 

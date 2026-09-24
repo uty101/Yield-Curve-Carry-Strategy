@@ -41,6 +41,7 @@ YEAR_HEADER = "| year | months | net return | carry earned | yield-change PnL | 
 YEAR_RULE = "|---|---:|---:|---:|---:|---:|"
 RUNS_HEADER = "| # | label | logged at (UTC) | config hash | what it overrides |"
 RUNS_RULE = "|---|---|---|---|---|"
+BEST_CONTROL = "carry_hedged_ratesvol_rolling"
 
 
 def git_commit() -> str:
@@ -147,6 +148,46 @@ def dsr_sentences(table: pd.DataFrame, headline: str) -> str:
     )
 
 
+def selection_caveat(table: pd.DataFrame, headline: str, best: str = BEST_CONTROL) -> str:
+    """The caveat that goes wherever the rolling rates-vol filter is claimed.
+
+    It improved the headline book, and saying so without saying what kind of
+    claim that is would be the most misleading sentence in this report. Four
+    things belong next to the number: its ``N``, its own deflated Sharpe, how
+    concentrated the improvement is, and which part of its specification was
+    chosen after a result had been seen.
+    """
+    if best not in set(table["variant"]):
+        return ""
+    base = table[(table["variant"] == headline) & (table["window"] == "full")].iloc[0]
+    row = table[(table["variant"] == best) & (table["window"] == "full")].iloc[0]
+    n = int(row["n_trials"])
+    return (
+        f"### The one control that helped, and why it is not a result\n\n"
+        f"`{best}` is the only one of the four pre-registered risk controls that "
+        f"improves the headline book: Sharpe {row['sharpe']:.3f} against "
+        f"{base['sharpe']:.3f}, volatility {row['ann_vol']:.2%} against "
+        f"{base['ann_vol']:.2%}, worst drawdown {row['max_dd']:.2%} against "
+        f"{base['max_dd']:.2%}. Four things have to be said next to that.\n\n"
+        f"- **It is one of {n} logged runs.** Its own deflated Sharpe is "
+        f"{row['dsr']:.3f} against a threshold of SR0 = {row['sr0']:.3f} monthly over "
+        f"those {n} trials — higher than the headline's {base['dsr']:.3f}, and still "
+        f"far short of any sensible bar.\n"
+        f"- **The improvement is largely one event.** 2022 goes from "
+        f"{base['ret_2022']:.2%} to {row['ret_2022']:.2%}, and the annual return "
+        f"*falls*, {base['ann_return']:.2%} to {row['ann_return']:.2%}. The gain is risk "
+        f"reduction concentrated in a single episode, not a better book.\n"
+        f"- **Half of its specification was chosen after seeing a result.** The "
+        f"120-month window was pre-registered in `config.toml`, in its own commit, "
+        f"before the run existed. The decision to try a *rolling* percentile at all was "
+        f"taken after seeing that the pre-registered *expanding* one never fires in the "
+        f"sample. That is one degree of freedom this project did not pay for in "
+        f"advance, and `N` does not price it.\n"
+        f"- **It stays a logged variant and is never the headline**, which is the "
+        f"carry-only hedged book fixed before any result was seen.\n"
+    )
+
+
 def _date(value) -> str:
     """A config date as ``YYYY-MM-DD``; the TOML loader hands back a date object."""
     return pd.Timestamp(value).date().isoformat()
@@ -183,6 +224,7 @@ def results_block(cfg: dict, table: pd.DataFrame, years: pd.DataFrame, spec_path
         f"{report.metrics_table_md(table)}\n"
         f"### The deflated Sharpe\n\n"
         f"{dsr_sentences(table, headline)}\n"
+        f"{selection_caveat(table, headline)}\n"
         f"### Every logged run\n\n"
         f"{n_runs} runs, each logged in `reports/specifications.csv` **before** it "
         f"computed. A variant with no row did not happen.\n\n"

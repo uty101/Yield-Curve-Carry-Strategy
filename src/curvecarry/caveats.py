@@ -41,6 +41,8 @@ COUNTRY_SCOPE_VARIANT = "carry_hedged_country_scope"
 NO_GB30_VARIANT = "carry_hedged_no_gb30"
 COST0_VARIANT = "carry_hedged_cost0"
 COST2X_VARIANT = "carry_hedged_cost2x"
+ROLLING_VARIANT = "carry_hedged_ratesvol_rolling"
+EXPANDING_VARIANT = "carry_hedged_ratesvol"
 
 NS_FREE_MODEL = "ns_free"
 NS_LAMBDA_COLUMNS = ["country", "months", "share_at_bound", "share_at_lower", "share_at_upper"]
@@ -201,6 +203,18 @@ def facts(cfg: dict, checks_dir: Path | None = None, decisions_dir: Path | None 
     out["interbank_sharpe"] = f"{_metric(metrics, INTERBANK_VARIANT, 'sharpe'):.3f}"
     out["interbank_return"] = _pct(_metric(metrics, INTERBANK_VARIANT, "ann_return"))
 
+    # 12b - the one risk control that helped, and its selection caveat
+    out["n_runs"] = f"{int(metrics['n_trials'].iloc[0])}"
+    out["roll_sharpe"] = f"{_metric(metrics, ROLLING_VARIANT, 'sharpe'):.3f}"
+    out["roll_return"] = _pct(_metric(metrics, ROLLING_VARIANT, "ann_return"))
+    out["roll_dd"] = _pct(_metric(metrics, ROLLING_VARIANT, "max_dd"))
+    out["roll_2022"] = _pct(_metric(metrics, ROLLING_VARIANT, "ret_2022"))
+    out["roll_dsr"] = f"{_metric(metrics, ROLLING_VARIANT, 'dsr'):.3f}"
+    out["headline_dsr"] = f"{_metric(metrics, HEADLINE_VARIANT, 'dsr'):.3f}"
+    out["headline_dd"] = _pct(_metric(metrics, HEADLINE_VARIANT, "max_dd"))
+    out["headline_2022"] = _pct(_metric(metrics, HEADLINE_VARIANT, "ret_2022"))
+    out["expanding_sharpe"] = f"{_metric(metrics, EXPANDING_VARIANT, 'sharpe'):.3f}"
+
     # 7 - the cross-currency basis
     out["basis_status"] = BASIS_NOT_MEASURED
     out["basis_range"] = _basis_range(d / BASIS_DOC.name)
@@ -351,6 +365,24 @@ any identity. Its mean error runs {f["gap_mean_lo"]} to {f["gap_mean_hi"]} by
 tenor, with a worst single bucket-month of {f["gap_worst"]} at
 {f["gap_worst_tenor"]} years. Every return in this report is a full
 repricing.
+
+**And the one risk control that helped is not a result.** Of the four
+pre-registered controls, only the rolling rates-vol filter improves the
+headline: Sharpe {f["roll_sharpe"]} against {f["headline_sharpe"]}, worst
+drawdown {f["roll_dd"]} against {f["headline_dd"]}. Four things belong beside
+that. It is **one of {f["n_runs"]} logged runs**, and its own deflated Sharpe
+is {f["roll_dsr"]} against the headline's {f["headline_dsr"]} — higher, and
+still far short of any sensible bar. **The improvement is largely one event**:
+2022 goes from {f["headline_2022"]} to {f["roll_2022"]} while the annual
+return *falls*, {f["headline_return"]} to {f["roll_return"]}, so the gain is
+risk reduction concentrated in a single episode rather than a better book.
+**Half of its specification was chosen after a result was seen**: the
+120-month window was pre-registered in its own commit before the run existed,
+but the decision to try a rolling percentile at all came after the
+pre-registered expanding one turned out never to fire (its Sharpe is
+{f["expanding_sharpe"]}, the headline's to three places, because it never
+trades differently). `N` does not price that degree of freedom. It **stays a
+logged variant and is never the headline**.
 
 **What the robustness rows changed.** Country-scope neutrality instead of
 book-wide takes the headline to {f["scope_return"]} a year at
