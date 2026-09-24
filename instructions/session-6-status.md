@@ -18,16 +18,19 @@ Before them: `d8ac521` recorded the Session 5 approval in `CLAUDE.md` and
 issue #21 was closed; `186c83d` saved the owner's instruction verbatim to
 `instructions/session-6.md`.
 
-Fix round (2026-09-24), one commit:
+Fix round (2026-09-24), three commits:
 
 | commit | what it is |
 |---|---|
-| `0ad6bf6` | Session 6 fix: the rates-vol null is diagnosed, not asserted |
+| `0ad6bf6` | the rates-vol null is diagnosed, not asserted |
+| `406a876` | config key `rates_vol_window_months`, pre-registered at 120 (its own commit, rule 14) |
+| `f5a4868` | the rolling rates-vol filter, the live test of a dead threshold |
 
-Tests: 288 at the end of session 5, **343** after the fix round.
+Tests: 288 at the end of session 5, **348** after the fix round.
 `uv run ruff check .` and `uv run ruff format --check .` clean.
-`reports/specifications.csv` still has **17** rows: the fix round logged no
-runs, so the deflated Sharpe keeps its N of 17.
+`reports/specifications.csv` has **19** rows — the two rolling runs of
+amendment 9 — and every deflated Sharpe in the report is recomputed at
+**N = 19**. The headline's is 0.573 and still does not clear the bar.
 
 ## The headline answer to the brief
 
@@ -60,6 +63,17 @@ The deflated Sharpe is recomputed at the final **N = 17** (11 from session 5,
 clear the usual bar** of about 0.95, and the README says so in its own
 sentence.
 
+## The one control that helps
+
+`<base>_ratesvol_rolling` (amendment 9, pre-registered 2026-09-24) is the only
+one of the four that improves the headline. It does it by cutting risk, not by
+adding return: on `carry_hedged` the return falls from 0.591% to 0.579% a year
+while vol falls from 2.233% to 2.033%, the worst drawdown from -10.37% to
+-8.63%, 2022 from -4.41% to -1.43% and turnover from 1.473 to 1.328, for a
+Sharpe of 0.285 against 0.265. On `combined_hedged` it is larger: Sharpe 0.093
+to 0.217. **It is still a logged variant and not the headline**, which is the
+carry-only hedged book as fixed before any result was seen.
+
 ## Deviations from PLAN.md, all eight amended in the plan this session
 
 1. **6.1** — the Taylor form subtracts the rolldown inside its bracket. The
@@ -89,16 +103,23 @@ commit message and in the amended PLAN.md.
 
 ## Open questions for the owner
 
-- **6.2, the rates-vol filter.** Closed as a diagnosed null in the fix round.
+- **6.2, the rates-vol filter.** Closed. Diagnosed as a null in fix 1 and then
+  retested live in fix 2 (amendment 9).
   The rule fires at 9.5% of its 705 armed months, which is the ~10% an
   expanding 90th percentile implies, but all 67 triggers are pre-1983: the
   threshold is set by 1962-1982, when pooled PC1 vol ran two to three times
   its post-1997 level. Inside the sample the largest trailing vol is 0.679 of
   the threshold in force. `data/checks/ratesvol_filter.csv` has the month-by-
   month evidence and three tests keep a null distinguishable from a no-op.
-  **Still open:** a filter whose expanding window started at `strategy_start`
-  would be a different, unregistered control. It was not run and not logged.
-  If the owner wants one it needs a `decision` issue and a new config key.
+  The idea was then retested on a live threshold:
+  `<base>_ratesvol_rolling` takes the same 90th percentile over a rolling
+  `rates_vol_window_months = 120` window, was pre-registered in its own commit
+  before the run existed, and fires **31** of the same 349 armed months (8.9%)
+  in two episodes — 2008-04 to 2009-04 and 2022-03 to 2023-08. It is the only
+  one of the four controls that improves the headline, and it does so by
+  cutting risk rather than adding return (Sharpe 0.265 to 0.285, vol 2.233% to
+  2.033%, max DD -10.37% to -8.63%, 2022 -4.41% to -1.43%, turnover 1.473 to
+  1.328, return 0.591% to 0.579%). The expanding runs stay logged and reported.
 - **6.2, overlapping drawdown breaches.** `carry_hedged_ddstop` flattens five
   months, not the three `dd_reentry_months` names, because each month the
   drawdown is still below the stop re-arms the window. That is the rule as
