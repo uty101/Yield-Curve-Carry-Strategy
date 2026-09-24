@@ -86,6 +86,22 @@ def fetch_bytes(
     return r.content
 
 
+# ``data/raw/<folder>`` is named after the data provider; ``fetch --source`` takes
+# the **loader** name. They differ for every loader but ``gsw``, so the hint in the
+# error below has to translate - it told a reader to run `--source bdf`, which is
+# not a valid choice, and cost three wasted retries on 2026-09-24.
+CLI_SOURCE = {
+    "fred": "us, fx or short_rates (whichever series is missing)",
+    "boe": "gb",
+    "bundesbank": "de",
+    "mof": "jp",
+    "boc": "ca",
+    "bdf": "fr",
+    "bis": "short_rates",
+    "gsw": "gsw",
+}
+
+
 def latest_raw(source: str, name: str, root: Path = RAW_ROOT) -> Path:
     """The raw file for ``name`` with the newest date in its filename."""
     folder = Path(root) / source
@@ -94,7 +110,7 @@ def latest_raw(source: str, name: str, root: Path = RAW_ROOT) -> Path:
     if not matches:
         raise FileNotFoundError(
             f"no raw file {name}_<YYYYMMDD>.* under {folder}; run: "
-            f"uv run curvecarry fetch --source {source}"
+            f"uv run curvecarry fetch --source {CLI_SOURCE.get(source, source)}"
         )
     exts = sorted({p.suffix for p in matches})
     if len(exts) > 1:

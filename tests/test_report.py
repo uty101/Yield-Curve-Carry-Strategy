@@ -132,7 +132,8 @@ def test_dsr_is_reported_as_a_probability_with_its_threshold_and_n():
     text = results.dsr_sentences(_table(n_trials=17), backtest.HEADLINE)
     assert "a probability, not a Sharpe ratio" in text
     assert "SR0 = 0.067" in text
-    assert "N = 17" in text
+    assert "17 trials across 17 logged runs" in text
+    assert "distinct run labels" in text
 
 
 def test_dsr_below_the_bar_gets_its_own_sentence():
@@ -153,11 +154,23 @@ def test_dsr_above_the_bar_says_so():
 # ------------------------------------------------- the report on disk, N and all
 
 
-def test_report_n_equals_the_speclog_row_count():
-    """The N printed in ``reports/results.md`` is ``speclog.count_runs()``, not a smaller one."""
+def test_report_n_equals_the_distinct_label_count():
+    """The N printed in ``reports/results.md`` is ``speclog.count_runs()``, not a smaller one.
+
+    Since the 2026-09-24 ruling that is the count of **distinct labels**; the
+    append-only row count is printed beside it and is never N.
+    """
     text = RESULTS.read_text(encoding="utf-8")
     printed = {int(n) for n in re.findall(r"N = (\d+)", text)}
     assert printed == {speclog.count_runs()}
+
+
+def test_report_prints_the_row_count_beside_n():
+    """Both figures appear, because they answer different questions."""
+    text = RESULTS.read_text(encoding="utf-8")
+    assert f"holds {speclog.count_rows()} rows" in text
+    assert f"{speclog.count_runs()} trials across {speclog.count_runs()} logged runs" in text
+    assert "a trial is a specification, not an execution" in text
 
 
 def test_report_n_is_at_least_what_phase_5_left_behind():

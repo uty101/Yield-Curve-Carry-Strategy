@@ -2271,8 +2271,19 @@ of 0.067 over 11 trials, which does not clear the usual bar**. It is written tha
 in `reports/results.md` and in `README.md`, in words as well as in the
 table, so that no reader can mistake it for a risk-adjusted return.
 
-**6.4 recomputes the DSR from the final `reports/specifications.csv` row
-count and never with a smaller `N`.** `metrics.deflated_sharpe` takes `N`
+**6.4 recomputes the DSR from the final `reports/specifications.csv` and never
+with a smaller `N`.**
+
+**What `N` counts (owner's ruling, 2026-09-24).** `N` is the number of
+**distinct `label` values** in `reports/specifications.csv`, not the number of
+rows. A trial is a *specification*, not an *execution*: re-running a variant
+that is already logged tests nothing new, so it cannot deflate the Sharpe
+further, and a rebuild of this project must leave every reported number where
+it was. The append-only row count remains the audit trail, and the report
+prints **both** — "N trials across N logged runs; `specifications.csv` holds M
+rows". `speclog.count_runs` returns the label count and `speclog.count_rows`
+the row count; `test_duplicate_label_leaves_n_unchanged` and
+`test_a_whole_rebuild_does_not_move_n` hold the distinction in place. `metrics.deflated_sharpe` takes `N`
 from `speclog.count_runs()` at the moment the report is written, so every
 run logged by Phase 6 — the three risk controls of 6.2 above all — is in
 it. A DSR quoted from an earlier session's smaller `N` is a number that

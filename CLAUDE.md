@@ -109,7 +109,7 @@ to make a run pass.
 | 3 | `par` and `zero` are never mixed in one calculation. Any function that takes a curve asserts on `curve_type`. | pending 1.9 / 2.1 |
 | 4 | Every number that affects a result comes from `config.toml`. Nothing in `src/` reads a knob that is not there. | review |
 | 5 | Raw files are never overwritten; every fetch appends to `data/raw/manifest.json` (URL, sha256, bytes, fetched_at, source). A re-fetch gets a new filename with the fetch date. | `test_second_fetch_to_existing_path_raises`, `test_refetch_gets_dated_filename` |
-| 6 | Every strategy run is a row in `reports/specifications.csv` **before** it computes. A variant with no row did not happen. The file is append-only. N in the deflated Sharpe is that row count. | `test_run_without_row_fails`, `test_speclog_is_append_only` |
+| 6 | Every strategy run is a row in `reports/specifications.csv` **before** it computes. A variant with no row did not happen. The file is append-only. **N in the deflated Sharpe is the number of distinct `label` values, not the row count** (owner's ruling 2026-09-24): a trial is a specification, not an execution, so re-running a logged variant adds a row and no trial, and a rebuild leaves every reported number where it was. The row count stays as the audit trail and both are printed. | `test_run_without_row_fails`, `test_speclog_is_append_only`, `test_duplicate_label_leaves_n_unchanged`, `test_a_whole_rebuild_does_not_move_n` |
 | 7 | Anything a function uses at month *t* is dated on or before *t*. Expanding-window PCA scores at *t* do not change when later months are appended. | pending 5.4 |
 | 8 | No number in `README.md` is typed by hand. The results table is pasted from `reports/results.md` and a test asserts equality. | pending 6.4 |
 | 9 | Nothing is imported from the project 1 repo. The duration-budget engine is written here. | review |
@@ -191,6 +191,49 @@ and so changes `N` in every deflated Sharpe in the report.
   through it.
 - `gh` is not installed and `gh auth login` needs a browser; `scripts/gh_issue.py`
   talks to the REST API with the same stored credential instead.
+
+### The two rebuild checks, and which is which
+
+Owner's ruling, 2026-09-24. **These are different questions and only one of
+them is a reproduction test.**
+
+**1. Reproduction — "is the pipeline a function of its raw inputs?"**
+Clone the tracked tree, copy the existing `data/raw/` in, leave
+`data/interim/` and `data/processed/` empty, then `build --all`, `run --all`,
+the post-run build steps and `report`. **Every derived file and
+`reports/results.md` must come out identical. The `git commit` stamp in the
+report header is the only thing allowed to differ** — it names the commit the
+report was written at, and a rebuild is a different commit. Nothing else.
+This is the standard; it passed on 2026-09-24 (83 of 83 committed
+`data/checks` files byte for byte and all six core parquets bit for bit).
+It is only meaningful because `N` counts distinct labels (invariant 6): a
+rebuild re-runs every variant, and under a row-count `N` that alone would move
+every deflated Sharpe.
+
+**2. Source availability — "do the sources still answer, and still parse?"**
+`fetch --all` into an empty `data/raw/`, then `build --all`. This is **not** a
+reproduction test and must never be treated as one: the providers extend and
+revise, so the derived files are expected to differ. Report what changed and
+where. Checked 2026-09-24: all ten sources answered and every loader parsed;
+the Banque de France refetch moved 10 of 2,584 FR rows, **all of them at
+2026-09-30, the incomplete current month, none on or before `strategy_end`**.
+Settled history did not move.
+
+Two traps this machine sets, both found the hard way on 2026-09-24:
+
+- **A same-day partial fetch is not resumable.** Raw filenames carry the fetch
+  date, so a second fetch on the same day collides and the loader raises
+  (invariant 5, `test_second_fetch_to_existing_path_raises`). That is the
+  invariant working; to retry a partial fetch, delete the partial files first.
+- **A long scratch path breaks `scipy`.** A rebuild under a path of about 200
+  characters dies in `uv sync`'s scipy with `ImportError: cannot import name
+  '_arpacklib'` — Windows `MAX_PATH`, not a code fault. The identical script
+  under `C:6` worked. Rebuild somewhere short.
+- **`fetch --source` takes the loader name, not the raw folder.** `fr` fetches
+  into `data/raw/bdf/`, `us` into `data/raw/fred/`, and so on; only `gsw`
+  matches. The "no raw file … run: `fetch --source <x>`" error used to print
+  the folder and sent three retries to an invalid choice; `manifest.CLI_SOURCE`
+  now translates.
 
 ### Data state on disk
 

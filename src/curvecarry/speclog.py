@@ -61,7 +61,24 @@ def _rows(path: str | Path) -> list[dict[str, str]]:
 
 
 def count_runs(path: str | Path = DEFAULT_PATH) -> int:
-    """Number of data rows: N for the deflated Sharpe."""
+    """Number of **distinct labels**: N for the deflated Sharpe.
+
+    **A trial is a specification, not an execution** (owner's ruling,
+    2026-09-24). Re-running a variant that has already been logged is the same
+    trial done twice: it tests nothing new, so it cannot deflate the Sharpe
+    further, and a rebuild of this project must leave every reported number
+    where it was. ``N`` is therefore the count of distinct ``label`` values.
+
+    The row count is still the audit trail and is still append-only - see
+    ``count_rows`` - and every report prints both, because "19 trials across 19
+    logged runs" and "``specifications.csv`` holds 19 rows" answer different
+    questions and only one of them is ``N``.
+    """
+    return len({r["label"] for r in _rows(path)})
+
+
+def count_rows(path: str | Path = DEFAULT_PATH) -> int:
+    """Number of data rows: the append-only audit trail, never ``N``."""
     return len(_rows(path))
 
 

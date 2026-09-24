@@ -52,7 +52,9 @@ def test_latest_raw_picks_newest(tmp_path) -> None:
     c = manifest.raw_path("fred", "DGS10_extra", "csv", dt.date(2027, 1, 1), root=tmp_path)
     manifest.write_raw(b"x", c, "u", "fred", manifest=m)
     assert manifest.latest_raw("fred", "DGS10", root=tmp_path) == b
-    with pytest.raises(FileNotFoundError, match="fetch --source fred"):
+    # the hint must name the LOADER, not the raw folder: "--source fred" is not
+    # a valid choice and telling a reader to type it wasted three retries
+    with pytest.raises(FileNotFoundError, match="fetch --source us, fx or short_rates"):
         manifest.latest_raw("fred", "DGS1", root=tmp_path)
 
 

@@ -464,3 +464,48 @@ enough will trip it at 30y — a par curve rising linearly from 3% at 1y to
 month in the panel is anywhere near that slope at the long end (the
 in-window maximum is 68.7 bp), so nothing real is affected; raised with
 the owner on issue #11.
+
+---
+
+## Source availability, checked 2026-09-24
+
+Written for the session-6 wrap-up. This is the **availability** check of
+`CLAUDE.md` → "The two rebuild checks", not a reproduction test: the providers
+extend and revise, so derived files are expected to move.
+
+**All ten sources answered and every loader parsed.** One of them needed a
+retry, and the reason it needed one is worth recording.
+
+### Banque de France (`bdf`, the FR TEC series)
+
+| attempt | what happened |
+|---|---|
+| `fetch --all`, first run | 8 of the 10 TEC series arrived, then `ConnectionResetError [WinError 10054]` on `tec25`. The other nine sources completed: 22 files in all. |
+| three "retries" | **Did not run.** They were typed `fetch --source bdf`; the CLI takes the *loader* name, `fr`. Argparse rejected them and the failure was misread as three more resets. The error message that suggested `bdf` has been fixed (`manifest.CLI_SOURCE`). |
+| `fetch --source fr`, later the same day | **All 10 series, first attempt.** `build --step fr` parsed them: 2,584 rows, 2004-11-30 to 2026-09-30. |
+
+So the endpoint is **not** systematically unavailable. The single genuine
+failure was a mid-transfer reset partway through a ten-request sequence,
+recovered on the next attempt. If it happens again: delete the partial files
+first — the dated filenames collide on a same-day refetch (invariant 5) — and
+re-run `fetch --source fr`.
+
+### What a refetch changed
+
+Against the committed 2026-09-17 fetch, the 2026-09-24 one moved **10 of 2,584
+FR rows**, every one of them at **2026-09-30** — the incomplete current month,
+beyond `strategy_end` (2026-08-31):
+
+| date | tenor | 2026-09-17 | 2026-09-24 | diff |
+|---|---:|---:|---:|---:|
+| 2026-09-30 | 7 | 0.04138 | 0.04332 | 19.4 bp |
+| 2026-09-30 | 5 | 0.03859 | 0.04049 | 19.0 bp |
+| 2026-09-30 | 10 | 0.04480 | 0.04669 | 18.9 bp |
+| 2026-09-30 | 15 | 0.04783 | 0.04949 | 16.6 bp |
+| 2026-09-30 | 3 | 0.03602 | 0.03747 | 14.5 bp |
+
+**Nothing on or before `strategy_end` moved**, so no reported number depends
+on which day the FR data was fetched. That is the expected shape — the month
+end of an unfinished month is a partial observation and is revised as the
+month fills — and it is the reason the availability check is kept separate
+from the reproduction check.

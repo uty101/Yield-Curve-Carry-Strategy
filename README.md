@@ -105,13 +105,13 @@ Windows: `full` from 1997-08-31, `six` from 2004-11-30 (the first month all six 
 | overlay_unhedged | full | 1.79% | 9.10% | 0.197 | -28.01% | 1998-10-31 | 2008-04-30 | 2.075 | -4.62% | -15.02% | 348 | 2.04% | 0.224 | 0.427 |
 | overlay_unhedged | six | 1.82% | 9.73% | 0.187 | -24.91% | 2005-12-31 | 2008-04-30 | 2.215 | -4.62% | -15.02% | 261 | 2.08% | 0.214 | 0.418 |
 
-**DSR is a probability, not a Sharpe**: the probability that the true Sharpe exceeds the multiple-testing threshold, here SR0 = 0.066 monthly over N = 19 trials. N is the row count of `reports/specifications.csv`, V[SR] = 0.001249 across the logged runs, monthly basis. A DSR below about 0.95 does not clear the usual bar.
+**DSR is a probability, not a Sharpe**: the probability that the true Sharpe exceeds the multiple-testing threshold, here SR0 = 0.066 monthly over N = 19 trials across 19 logged runs; `reports/specifications.csv` holds 19 rows. N is the count of **distinct labels**, not of rows: a trial is a specification, not an execution. V[SR] = 0.001249 across the logged runs, monthly basis. A DSR below about 0.95 does not clear the usual bar.
 
 Annualisation of every return and vol column: arithmetic, mean x 12.
 
 ### The deflated Sharpe
 
-The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.573**, and that number is **a probability, not a Sharpe ratio**: it is the probability that the true Sharpe exceeds the multiple-testing threshold SR0 = 0.066 on a monthly basis, which is the Sharpe that 19 trials would be expected to produce by selection alone. N = 19 is the row count of `reports/specifications.csv` at the moment this report was written, and every run this project logged is in it.
+The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.573**, and that number is **a probability, not a Sharpe ratio**: it is the probability that the true Sharpe exceeds the multiple-testing threshold SR0 = 0.066 on a monthly basis, which is the Sharpe that 19 trials would be expected to produce by selection alone. **19 trials across 19 logged runs**; `reports/specifications.csv` holds 19 rows. N is the count of distinct run labels at the moment this report was written, not of rows: a trial is a specification, not an execution, so re-running a logged variant does not move it.
 
 **That does not clear the usual bar.** A deflated Sharpe is conventionally read as clearing it at about 0.95, and 0.573 is below that: after 19 trials, the evidence that this book's true Sharpe is above the selection threshold is weak.
 
@@ -126,7 +126,7 @@ The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.573**, and
 
 ### Every logged run
 
-19 runs, each logged in `reports/specifications.csv` **before** it computed. A variant with no row did not happen.
+19 distinct variants, each logged in `reports/specifications.csv` **before** it computed; the file holds 19 rows in all. A variant with no row did not happen, and a variant logged twice is still one trial.
 
 | # | label | logged at (UTC) | config hash | what it overrides |
 |---|---|---|---|---|

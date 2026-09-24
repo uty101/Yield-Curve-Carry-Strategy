@@ -121,12 +121,13 @@ def runs_table_md(spec_path: Path | None = None) -> str:
 # ---------------------------------------------------------------- the block
 
 
-def dsr_sentences(table: pd.DataFrame, headline: str) -> str:
+def dsr_sentences(table: pd.DataFrame, headline: str, rows: int | None = None) -> str:
     """The DSR in words: what it is, its threshold, its N, and whether it clears the bar."""
     row = table[(table["variant"] == headline) & (table["window"] == "full")].iloc[0]
     dsr = float(row["dsr"])
     sr0 = float(row["sr0"])
     n = int(row["n_trials"])
+    rows = speclog.count_rows() if rows is None else rows
     sharpe = float(row["sharpe"])
     verdict = (
         f"**That does not clear the usual bar.** A deflated Sharpe is conventionally "
@@ -141,9 +142,11 @@ def dsr_sentences(table: pd.DataFrame, headline: str) -> str:
         f"{dsr:.3f}**, and that number is **a probability, not a Sharpe ratio**: it is "
         f"the probability that the true Sharpe exceeds the multiple-testing threshold "
         f"SR0 = {sr0:.3f} on a monthly basis, which is the Sharpe that {n} trials would "
-        f"be expected to produce by selection alone. N = {n} is the row count of "
-        f"`reports/specifications.csv` at the moment this report was written, and every "
-        f"run this project logged is in it.\n\n"
+        f"be expected to produce by selection alone. **{n} trials across {n} logged "
+        f"runs**; `reports/specifications.csv` holds {rows} rows. N is the count of "
+        f"distinct run labels at the moment this report was written, not of rows: a "
+        f"trial is a specification, not an execution, so re-running a logged variant "
+        f"does not move it.\n\n"
         f"{verdict}\n"
     )
 
@@ -201,6 +204,7 @@ def results_block(cfg: dict, table: pd.DataFrame, years: pd.DataFrame, spec_path
     end = _date(cfg["sample"]["strategy_end"])
     six = _date(cfg["sample"]["sample_full_start"])
     n_runs = int(row["n_trials"])
+    rows = speclog.count_rows(spec_path) if spec_path else speclog.count_rows()
     return (
         f"### The headline\n\n"
         f"The headline result of this project is the **carry-only, hedged, book-wide "
@@ -226,8 +230,10 @@ def results_block(cfg: dict, table: pd.DataFrame, years: pd.DataFrame, spec_path
         f"{dsr_sentences(table, headline)}\n"
         f"{selection_caveat(table, headline)}\n"
         f"### Every logged run\n\n"
-        f"{n_runs} runs, each logged in `reports/specifications.csv` **before** it "
-        f"computed. A variant with no row did not happen.\n\n"
+        f"{n_runs} distinct variants, each logged in `reports/specifications.csv` "
+        f"**before** it computed; the file holds {rows} rows in all. "
+        f"A variant with no row did not happen, and a variant logged twice is still "
+        f"one trial.\n\n"
         f"{runs_table_md(spec_path)}"
     )
 

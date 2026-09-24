@@ -62,10 +62,12 @@ pre-1983. That last one is reported, not repaired — re-calibrating a
 pre-registered parameter after seeing it do nothing is what rule 6 exists to
 prevent.
 
-The deflated Sharpe is recomputed at the final **N = 17** (11 from session 5,
-6 from 6.2): **0.567** against a threshold SR0 = 0.067 monthly. It **does not
-clear the usual bar** of about 0.95, and the README says so in its own
-sentence.
+The deflated Sharpe is recomputed at the final **N = 19** (11 from session 5,
+6 from 6.2, 2 from amendment 9): **0.573** against a threshold SR0 = 0.066
+monthly. It **does not clear the usual bar** of about 0.95, and the README
+says so in its own sentence. (This paragraph read N = 17 and 0.567 until
+2026-09-24; those were the figures before amendment 9 added the two rolling
+runs. `reports/results.md` and `README.md` were always correct.)
 
 ## The one control that helps
 

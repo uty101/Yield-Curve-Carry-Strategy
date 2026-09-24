@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from curvecarry import checks
+from curvecarry import checks, speclog
 
 TABLE_COMPONENTS = [1, 2, 3]
 HEADER = "| scope | n months | PC1 | PC2 | PC3 | PC1-3 |"
@@ -95,8 +95,11 @@ def _variant_series(variant: str, processed: Path) -> pd.Series:
 def metrics_table(cfg: dict, processed: Path | None = None, spec_path=None) -> pd.DataFrame:
     """Every logged variant, both windows, with the deflated Sharpe.
 
-    ``N`` is ``speclog.count_runs()`` - the row count of
-    ``reports/specifications.csv`` - and is never passed in. ``V[SR]`` is the
+    ``N`` is ``speclog.count_runs()`` - the number of **distinct labels** in
+    ``reports/specifications.csv`` - and is never passed in. A trial is a
+    specification, not an execution, so re-running a logged variant does not
+    move it (owner's ruling, 2026-09-24); ``speclog.count_rows`` is the
+    append-only audit trail beside it. ``V[SR]`` is the
     variance of the **monthly** Sharpes across every run that has a
     ``metrics_<variant>.csv``, which is the set of trials whose results were
     actually looked at.
@@ -152,7 +155,7 @@ def metrics_table(cfg: dict, processed: Path | None = None, spec_path=None) -> p
     return pd.DataFrame(rows, columns=METRICS_COLUMNS)
 
 
-def metrics_table_md(table: pd.DataFrame) -> str:
+def metrics_table_md(table: pd.DataFrame, rows: int | None = None) -> str:
     """The same table as markdown, percentages to 2 dp."""
     lines = [METRICS_TABLE_HEADER, METRICS_TABLE_RULE]
     for _, r in table.iterrows():
@@ -175,13 +178,16 @@ def metrics_table_md(table: pd.DataFrame) -> str:
         ]
         lines.append("| " + " | ".join(cells) + " |")
     n = int(table["n_trials"].iloc[0])
+    rows = speclog.count_rows() if rows is None else rows
     v = float(table["sr_var_trials"].iloc[0])
     lines.append("")
     sr0 = float(table["sr0"].iloc[0])
     lines.append(
         "**DSR is a probability, not a Sharpe**: the probability that the true Sharpe "
         f"exceeds the multiple-testing threshold, here SR0 = {sr0:.3f} monthly over "
-        f"N = {n} trials. N is the row count of `reports/specifications.csv`, "
+        f"N = {n} trials across {n} logged runs; `reports/specifications.csv` holds "
+        f"{rows} rows. N is the count of **distinct labels**, not of rows: a trial is "
+        f"a specification, not an execution. "
         f"V[SR] = {v:.6f} across the logged runs, monthly basis. A DSR below about "
         "0.95 does not clear the usual bar."
     )
