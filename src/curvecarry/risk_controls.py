@@ -1,9 +1,11 @@
-"""Step 6.2: the three pre-registered risk controls, and the 2022 attribution.
+"""Step 6.2: the four pre-registered risk controls, and the 2022 attribution.
 
-**All three are logged before any result is looked at, and all three are
-reported whether they help or not** (global rule 6, session-6 amendment 2).
-Their parameters were fixed in `config.toml [risk]` in session 1 and none of
-them may change the headline definition, whatever the numbers say: each is a
+**All four are logged before any result is looked at, and all four are
+reported whether they help or not** (global rule 6, session-6 amendments 2 and
+9). The parameters of (a) to (c) were fixed in `config.toml [risk]` in session
+1 and (d)'s window was added to the same file, in its own commit, before the
+run that uses it existed. None of them may change the headline definition,
+whatever the numbers say: each is a
 transform of a **base** variant's held positions into a new logged variant,
 and the base variants are `config.risk.risk_control_base_variants`.
 
@@ -34,6 +36,21 @@ good, so each has its own no-lookahead test.
   is flat for `t -> t+1` when `v_t` exceeds the **expanding**
   `rates_vol_pct` quantile of `v` up to and including `t`.
 
+- **(d) `rates_vol_filter_rolling`** — session-6 amendment 9, pre-registered
+  2026-09-24 before the run. Identical to (c) in every respect except that the
+  `rates_vol_pct` percentile is computed on a **rolling
+  `risk.rates_vol_window_months` window of `v`** instead of expanding from the
+  first available month. Same score, same `v_t`, same arming rule (a threshold
+  has to exist), same removal of that month's positions.
+
+  It exists because (c) never fires inside the strategy sample: its expanding
+  threshold is anchored on 1967-1985, when pooled PC1 vol ran two to three
+  times its post-1997 level, and the largest in-sample ratio of `v` to the
+  threshold in force is 0.68. **That is a null about the threshold, not about
+  the idea.** (c) is the dead threshold and (d) is the live test of the same
+  idea; both are logged, both are reported, and (c) is not withdrawn - rule 6
+  does not let a logged run be taken back because it did nothing.
+
   **The pooled score is defined here** (session-6 deviation 3): `fit_pooled`
   stacks every country's changes, so a pooled fit has one loading vector and
   one score per country-month, not one score per month. The pooled PC1 score
@@ -63,8 +80,18 @@ from curvecarry import checks, decomposition, harmonise, pca
 VOL_TARGET = "vol_target"
 DD_STOP = "dd_stop"
 RATES_VOL = "rates_vol_filter"
-CONTROLS = [VOL_TARGET, DD_STOP, RATES_VOL]
-CONTROL_SUFFIX = {VOL_TARGET: "voltarget", DD_STOP: "ddstop", RATES_VOL: "ratesvol"}
+RATES_VOL_ROLLING = "rates_vol_filter_rolling"
+CONTROLS = [VOL_TARGET, DD_STOP, RATES_VOL, RATES_VOL_ROLLING]
+CONTROL_SUFFIX = {
+    VOL_TARGET: "voltarget",
+    DD_STOP: "ddstop",
+    RATES_VOL: "ratesvol",
+    RATES_VOL_ROLLING: "ratesvol_rolling",
+}
+EXPANDING = "expanding"
+ROLLING = "rolling"
+METHOD = {RATES_VOL: EXPANDING, RATES_VOL_ROLLING: ROLLING}
+POOLED_SCORE_COLUMNS = ["date", "n_countries", "score"]
 
 MONTHS = 12
 PC1 = 0  # zero-based index of the first component
@@ -84,6 +111,7 @@ ALL_LEGS = "both"
 ATTRIBUTION_YEAR = 2022
 
 RATES_VOL_COLUMNS = [
+    "method",
     "date",
     "n_countries",
     "score",
@@ -183,10 +211,10 @@ def pooled_pc1_scores(changes_by_country: dict[str, pd.DataFrame], cfg: dict) ->
         loading = res.loadings[:, PC1]
         score = float(np.mean([c @ loading for c in current]))
         rows.append({"date": date, "n_countries": len(current), "score": score})
-    return pd.DataFrame(rows, columns=RATES_VOL_COLUMNS[:3])
+    return pd.DataFrame(rows, columns=POOLED_SCORE_COLUMNS)
 
 
-def rates_vol_flags(scores: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+def rates_vol_flags(scores: pd.DataFrame, cfg: dict, method: str = EXPANDING) -> pd.DataFrame:
     """``v_t``, the percentile in force, and the flag that flattens ``t -> t+1``.
 
     ``armed`` is "there is enough history for a decision": 12 non-null scores,
@@ -207,7 +235,14 @@ def rates_vol_flags(scores: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     out = scores.sort_values("date").reset_index(drop=True).copy()
     s = out["score"]
     out["vol"] = s.rolling(window, min_periods=window).std(ddof=1)
-    out["threshold"] = out["vol"].expanding().quantile(pct)
+    if method == EXPANDING:
+        out["threshold"] = out["vol"].expanding().quantile(pct)
+    elif method == ROLLING:
+        span = int(cfg["risk"]["rates_vol_window_months"])
+        out["threshold"] = out["vol"].rolling(span, min_periods=span).quantile(pct)
+    else:
+        raise KeyError(f"unknown percentile method {method!r}; known: {EXPANDING}, {ROLLING}")
+    out["method"] = method
     out["ratio"] = out["vol"] / out["threshold"]
     out["armed"] = out["vol"].notna() & out["threshold"].notna()
     out["triggers"] = (out["vol"] > out["threshold"]).fillna(False)
@@ -215,7 +250,7 @@ def rates_vol_flags(scores: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
 
 def rates_vol_flat_months(
-    cfg: dict, processed: Path | None = None
+    cfg: dict, processed: Path | None = None, method: str = EXPANDING
 ) -> tuple[pd.Series, pd.DataFrame]:
     """``(date -> flat, the check table)``; the flag at ``t`` flattens the book **at** ``t``.
 
@@ -225,7 +260,7 @@ def rates_vol_flat_months(
     p = Path(processed) if processed is not None else harmonise.PROCESSED
     zero = pd.read_parquet(p / "curves_zero.parquet")
     changes = pca.monthly_changes_bp(zero, cfg)
-    table = rates_vol_flags(pooled_pc1_scores(changes, cfg), cfg)
+    table = rates_vol_flags(pooled_pc1_scores(changes, cfg), cfg, method)
     flat = pd.Series(table["triggers"].to_numpy(dtype=bool), index=pd.DatetimeIndex(table["date"]))
     return flat, table
 
@@ -254,8 +289,8 @@ def apply_control(
         flat = dd_stop_flat_months(r, cfg)
         keep = ~out["date"].map(flat).fillna(False).to_numpy(dtype=bool)
         return out[keep].reset_index(drop=True), flat.rename("flat").reset_index()
-    if control == RATES_VOL:
-        flat, table = rates_vol_flat_months(cfg, processed)
+    if control in METHOD:
+        flat, table = rates_vol_flat_months(cfg, processed, METHOD[control])
         keep = ~out["date"].map(flat).fillna(False).to_numpy(dtype=bool)
         return out[keep].reset_index(drop=True), table
     raise KeyError(f"unknown risk control {control!r}; known: {CONTROLS}")
@@ -398,8 +433,12 @@ def build(cfg: dict, processed: Path | None = None) -> pd.DataFrame:
     for variant in cfg["risk"]["risk_control_base_variants"]:
         attribution_2022(cfg, variant, p)
     checks.CHECKS.mkdir(parents=True, exist_ok=True)
-    _flat, rates = rates_vol_flat_months(cfg, p)
-    out = rates.copy()
+    # both percentile methods, side by side, so the dead threshold and the live
+    # one can be read against each other in one file (session-6 amendment 9)
+    out = pd.concat(
+        [rates_vol_flat_months(cfg, p, method)[1] for method in (EXPANDING, ROLLING)],
+        ignore_index=True,
+    )
     out["date"] = pd.to_datetime(out["date"]).dt.date.astype(str)
     out.to_csv(checks.RATES_VOL_FILTER, index=False, lineterminator="\n")
     table = summary_table(cfg, p)

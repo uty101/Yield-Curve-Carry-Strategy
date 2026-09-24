@@ -16,3 +16,5 @@ run_id,timestamp_utc,git_commit,config_hash,label,note
 20260923T181309-68b55883b46e,2026-09-23T18:13:09+00:00,7f9faf0,68b55883b46e,combined_hedged_voltarget,"{""base_variant"": ""combined_hedged"", ""risk_control"": ""vol_target""}"
 20260923T181311-68b55883b46e,2026-09-23T18:13:11+00:00,7f9faf0,68b55883b46e,combined_hedged_ddstop,"{""base_variant"": ""combined_hedged"", ""risk_control"": ""dd_stop""}"
 20260923T181312-68b55883b46e,2026-09-23T18:13:12+00:00,7f9faf0,68b55883b46e,combined_hedged_ratesvol,"{""base_variant"": ""combined_hedged"", ""risk_control"": ""rates_vol_filter""}"
+20260924T144454-a9a8ad073abb,2026-09-24T14:44:54+00:00,406a876,a9a8ad073abb,carry_hedged_ratesvol_rolling,"{""base_variant"": ""carry_hedged"", ""risk_control"": ""rates_vol_filter_rolling""}"
+20260924T144501-a9a8ad073abb,2026-09-24T14:45:01+00:00,406a876,a9a8ad073abb,combined_hedged_ratesvol_rolling,"{""base_variant"": ""combined_hedged"", ""risk_control"": ""rates_vol_filter_rolling""}"

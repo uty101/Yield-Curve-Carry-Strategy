@@ -1,6 +1,6 @@
 # Results
 
-Written at commit `7e8453c`, config hash `68b55883b46e`.
+Written at commit `406a876`, config hash `a9a8ad073abb`.
 
 Every number below is produced by `uv run curvecarry report`. The block between the two markers is pasted into `README.md` verbatim and a test asserts the two are equal.
 
@@ -55,54 +55,58 @@ Windows: `full` from 1997-08-31, `six` from 2004-11-30 (the first month all six 
 
 | variant | window | ann return | ann vol | Sharpe | max DD | DD peak | DD trough | turnover | 2022 | DD 2022 | n | gross return | gross Sharpe | DSR |
 |---|---|---:|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
-| carry_hedged | full | 0.59% | 2.23% | 0.265 | -10.37% | 2019-12-31 | 2022-12-31 | 1.473 | -4.41% | -4.69% | 348 | 0.77% | 0.344 | 0.567 |
-| carry_hedged | six | 0.48% | 2.01% | 0.239 | -10.37% | 2019-12-31 | 2022-12-31 | 1.483 | -4.41% | -4.69% | 261 | 0.66% | 0.328 | 0.512 |
-| carry_hedged_cost0 | full | 0.77% | 2.23% | 0.344 | -9.69% | 2019-12-31 | 2022-12-31 | 1.473 | -4.15% | -4.45% | 348 | 0.77% | 0.344 | 0.722 |
-| carry_hedged_cost0 | six | 0.66% | 2.00% | 0.328 | -9.69% | 2019-12-31 | 2022-12-31 | 1.483 | -4.15% | -4.45% | 261 | 0.66% | 0.328 | 0.668 |
-| carry_hedged_cost2x | full | 0.41% | 2.24% | 0.185 | -11.04% | 2019-12-31 | 2022-12-31 | 1.473 | -4.67% | -4.93% | 348 | 0.77% | 0.344 | 0.400 |
-| carry_hedged_cost2x | six | 0.30% | 2.01% | 0.150 | -11.04% | 2019-12-31 | 2022-12-31 | 1.483 | -4.67% | -4.93% | 261 | 0.66% | 0.328 | 0.351 |
-| carry_hedged_country_scope | full | 0.19% | 1.60% | 0.120 | -8.94% | 2019-12-31 | 2022-10-31 | 1.963 | -2.18% | -3.06% | 348 | 0.43% | 0.268 | 0.274 |
-| carry_hedged_country_scope | six | 0.36% | 1.55% | 0.230 | -8.94% | 2019-12-31 | 2022-10-31 | 1.967 | -2.18% | -3.06% | 261 | 0.59% | 0.383 | 0.495 |
-| carry_hedged_ddstop | full | 0.54% | 2.21% | 0.243 | -10.41% | 2019-12-31 | 2025-11-30 | 1.476 | -4.41% | -4.69% | 348 | 0.71% | 0.324 | 0.523 |
-| carry_hedged_ddstop | six | 0.41% | 1.96% | 0.207 | -10.41% | 2019-12-31 | 2025-11-30 | 1.488 | -4.41% | -4.69% | 261 | 0.59% | 0.299 | 0.454 |
-| carry_hedged_interbank_3m | full | 0.64% | 2.27% | 0.284 | -9.55% | 2019-12-31 | 2022-12-31 | 1.489 | -4.68% | -4.91% | 348 | 0.82% | 0.363 | 0.607 |
-| carry_hedged_interbank_3m | six | 0.50% | 2.10% | 0.236 | -9.55% | 2019-12-31 | 2022-12-31 | 1.503 | -4.68% | -4.91% | 261 | 0.68% | 0.322 | 0.505 |
-| carry_hedged_no_gb30 | full | 0.63% | 2.24% | 0.280 | -10.35% | 2019-12-31 | 2022-12-31 | 1.486 | -4.49% | -4.75% | 348 | 0.80% | 0.360 | 0.599 |
-| carry_hedged_no_gb30 | six | 0.53% | 2.01% | 0.262 | -10.35% | 2019-12-31 | 2022-12-31 | 1.500 | -4.49% | -4.75% | 261 | 0.71% | 0.352 | 0.553 |
-| carry_hedged_ratesvol | full | 0.59% | 2.23% | 0.265 | -10.37% | 2019-12-31 | 2022-12-31 | 1.473 | -4.41% | -4.69% | 348 | 0.77% | 0.344 | 0.567 |
-| carry_hedged_ratesvol | six | 0.48% | 2.01% | 0.239 | -10.37% | 2019-12-31 | 2022-12-31 | 1.483 | -4.41% | -4.69% | 261 | 0.66% | 0.328 | 0.512 |
-| carry_hedged_voltarget | full | 0.94% | 4.04% | 0.232 | -18.79% | 2019-12-31 | 2022-12-31 | 2.812 | -7.53% | -8.04% | 348 | 1.27% | 0.316 | 0.498 |
-| carry_hedged_voltarget | six | 0.92% | 3.84% | 0.239 | -18.79% | 2019-12-31 | 2022-12-31 | 2.917 | -7.53% | -8.04% | 261 | 1.27% | 0.331 | 0.512 |
-| carry_unhedged | full | 2.80% | 11.07% | 0.253 | -32.25% | 1999-06-30 | 2001-08-31 | 1.473 | -6.53% | -20.95% | 348 | 2.98% | 0.269 | 0.545 |
-| carry_unhedged | six | 3.03% | 10.29% | 0.294 | -31.08% | 2017-07-31 | 2022-08-31 | 1.483 | -6.53% | -20.95% | 261 | 3.20% | 0.311 | 0.613 |
-| combined_hedged | full | 0.29% | 3.09% | 0.093 | -14.08% | 2019-12-31 | 2023-02-28 | 3.446 | -8.13% | -8.21% | 348 | 0.70% | 0.229 | 0.234 |
-| combined_hedged | six | -0.06% | 3.06% | -0.021 | -14.08% | 2019-12-31 | 2023-02-28 | 3.593 | -8.13% | -8.21% | 261 | 0.37% | 0.121 | 0.117 |
-| combined_hedged_ddstop | full | 0.27% | 2.93% | 0.092 | -12.53% | 2019-12-31 | 2024-07-31 | 3.039 | -5.90% | -6.10% | 348 | 0.63% | 0.218 | 0.232 |
-| combined_hedged_ddstop | six | -0.09% | 2.83% | -0.032 | -12.53% | 2019-12-31 | 2024-07-31 | 3.050 | -5.90% | -6.10% | 261 | 0.28% | 0.098 | 0.106 |
-| combined_hedged_ratesvol | full | 0.29% | 3.09% | 0.093 | -14.08% | 2019-12-31 | 2023-02-28 | 3.446 | -8.13% | -8.21% | 348 | 0.70% | 0.229 | 0.234 |
-| combined_hedged_ratesvol | six | -0.06% | 3.06% | -0.021 | -14.08% | 2019-12-31 | 2023-02-28 | 3.593 | -8.13% | -8.21% | 261 | 0.37% | 0.121 | 0.117 |
-| combined_hedged_voltarget | full | 0.15% | 4.94% | 0.029 | -25.59% | 2015-12-31 | 2025-11-30 | 5.988 | -13.75% | -13.69% | 348 | 0.86% | 0.176 | 0.139 |
-| combined_hedged_voltarget | six | -0.35% | 4.91% | -0.071 | -25.59% | 2015-12-31 | 2025-11-30 | 6.360 | -13.75% | -13.69% | 261 | 0.42% | 0.085 | 0.076 |
-| combined_unhedged | full | 4.60% | 15.45% | 0.298 | -40.85% | 2017-07-31 | 2026-05-31 | 3.445 | -11.12% | -31.83% | 348 | 5.02% | 0.325 | 0.647 |
-| combined_unhedged | six | 4.85% | 14.97% | 0.324 | -40.85% | 2017-07-31 | 2026-05-31 | 3.593 | -11.12% | -31.83% | 261 | 5.28% | 0.353 | 0.673 |
+| carry_hedged | full | 0.59% | 2.23% | 0.265 | -10.37% | 2019-12-31 | 2022-12-31 | 1.473 | -4.41% | -4.69% | 348 | 0.77% | 0.344 | 0.573 |
+| carry_hedged | six | 0.48% | 2.01% | 0.239 | -10.37% | 2019-12-31 | 2022-12-31 | 1.483 | -4.41% | -4.69% | 261 | 0.66% | 0.328 | 0.517 |
+| carry_hedged_cost0 | full | 0.77% | 2.23% | 0.344 | -9.69% | 2019-12-31 | 2022-12-31 | 1.473 | -4.15% | -4.45% | 348 | 0.77% | 0.344 | 0.727 |
+| carry_hedged_cost0 | six | 0.66% | 2.00% | 0.328 | -9.69% | 2019-12-31 | 2022-12-31 | 1.483 | -4.15% | -4.45% | 261 | 0.66% | 0.328 | 0.673 |
+| carry_hedged_cost2x | full | 0.41% | 2.24% | 0.185 | -11.04% | 2019-12-31 | 2022-12-31 | 1.473 | -4.67% | -4.93% | 348 | 0.77% | 0.344 | 0.406 |
+| carry_hedged_cost2x | six | 0.30% | 2.01% | 0.150 | -11.04% | 2019-12-31 | 2022-12-31 | 1.483 | -4.67% | -4.93% | 261 | 0.66% | 0.328 | 0.356 |
+| carry_hedged_country_scope | full | 0.19% | 1.60% | 0.120 | -8.94% | 2019-12-31 | 2022-10-31 | 1.963 | -2.18% | -3.06% | 348 | 0.43% | 0.268 | 0.278 |
+| carry_hedged_country_scope | six | 0.36% | 1.55% | 0.230 | -8.94% | 2019-12-31 | 2022-10-31 | 1.967 | -2.18% | -3.06% | 261 | 0.59% | 0.383 | 0.500 |
+| carry_hedged_ddstop | full | 0.54% | 2.21% | 0.243 | -10.41% | 2019-12-31 | 2025-11-30 | 1.476 | -4.41% | -4.69% | 348 | 0.71% | 0.324 | 0.529 |
+| carry_hedged_ddstop | six | 0.41% | 1.96% | 0.207 | -10.41% | 2019-12-31 | 2025-11-30 | 1.488 | -4.41% | -4.69% | 261 | 0.59% | 0.299 | 0.459 |
+| carry_hedged_interbank_3m | full | 0.64% | 2.27% | 0.284 | -9.55% | 2019-12-31 | 2022-12-31 | 1.489 | -4.68% | -4.91% | 348 | 0.82% | 0.363 | 0.612 |
+| carry_hedged_interbank_3m | six | 0.50% | 2.10% | 0.236 | -9.55% | 2019-12-31 | 2022-12-31 | 1.503 | -4.68% | -4.91% | 261 | 0.68% | 0.322 | 0.510 |
+| carry_hedged_no_gb30 | full | 0.63% | 2.24% | 0.280 | -10.35% | 2019-12-31 | 2022-12-31 | 1.486 | -4.49% | -4.75% | 348 | 0.80% | 0.360 | 0.604 |
+| carry_hedged_no_gb30 | six | 0.53% | 2.01% | 0.262 | -10.35% | 2019-12-31 | 2022-12-31 | 1.500 | -4.49% | -4.75% | 261 | 0.71% | 0.352 | 0.558 |
+| carry_hedged_ratesvol | full | 0.59% | 2.23% | 0.265 | -10.37% | 2019-12-31 | 2022-12-31 | 1.473 | -4.41% | -4.69% | 348 | 0.77% | 0.344 | 0.573 |
+| carry_hedged_ratesvol | six | 0.48% | 2.01% | 0.239 | -10.37% | 2019-12-31 | 2022-12-31 | 1.483 | -4.41% | -4.69% | 261 | 0.66% | 0.328 | 0.517 |
+| carry_hedged_ratesvol_rolling | full | 0.58% | 2.03% | 0.285 | -8.63% | 2019-12-31 | 2025-11-30 | 1.328 | -1.43% | -1.75% | 348 | 0.74% | 0.364 | 0.614 |
+| carry_hedged_ratesvol_rolling | six | 0.46% | 1.70% | 0.273 | -8.63% | 2019-12-31 | 2025-11-30 | 1.290 | -1.43% | -1.75% | 261 | 0.62% | 0.365 | 0.578 |
+| carry_hedged_voltarget | full | 0.94% | 4.04% | 0.232 | -18.79% | 2019-12-31 | 2022-12-31 | 2.812 | -7.53% | -8.04% | 348 | 1.27% | 0.316 | 0.504 |
+| carry_hedged_voltarget | six | 0.92% | 3.84% | 0.239 | -18.79% | 2019-12-31 | 2022-12-31 | 2.917 | -7.53% | -8.04% | 261 | 1.27% | 0.331 | 0.517 |
+| carry_unhedged | full | 2.80% | 11.07% | 0.253 | -32.25% | 1999-06-30 | 2001-08-31 | 1.473 | -6.53% | -20.95% | 348 | 2.98% | 0.269 | 0.551 |
+| carry_unhedged | six | 3.03% | 10.29% | 0.294 | -31.08% | 2017-07-31 | 2022-08-31 | 1.483 | -6.53% | -20.95% | 261 | 3.20% | 0.311 | 0.618 |
+| combined_hedged | full | 0.29% | 3.09% | 0.093 | -14.08% | 2019-12-31 | 2023-02-28 | 3.446 | -8.13% | -8.21% | 348 | 0.70% | 0.229 | 0.238 |
+| combined_hedged | six | -0.06% | 3.06% | -0.021 | -14.08% | 2019-12-31 | 2023-02-28 | 3.593 | -8.13% | -8.21% | 261 | 0.37% | 0.121 | 0.120 |
+| combined_hedged_ddstop | full | 0.27% | 2.93% | 0.092 | -12.53% | 2019-12-31 | 2024-07-31 | 3.039 | -5.90% | -6.10% | 348 | 0.63% | 0.218 | 0.236 |
+| combined_hedged_ddstop | six | -0.09% | 2.83% | -0.032 | -12.53% | 2019-12-31 | 2024-07-31 | 3.050 | -5.90% | -6.10% | 261 | 0.28% | 0.098 | 0.108 |
+| combined_hedged_ratesvol | full | 0.29% | 3.09% | 0.093 | -14.08% | 2019-12-31 | 2023-02-28 | 3.446 | -8.13% | -8.21% | 348 | 0.70% | 0.229 | 0.238 |
+| combined_hedged_ratesvol | six | -0.06% | 3.06% | -0.021 | -14.08% | 2019-12-31 | 2023-02-28 | 3.593 | -8.13% | -8.21% | 261 | 0.37% | 0.121 | 0.120 |
+| combined_hedged_ratesvol_rolling | full | 0.54% | 2.47% | 0.217 | -9.79% | 2019-12-31 | 2025-11-30 | 2.940 | -1.43% | -1.75% | 348 | 0.89% | 0.362 | 0.473 |
+| combined_hedged_ratesvol_rolling | six | 0.27% | 2.19% | 0.122 | -9.79% | 2019-12-31 | 2025-11-30 | 2.919 | -1.43% | -1.75% | 261 | 0.62% | 0.285 | 0.311 |
+| combined_hedged_voltarget | full | 0.15% | 4.94% | 0.029 | -25.59% | 2015-12-31 | 2025-11-30 | 5.988 | -13.75% | -13.69% | 348 | 0.86% | 0.176 | 0.142 |
+| combined_hedged_voltarget | six | -0.35% | 4.91% | -0.071 | -25.59% | 2015-12-31 | 2025-11-30 | 6.360 | -13.75% | -13.69% | 261 | 0.42% | 0.085 | 0.078 |
+| combined_unhedged | full | 4.60% | 15.45% | 0.298 | -40.85% | 2017-07-31 | 2026-05-31 | 3.445 | -11.12% | -31.83% | 348 | 5.02% | 0.325 | 0.653 |
+| combined_unhedged | six | 4.85% | 14.97% | 0.324 | -40.85% | 2017-07-31 | 2026-05-31 | 3.593 | -11.12% | -31.83% | 261 | 5.28% | 0.353 | 0.677 |
 | overlay_hedged | full | -0.31% | 1.86% | -0.169 | -13.70% | 2008-05-31 | 2026-05-31 | 2.075 | -3.75% | -4.41% | 348 | -0.07% | -0.035 | 0.009 |
 | overlay_hedged | six | -0.56% | 2.04% | -0.272 | -13.70% | 2008-05-31 | 2026-05-31 | 2.215 | -3.75% | -4.41% | 261 | -0.29% | -0.143 | 0.003 |
-| overlay_unhedged | full | 1.79% | 9.10% | 0.197 | -28.01% | 1998-10-31 | 2008-04-30 | 2.075 | -4.62% | -15.02% | 348 | 2.04% | 0.224 | 0.421 |
-| overlay_unhedged | six | 1.82% | 9.73% | 0.187 | -24.91% | 2005-12-31 | 2008-04-30 | 2.215 | -4.62% | -15.02% | 261 | 2.08% | 0.214 | 0.413 |
+| overlay_unhedged | full | 1.79% | 9.10% | 0.197 | -28.01% | 1998-10-31 | 2008-04-30 | 2.075 | -4.62% | -15.02% | 348 | 2.04% | 0.224 | 0.427 |
+| overlay_unhedged | six | 1.82% | 9.73% | 0.187 | -24.91% | 2005-12-31 | 2008-04-30 | 2.215 | -4.62% | -15.02% | 261 | 2.08% | 0.214 | 0.418 |
 
-**DSR is a probability, not a Sharpe**: the probability that the true Sharpe exceeds the multiple-testing threshold, here SR0 = 0.067 monthly over N = 17 trials. N is the row count of `reports/specifications.csv`, V[SR] = 0.001349 across the logged runs, monthly basis. A DSR below about 0.95 does not clear the usual bar.
+**DSR is a probability, not a Sharpe**: the probability that the true Sharpe exceeds the multiple-testing threshold, here SR0 = 0.066 monthly over N = 19 trials. N is the row count of `reports/specifications.csv`, V[SR] = 0.001249 across the logged runs, monthly basis. A DSR below about 0.95 does not clear the usual bar.
 
 Annualisation of every return and vol column: arithmetic, mean x 12.
 
 ### The deflated Sharpe
 
-The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.567**, and that number is **a probability, not a Sharpe ratio**: it is the probability that the true Sharpe exceeds the multiple-testing threshold SR0 = 0.067 on a monthly basis, which is the Sharpe that 17 trials would be expected to produce by selection alone. N = 17 is the row count of `reports/specifications.csv` at the moment this report was written, and every run this project logged is in it.
+The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.573**, and that number is **a probability, not a Sharpe ratio**: it is the probability that the true Sharpe exceeds the multiple-testing threshold SR0 = 0.066 on a monthly basis, which is the Sharpe that 19 trials would be expected to produce by selection alone. N = 19 is the row count of `reports/specifications.csv` at the moment this report was written, and every run this project logged is in it.
 
-**That does not clear the usual bar.** A deflated Sharpe is conventionally read as clearing it at about 0.95, and 0.567 is below that: after 17 trials, the evidence that this book's true Sharpe is above the selection threshold is weak.
+**That does not clear the usual bar.** A deflated Sharpe is conventionally read as clearing it at about 0.95, and 0.573 is below that: after 19 trials, the evidence that this book's true Sharpe is above the selection threshold is weak.
 
 ### Every logged run
 
-17 runs, each logged in `reports/specifications.csv` **before** it computed. A variant with no row did not happen.
+19 runs, each logged in `reports/specifications.csv` **before** it computed. A variant with no row did not happen.
 
 | # | label | logged at (UTC) | config hash | what it overrides |
 |---|---|---|---|---|
@@ -123,6 +127,8 @@ The headline's annualised Sharpe is 0.265. Its **deflated Sharpe is 0.567**, and
 | 15 | `combined_hedged_voltarget` | 2026-09-23T18:13:09 | `68b55883b46e` | {"base_variant": "combined_hedged", "risk_control": "vol_target"} |
 | 16 | `combined_hedged_ddstop` | 2026-09-23T18:13:11 | `68b55883b46e` | {"base_variant": "combined_hedged", "risk_control": "dd_stop"} |
 | 17 | `combined_hedged_ratesvol` | 2026-09-23T18:13:12 | `68b55883b46e` | {"base_variant": "combined_hedged", "risk_control": "rates_vol_filter"} |
+| 18 | `carry_hedged_ratesvol_rolling` | 2026-09-24T14:44:54 | `a9a8ad073abb` | {"base_variant": "carry_hedged", "risk_control": "rates_vol_filter_rolling"} |
+| 19 | `combined_hedged_ratesvol_rolling` | 2026-09-24T14:45:01 | `a9a8ad073abb` | {"base_variant": "combined_hedged", "risk_control": "rates_vol_filter_rolling"} |
 <!-- results:end -->
 
 ## The decomposition
@@ -201,6 +207,8 @@ Each is its own logged run, applied to the base book named in `config.risk.risk_
 | carry_hedged | carry_hedged_ddstop | dd_stop | six | 0.004076 | 0.019645 | 0.207464 | -0.104106 | -0.044131 | 1.487680 | 5 |
 | carry_hedged | carry_hedged_ratesvol | rates_vol_filter | full | 0.005907 | 0.022329 | 0.264548 | -0.103653 | -0.044131 | 1.473139 | 0 |
 | carry_hedged | carry_hedged_ratesvol | rates_vol_filter | six | 0.004792 | 0.020053 | 0.238965 | -0.103653 | -0.044131 | 1.483483 | 0 |
+| carry_hedged | carry_hedged_ratesvol_rolling | rates_vol_filter_rolling | full | 0.005790 | 0.020328 | 0.284814 | -0.086347 | -0.014258 | 1.328314 | 31 |
+| carry_hedged | carry_hedged_ratesvol_rolling | rates_vol_filter_rolling | six | 0.004635 | 0.016975 | 0.273065 | -0.086347 | -0.014258 | 1.290383 | 31 |
 | combined_hedged | combined_hedged | (base) | full | 0.002886 | 0.030875 | 0.093485 | -0.140841 | -0.081304 | 3.445734 | 0 |
 | combined_hedged | combined_hedged | (base) | six | -0.000635 | 0.030555 | -0.020795 | -0.140841 | -0.081304 | 3.593211 | 0 |
 | combined_hedged | combined_hedged_voltarget | vol_target | full | 0.001453 | 0.049388 | 0.029427 | -0.255856 | -0.137451 | 5.987877 | 0 |
@@ -209,6 +217,8 @@ Each is its own logged run, applied to the base book named in `config.risk.risk_
 | combined_hedged | combined_hedged_ddstop | dd_stop | six | -0.000904 | 0.028348 | -0.031875 | -0.125306 | -0.058976 | 3.050233 | 45 |
 | combined_hedged | combined_hedged_ratesvol | rates_vol_filter | full | 0.002886 | 0.030875 | 0.093485 | -0.140841 | -0.081304 | 3.445734 | 0 |
 | combined_hedged | combined_hedged_ratesvol | rates_vol_filter | six | -0.000635 | 0.030555 | -0.020795 | -0.140841 | -0.081304 | 3.593211 | 0 |
+| combined_hedged | combined_hedged_ratesvol_rolling | rates_vol_filter_rolling | full | 0.005375 | 0.024744 | 0.217243 | -0.097857 | -0.014258 | 2.940250 | 31 |
+| combined_hedged | combined_hedged_ratesvol_rolling | rates_vol_filter_rolling | six | 0.002683 | 0.021913 | 0.122453 | -0.097857 | -0.014258 | 2.919232 | 31 |
 
 ## PCA: explained variance
 

@@ -101,6 +101,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             for base in cfg["risk"]["risk_control_base_variants"]
             for control in risk.CONTROLS
         ]
+        if args.only:
+            # the spec log is append-only, so re-running a control that is
+            # already logged would move N for nothing
+            names = [n for n in names if n in set(args.only)]
+            if not names:
+                sys.exit(f"--only matched no risk-control variant; known: {names}")
     else:
         names = list(backtest.VARIANTS) if args.all else [args.variant]
     for name in names:
@@ -185,6 +191,12 @@ def main(argv: list[str] | None = None) -> int:
         help="step 6.2: the three pre-registered controls on each base book, six logged runs",
     )
     rn.add_argument("--note", default="")
+    rn.add_argument(
+        "--only",
+        action="append",
+        help="with --risk-controls: run just these variants, so an already logged one "
+        "is not logged again (the spec log is append-only and N is its row count)",
+    )
     rn.set_defaults(fn=cmd_run)
 
     for name, step in NOT_BUILT.items():

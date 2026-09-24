@@ -22,6 +22,7 @@ def _cfg() -> dict:
             "dd_stop": 0.10,
             "dd_reentry_months": 3,
             "rates_vol_pct": 0.90,
+            "rates_vol_window_months": 120,
             "risk_control_base_variants": ["carry_hedged", "combined_hedged"],
         },
         "pca": {"pca_min_months": 6, "pca_z_window": 36},
@@ -237,8 +238,8 @@ def test_risk_control_bases_match_config():
     assert list(backtest.RISK_CONTROL_BASES) == list(cfg["risk"]["risk_control_base_variants"])
 
 
-def test_six_risk_control_variants_exist_and_name_their_base():
-    """Three controls on each of two bases, each carrying the base it transforms."""
+def test_every_risk_control_variant_names_its_base():
+    """Each control on each base, each carrying the base it transforms."""
     made = {k: v for k, v in backtest.VARIANTS.items() if v.risk_control}
     assert len(made) == len(backtest.RISK_CONTROL_BASES) * len(risk_controls.CONTROLS)
     for name, spec in made.items():
@@ -330,3 +331,89 @@ def test_rates_vol_ratio_is_written_for_every_armed_month():
     assert len(armed) > 0
     assert armed["ratio"].notna().all()
     assert (armed["ratio"] > 0).all()
+
+
+# ------ session-6 amendment 9: the rolling percentile, the live test of (c)
+
+
+# pandas computes a rolling variance with a running-sum update, so a huge value
+# entering and leaving the window leaves a floating-point residue in every later
+# value. It is ~2e-12 against a vol level of ~9, a relative 3e-13, and it is
+# arithmetic noise rather than information: these two tests compare with a
+# tolerance rather than with ``equals`` for that reason and no other.
+ROLLING_FP_TOLERANCE = 1e-9
+
+
+def test_rolling_threshold_uses_only_the_trailing_window():
+    """The rolling threshold at ``t`` ignores ``v`` older than the window."""
+    cfg = _cfg()
+    cfg["risk"]["rates_vol_window_months"] = 24
+    n = 90
+    idx = pd.date_range("2000-01-31", periods=n, freq="ME")
+    rng = np.random.default_rng(11)
+    score = rng.normal(0.0, 10.0, n)
+    table = risk_controls.rates_vol_flags(
+        pd.DataFrame({"date": idx, "n_countries": 3, "score": score}), cfg, risk_controls.ROLLING
+    )
+    # a huge spike in the first year cannot reach a threshold 60 months later
+    spiked = score.copy()
+    spiked[:12] *= 50.0
+    after = risk_controls.rates_vol_flags(
+        pd.DataFrame({"date": idx, "n_countries": 3, "score": spiked}), cfg, risk_controls.ROLLING
+    )
+    late = table["date"] >= idx[60]
+    gap = (table.loc[late, "threshold"] - after.loc[late, "threshold"]).abs().max()
+    assert float(gap) < ROLLING_FP_TOLERANCE
+
+
+def test_rolling_and_expanding_differ_only_in_the_threshold():
+    """Same score, same vol, same arming rule; only the percentile in force changes."""
+    cfg = _cfg()
+    cfg["risk"]["rates_vol_window_months"] = 24
+    idx = pd.date_range("1990-01-31", periods=120, freq="ME")
+    rng = np.random.default_rng(12)
+    scores = pd.DataFrame({"date": idx, "n_countries": 3, "score": rng.normal(0.0, 10.0, 120)})
+    a = risk_controls.rates_vol_flags(scores, cfg, risk_controls.EXPANDING)
+    b = risk_controls.rates_vol_flags(scores, cfg, risk_controls.ROLLING)
+    assert a["vol"].equals(b["vol"])
+    assert list(a["method"].unique()) == [risk_controls.EXPANDING]
+    assert list(b["method"].unique()) == [risk_controls.ROLLING]
+    assert not a["threshold"].equals(b["threshold"])
+
+
+def test_rolling_percentile_is_not_lookahead():
+    """Appending months after ``t`` leaves the rolling threshold and flag at ``t`` alone."""
+    cfg = _cfg()
+    cfg["risk"]["rates_vol_window_months"] = 24
+    idx = pd.date_range("1990-01-31", periods=120, freq="ME")
+    rng = np.random.default_rng(13)
+    full = pd.DataFrame({"date": idx, "n_countries": 3, "score": rng.normal(0.0, 10.0, 120)})
+    long = risk_controls.rates_vol_flags(full, cfg, risk_controls.ROLLING).set_index("date")
+    short = risk_controls.rates_vol_flags(full.iloc[:90], cfg, risk_controls.ROLLING).set_index(
+        "date"
+    )
+    common = short.index
+    gap = (long.loc[common, "threshold"] - short["threshold"]).abs().max()
+    assert float(gap) < ROLLING_FP_TOLERANCE
+    assert list(long.loc[common, "triggers"]) == list(short["triggers"])
+
+
+def test_unknown_percentile_method_raises():
+    cfg = _cfg()
+    idx = pd.date_range("2000-01-31", periods=20, freq="ME")
+    scores = pd.DataFrame({"date": idx, "n_countries": 3, "score": 1.0})
+    with pytest.raises(KeyError):
+        risk_controls.rates_vol_flags(scores, cfg, "rolling-ish")
+
+
+def test_eight_risk_control_variants_and_two_percentile_methods():
+    """Four controls on each of two bases, and the two filter variants differ by method."""
+    made = {k: v for k, v in backtest.VARIANTS.items() if v.risk_control}
+    assert len(made) == len(backtest.RISK_CONTROL_BASES) * len(risk_controls.CONTROLS)
+    assert len(risk_controls.CONTROLS) == 4
+    assert set(risk_controls.METHOD.values()) == {risk_controls.EXPANDING, risk_controls.ROLLING}
+    for control, method in risk_controls.METHOD.items():
+        name = risk_controls.variant_name("carry_hedged", control)
+        assert name in backtest.VARIANTS
+        assert backtest.VARIANTS[name].risk_control == control
+        assert method in (risk_controls.EXPANDING, risk_controls.ROLLING)
