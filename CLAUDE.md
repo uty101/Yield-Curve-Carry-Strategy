@@ -156,12 +156,17 @@ uv run curvecarry build --step overlay     # 5.4: pc2_expanding, overlay_positio
 uv run curvecarry report --charts 1,2,3,4  # 2.4, 3.3, 4.4: reports/figures/*.png (full report 6.4)
 uv run curvecarry run --variant carry_hedged   # 5.3/5.4/5.5: one logged run; --all runs every variant
 uv run curvecarry build --step decomposition  # 6.1: decomposition_<variant>.parquet, decomposition_shares.csv
-uv run curvecarry run --risk-controls      # 6.2: the eight pre-registered control runs, each logged first (--only <v> for one)
+uv run curvecarry run --risk-controls      # 6.2: the control runs alone, for a spec log that already has their bases (--only <v> for one)
 uv run curvecarry build --step risk_controls  # 6.2: attribution_2022_*.csv, risk_controls.csv, rates_vol_filter.csv
 uv run curvecarry build --step caveats     # 6.3: ns_lambda_bound.csv, section_6_3.md
 uv run curvecarry report --table           # 5.5: data/checks/metrics_table.csv and .md
 uv run curvecarry report                   # 6.4: every chart, reports/results.md, the README block
 ```
+
+**`run --all` already includes the eight risk-control variants**, so it is
+never followed by `run --risk-controls` — that would log them a second time
+and move `N`. The `--risk-controls` form is for adding a control to a spec log
+that already holds its base, which is how session 6 added them.
 
 **`build --all` stops before `decomposition`, `risk_controls` and `caveats`**:
 those three read a completed backtest and cannot run before `run`. The whole

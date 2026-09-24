@@ -28,11 +28,15 @@ report:
 # `build --all` stops before the three steps that read a completed backtest.
 # The whole sequence, from raw files to the report, is:
 #     make build                                  # loaders, curves, carry, returns, signal, weights, overlay
-#     uv run curvecarry run --all                 # the eleven logged runs
+#     uv run curvecarry run --all                 # every logged run, the risk controls included
 #     uv run curvecarry build --step decomposition
-#     uv run curvecarry run --risk-controls       # the six logged control runs
 #     uv run curvecarry build --step risk_controls
 #     uv run curvecarry build --step caveats
 #     make report
+#
+# `run --all` covers the risk-control variants too, so it is NOT followed by
+# `run --risk-controls`: that would log the eight controls a second time and
+# move N. `--risk-controls [--only <v>]` is for adding a control to a spec log
+# that already has its base, which is how session 6 added them.
 # Everything except the two `run` lines, which append to the spec log.
 all: build report
