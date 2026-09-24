@@ -83,7 +83,16 @@ ALL_COUNTRIES = "ALL"
 ALL_LEGS = "both"
 ATTRIBUTION_YEAR = 2022
 
-RATES_VOL_COLUMNS = ["date", "n_countries", "score", "vol", "threshold", "flat_next"]
+RATES_VOL_COLUMNS = [
+    "date",
+    "n_countries",
+    "score",
+    "vol",
+    "threshold",
+    "ratio",
+    "armed",
+    "triggers",
+]
 RISK_CONTROL_COLUMNS = [
     "base",
     "variant",
@@ -178,14 +187,30 @@ def pooled_pc1_scores(changes_by_country: dict[str, pd.DataFrame], cfg: dict) ->
 
 
 def rates_vol_flags(scores: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """``v_t``, its expanding quantile, and the flag that flattens ``t -> t+1``."""
+    """``v_t``, the percentile in force, and the flag that flattens ``t -> t+1``.
+
+    ``armed`` is "there is enough history for a decision": 12 non-null scores,
+    which needs ``pca_min_months`` of panel before the first one exists.
+    ``triggers`` is the decision itself. ``ratio`` is ``vol / threshold`` and
+    is written out so that a month that does not trigger can be read as a
+    distance rather than as a bare ``False`` - a filter that never fires and a
+    filter that is never consulted look identical without it (session-6 fix 1).
+
+    The expanding quantile includes the current month, which is PLAN.md 6.2's
+    wording ("up to and including ``t``"). That does **not** make exceedance
+    impossible: at ``n`` observations the linear-interpolated 90th percentile
+    sits at position ``0.9 (n - 1)`` and a new maximum sits at ``n - 1``, so a
+    new high in ``v`` clears it whenever ``n > 1``.
+    """
     window = int(cfg["risk"]["vol_window_months"])
     pct = float(cfg["risk"]["rates_vol_pct"])
     out = scores.sort_values("date").reset_index(drop=True).copy()
     s = out["score"]
     out["vol"] = s.rolling(window, min_periods=window).std(ddof=1)
     out["threshold"] = out["vol"].expanding().quantile(pct)
-    out["flat_next"] = (out["vol"] > out["threshold"]).fillna(False)
+    out["ratio"] = out["vol"] / out["threshold"]
+    out["armed"] = out["vol"].notna() & out["threshold"].notna()
+    out["triggers"] = (out["vol"] > out["threshold"]).fillna(False)
     return out[RATES_VOL_COLUMNS]
 
 
@@ -201,7 +226,7 @@ def rates_vol_flat_months(
     zero = pd.read_parquet(p / "curves_zero.parquet")
     changes = pca.monthly_changes_bp(zero, cfg)
     table = rates_vol_flags(pooled_pc1_scores(changes, cfg), cfg)
-    flat = pd.Series(table["flat_next"].to_numpy(dtype=bool), index=pd.DatetimeIndex(table["date"]))
+    flat = pd.Series(table["triggers"].to_numpy(dtype=bool), index=pd.DatetimeIndex(table["date"]))
     return flat, table
 
 

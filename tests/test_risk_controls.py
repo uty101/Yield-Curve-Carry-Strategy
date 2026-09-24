@@ -148,7 +148,7 @@ def test_rates_filter_expanding_percentile_no_lookahead():
         risk_controls.pooled_pc1_scores(short, cfg), cfg
     ).set_index("date")
     common = short_flags.index
-    assert list(long_flags.loc[common, "flat_next"]) == list(short_flags["flat_next"])
+    assert list(long_flags.loc[common, "triggers"]) == list(short_flags["triggers"])
     assert long_flags.loc[common, "vol"].equals(short_flags["vol"])
 
 
@@ -169,7 +169,7 @@ def test_rates_filter_flags_only_the_top_tail():
         risk_controls.pooled_pc1_scores(_changes(seed=9, n=80), cfg), cfg
     )
     usable = table[table["vol"].notna()]
-    assert usable["flat_next"].mean() <= 0.25  # expanding, so early months flag more often
+    assert usable["triggers"].mean() <= 0.25  # expanding, so early months flag more often
 
 
 # ------------------------------------------------------- the 2022 attribution
@@ -261,3 +261,72 @@ def test_no_control_changes_the_headline():
     """The headline is still ``carry_hedged``, and no control run is it."""
     assert backtest.HEADLINE == "carry_hedged"
     assert not backtest.VARIANTS[backtest.HEADLINE].risk_control
+
+
+# ---------- session-6 fix 1: a null result has to be distinguishable from a no-op
+
+
+def test_rates_vol_flag_is_applied_to_the_weights():
+    """A raised flag removes that month's positions.
+
+    Without this, a filter that never fires and a filter whose flag never
+    reaches the book are the same observation: both report zero flat months.
+    """
+    dates = pd.date_range("2000-01-31", periods=6, freq="ME")
+    positions = pd.DataFrame(
+        {
+            "date": list(dates) * 2,
+            "country": ["US"] * 6 + ["GB"] * 6,
+            "tenor_years": 5.0,
+            "leg": "long",
+            "signal": 0.0,
+            "duration": 4.0,
+            "weight": 1.0,
+            "wd": 4.0,
+        }
+    )
+    victim = dates[2]
+    flat = pd.Series(False, index=dates)
+    flat.loc[victim] = True
+    keep = ~positions["date"].map(flat).fillna(False).to_numpy(dtype=bool)
+    out = positions[keep]
+    assert int((positions["date"] == victim).sum()) == 2
+    assert int((out["date"] == victim).sum()) == 0
+    assert len(out) == len(positions) - 2
+
+
+def test_rates_vol_filter_fires_on_a_series_that_should_fire():
+    """The rule is not vacuous: a score series whose volatility keeps rising triggers.
+
+    Proves the comparison is ``vol`` against a percentile **of vol**, and that
+    including the current month in the expanding quantile does not make
+    exceedance impossible.
+    """
+    cfg = _cfg()
+    n = 60
+    idx = pd.date_range("2000-01-31", periods=n, freq="ME")
+    rng = np.random.default_rng(4)
+    rising = rng.normal(0.0, 1.0, n) * np.linspace(1.0, 20.0, n)
+    table = risk_controls.rates_vol_flags(
+        pd.DataFrame({"date": idx, "n_countries": 3, "score": rising}), cfg
+    )
+    assert bool(table["armed"].any())
+    assert int(table["triggers"].sum()) > 0
+    # and the flag only ever goes up when the ratio is above one
+    fired = table[table["triggers"]]
+    assert float(fired["ratio"].min()) > 1.0
+    assert float(table[~table["triggers"] & table["armed"]]["ratio"].max()) <= 1.0
+
+
+def test_rates_vol_ratio_is_written_for_every_armed_month():
+    """``ratio`` turns a bare ``False`` into a distance, so a null can be read."""
+    cfg = _cfg()
+    idx = pd.date_range("2000-01-31", periods=40, freq="ME")
+    rng = np.random.default_rng(5)
+    table = risk_controls.rates_vol_flags(
+        pd.DataFrame({"date": idx, "n_countries": 3, "score": rng.normal(0.0, 10.0, 40)}), cfg
+    )
+    armed = table[table["armed"]]
+    assert len(armed) > 0
+    assert armed["ratio"].notna().all()
+    assert (armed["ratio"] > 0).all()

@@ -1,6 +1,6 @@
 # Results
 
-Written at commit `7e6ebee`, config hash `68b55883b46e`.
+Written at commit `7e8453c`, config hash `68b55883b46e`.
 
 Every number below is produced by `uv run curvecarry report`. The block between the two markers is pasted into `README.md` verbatim and a test asserts the two are equal.
 

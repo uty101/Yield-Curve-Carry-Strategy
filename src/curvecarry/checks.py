@@ -64,7 +64,9 @@ UNHEDGED_FX_EXPOSURE = CHECKS / "unhedged_fx_exposure.csv"  # session-5 fix 2
 DECOMPOSITION_SHARES = CHECKS / "decomposition_shares.csv"  # step 6.1
 ATTRIBUTION_2022 = CHECKS / "attribution_2022"  # step 6.2, one file per variant (suffix added)
 RISK_CONTROLS = CHECKS / "risk_controls.csv"  # step 6.2, each control against its base
-RATES_VOL_FILTER = CHECKS / "rates_vol_filter.csv"  # step 6.2, the pooled PC1 vol and its flag
+RATES_VOL_FILTER = (
+    CHECKS / "ratesvol_filter.csv"
+)  # 6.2 + session-6 fix 1: the filter, month by month
 NS_LAMBDA_BOUND = CHECKS / "ns_lambda_bound.csv"  # step 6.3, the share of months lambda is pinned
 SECTION_6_3 = CHECKS / "section_6_3.md"  # step 6.3
 SAMPLE_DAY_COLUMNS = [
