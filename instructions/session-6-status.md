@@ -1,9 +1,11 @@
 # Session 6 status — Phase 6, steps 6.1 to 6.4
 
-Date: 2026-09-23, fix round 2026-09-24. Last commit of the session: see
-`git log` on `main`. Outcome: **finished, one fix round done, awaiting the
-owner's approval line**. All four steps built, each with its own commit, its
+Date: 2026-09-23, fix rounds 2026-09-24. Outcome: **approved and complete.**
+**Session 6 approved 2026-09-24 (`513371d`), and with it Phase 6 and the
+project — all six phases approved** (`CLAUDE.md` → Validation status,
+recorded in `adc7151`). All four steps built, each with its own commit, its
 own `review/X.Y.md` and its "Done when" met; `make test` and `make lint` pass.
+Issue #22 is closed and **no issue is left open**, of 22 opened.
 
 ## What was built
 
@@ -31,6 +33,8 @@ Fix rounds (2026-09-24), six commits:
 | `5309db9` | `unhedged_fx_exposure.csv` written LF, as the writer now says |
 | `f1353f3` | N counts distinct labels; the two rebuild checks named; the stale status text; the wrong `fetch --source` hint |
 | `af771ef` | `decomposition_shares.csv` covers all 19 variants |
+| `513371d` | status file: the wrap-up rulings |
+| `adc7151` | **Project complete: all six phases approved** |
 
 Tests: 288 at the end of session 5, **354** after the fix rounds.
 `uv run ruff check .` and `uv run ruff format --check .` clean.
@@ -187,6 +191,32 @@ invariant 5 working as intended), and a scratch path of ~200 characters breaks
   a row-count `N` that alone would have moved every deflated Sharpe. Neither an
   `--as-of` pin nor a fixed-`N` rebuild flag was needed, so no config key and
   no `decision` issue were added.
+
+## Final verification, 2026-09-24
+
+A clean clone of `513371d`, the existing `data/raw/` copied in (56 files),
+`data/interim/` and `data/processed/` empty, then the whole documented
+pipeline: `build --all`, `run --all`, the four post-run build steps, `report`.
+**Every step exited 0.**
+
+| check | result |
+|---|---|
+| suite, clean clone before any build | **346 passed, 8 skipped** |
+| suite, after the pipeline | **354 passed** |
+| `ruff check` / `ruff format --check` | clean, 134 files |
+| six core parquets | **all six byte-identical** — `curves`, `curves_zero`, `carry`, `returns`, `signal`, `weights` |
+| committed `data/checks` | 63 byte-identical, 19 differing **only** in the per-execution `run_id` column, 1 (`metrics_table.md`) in the audit-trail row count |
+| README / `results.md` tie | **passes in the clone** (`test_readme_results_equal_results_md`) |
+| `reports/results.md` | 27 differing lines: 2 the git commit stamp, 6 the row-count sentences, 19 the extra audit-trail rows |
+
+The 8 skips are all `tests/test_weights_panel.py`, which is explicitly
+`skipif` the built panel is absent and says so in its reason. They pass once
+the panel exists, which is the 346 + 8 = 354.
+
+**Nothing that is a number about the strategy differs.** Every difference is
+execution metadata — which execution wrote the file, how many executions the
+audit trail holds, and which commit the report was written at. That is the
+reproduction standard of `CLAUDE.md` → "The two rebuild checks", met.
 
 ## Where to look
 
