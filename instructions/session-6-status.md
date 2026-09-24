@@ -174,11 +174,19 @@ invariant 5 working as intended), and a scratch path of ~200 characters breaks
   breaches overlap.
 - **6.4, the report header commit.** `git_commit()` stamps the report with the
   parent commit, because the report is written and then committed.
-- **What "reproducible" should mean here.** Either the standard becomes
-  "deterministic given fixed raw inputs", with the fetch verified separately
-  against the sha256s in `data/raw/manifest.json`; or the report gains an
-  `--as-of` pin and a way to rebuild at a fixed `N`, which needs a new config
-  key and a `decision` issue. Not chosen.
+- ~~**What "reproducible" should mean here.**~~ **Closed by the owner's ruling
+  of 2026-09-24**, implemented in `f1353f3`. There are **two** checks and they
+  answer different questions, both now written into `CLAUDE.md` → "The two
+  rebuild checks, and which is which":
+  **(a) reproduction** — fixed raw inputs, the whole pipeline, derived data and
+  `reports/results.md` identical, with the git commit stamp the only permitted
+  difference; and **(b) source availability** — a refetch, which is expected to
+  differ and reports what moved, never a reproduction test.
+  What made (a) possible was the companion ruling that **`N` counts distinct
+  labels, not rows** (invariant 6): a rebuild re-runs every variant, and under
+  a row-count `N` that alone would have moved every deflated Sharpe. Neither an
+  `--as-of` pin nor a fixed-`N` rebuild flag was needed, so no config key and
+  no `decision` issue were added.
 
 ## Where to look
 

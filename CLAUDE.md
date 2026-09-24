@@ -228,7 +228,8 @@ Two traps this machine sets, both found the hard way on 2026-09-24:
 - **A long scratch path breaks `scipy`.** A rebuild under a path of about 200
   characters dies in `uv sync`'s scipy with `ImportError: cannot import name
   '_arpacklib'` — Windows `MAX_PATH`, not a code fault. The identical script
-  under `C:6` worked. Rebuild somewhere short.
+  under `C:
+6` worked. Rebuild somewhere short.
 - **`fetch --source` takes the loader name, not the raw folder.** `fr` fetches
   into `data/raw/bdf/`, `us` into `data/raw/fred/`, and so on; only `gsw`
   matches. The "no raw file … run: `fetch --source <x>`" error used to print
@@ -344,6 +345,47 @@ Empty at the start. Each gate writes one dated line here when it passes.
 | Session 3 (3.1, 3.2, 3.3) | 2026-09-23 | Session 3 approved 2026-09-23 (5a54fb0), issue #16 |
 | Session 4 (4.1, 4.2, 4.3, 4.4) | 2026-09-23 | Session 4 approved 2026-09-23 (ea0f613), issue #18 |
 | Session 5 (5.1, 5.2, 5.3, 5.4, 5.5) | 2026-09-23 | Session 5 approved 2026-09-23 (dfa1388), issue #21 |
+| Session 6 (6.1, 6.2, 6.3, 6.4) | 2026-09-24 | Session 6 approved 2026-09-24 (513371d): Phase 6 complete. Project complete, all six phases approved. |
+
+---
+
+## The result
+
+**Project complete, 2026-09-24. All six phases approved.**
+
+**The headline** — the carry-only, hedged, book-wide duration-neutral book,
+net of costs, `full` window (1997-08-31 to 2026-08-31, 348 months), fixed
+before any result was seen:
+
+| | |
+|---|---|
+| annualised return | **0.59%** (arithmetic, mean x 12) |
+| annualised volatility | **2.23%** |
+| Sharpe | **0.265** |
+| worst drawdown | **-10.37%** (2019-12-31 to 2022-12-31) |
+| deflated Sharpe | **0.573** at **N = 19** (SR0 = 0.066 monthly) |
+
+**The decomposition, which is the deliverable.** Over the full window the book
+earned **75.68 points of carry**, gave back **53.43 to yield changes** and
+**5.13 to costs**, and kept **17.13**. The four pieces sum to the reported net
+return to 5.2e-18 on every month of every logged variant. The return is carry
+earned net of a *losing* yield bet — not, as the brief's failure mode would
+have it, a long-duration bet dressed up as carry. Carry earned is positive in
+every decade; the yield-change PnL is negative in every decade.
+
+**The result does not clear the significance bar.** A deflated Sharpe of 0.573
+against a conventional bar of about 0.95 means that, after 19 logged trials,
+the evidence that this book's true Sharpe exceeds the multiple-testing
+threshold is weak. That sentence is in `README.md` and `reports/results.md` on
+its own, not in a footnote, and it is the honest summary of the project.
+
+Everything else — unhedged, country-scope neutrality, interbank funding, zero
+and double costs, the GB 30-year exclusion, the overlay, the combined book and
+the four risk controls — is a logged variant with a row in
+`reports/specifications.csv`, reported whether it helped or not, and never the
+headline.
+
+---
 
 Note on the gate: pre-1997 US 30y zero/par gaps straddle the
 `bootstrap_zero_par_tolerance_bp` threshold (100 bp) — at 30y, 1982-09 at
