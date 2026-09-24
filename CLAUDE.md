@@ -168,7 +168,8 @@ never followed by `run --risk-controls` — that would log them a second time
 and move `N`. The `--risk-controls` form is for adding a control to a spec log
 that already holds its base, which is how session 6 added them.
 
-**`build --all` stops before `decomposition`, `risk_controls` and `caveats`**:
+**`build --all` stops before `overlay_trades`, `decomposition`, `risk_controls`
+and `caveats`**:
 those three read a completed backtest and cannot run before `run`. The whole
 raw-to-report sequence is written out in the `Makefile`. `make all` is `build`
 and `report` only, because `make run` appends to the **append-only** spec log

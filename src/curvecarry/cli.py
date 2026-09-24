@@ -56,7 +56,7 @@ STEPS: dict[str, tuple[str, str]] = {
 }
 # Steps that read a completed backtest and so cannot run before `run`; they are
 # excluded from `build --all` and are named explicitly (see the Makefile).
-POST_RUN_STEPS = ("decomposition", "risk_controls", "caveats")
+POST_RUN_STEPS = ("overlay_trades", "decomposition", "risk_controls", "caveats")
 NOT_BUILT: dict[str, str] = {}
 CHARTS_BUILT = {"1", "2", "3", "4", "5"}  # 2.4, 3.3, 4.4 and 6.1
 

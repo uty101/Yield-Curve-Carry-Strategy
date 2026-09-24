@@ -29,6 +29,7 @@ report:
 # The whole sequence, from raw files to the report, is:
 #     make build                                  # loaders, curves, carry, returns, signal, weights, overlay
 #     uv run curvecarry run --all                 # every logged run, the risk controls included
+#     uv run curvecarry build --step overlay_trades
 #     uv run curvecarry build --step decomposition
 #     uv run curvecarry build --step risk_controls
 #     uv run curvecarry build --step caveats

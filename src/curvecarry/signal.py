@@ -232,7 +232,7 @@ def write_exclusions(
     out["date"] = pd.to_datetime(out["date"]).dt.date.astype(str)
     text = out.to_csv(index=False, lineterminator="\n")
     text += "\n" + per_country.to_csv(index=False, lineterminator="\n")
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 

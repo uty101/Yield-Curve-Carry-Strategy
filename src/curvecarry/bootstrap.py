@@ -406,7 +406,7 @@ def build(cfg: dict, processed: Path = PROCESSED, interim: Path = base.INTERIM) 
         f"strategy_start={start.date().isoformat()}",
         f"sample_full_start={full.date().isoformat()}",
     ]
-    checks.SAMPLE_WINDOW.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    checks.SAMPLE_WINDOW.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     table.to_csv(checks.SAMPLE_WINDOW_BY_COUNTRY, index=False, lineterminator="\n")
     write_config_dates(start, full)
     return zero

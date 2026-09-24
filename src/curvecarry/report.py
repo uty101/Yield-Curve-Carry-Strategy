@@ -195,7 +195,7 @@ def write_metrics_table(cfg: dict, processed: Path | None = None) -> pd.DataFram
     table = metrics_table(cfg, processed)
     checks.CHECKS.mkdir(parents=True, exist_ok=True)
     table.to_csv(checks.METRICS_TABLE, index=False, lineterminator="\n")
-    checks.METRICS_TABLE_MD.write_text(metrics_table_md(table), encoding="utf-8")
+    checks.METRICS_TABLE_MD.write_text(metrics_table_md(table), encoding="utf-8", newline="\n")
     return table
 
 
@@ -298,7 +298,7 @@ def unhedged_fx_exposure(cfg: dict, processed: Path | None = None) -> tuple:
     out["date"] = pd.to_datetime(out["date"]).dt.date.astype(str)
     text = out.to_csv(index=False, lineterminator="\n")
     text += "\n" + summary.to_csv(index=False, lineterminator="\n")
-    checks.UNHEDGED_FX_EXPOSURE.write_text(text, encoding="utf-8")
+    checks.UNHEDGED_FX_EXPOSURE.write_text(text, encoding="utf-8", newline="\n")
     return table, summary
 
 
