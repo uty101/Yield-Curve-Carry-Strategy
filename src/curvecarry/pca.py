@@ -3,7 +3,7 @@
 **The tenor set is chosen, not fixed** (session-3 amendment 1, as answered in
 issue #15). A standard tenor is in a country's set if it is present in at
 least ``config.pca.tenor_presence_min`` (0.95) of that country's months
-counted **from the first month the country has a 10-year zero** — a country
+counted **from the first month the country has a 10-year zero**, a country
 enters the panel when it enters with a curve rather than a stub. That last
 clause is the owner's ruling of 2026-09-23 and replaces the instruction's
 "from the first month it enters the panel": read that way JP entered in
@@ -14,13 +14,13 @@ re-run on changed data: fewer than 5 tenors for a country, or fewer than 6
 pooled, raises ``TenorSetTooSmall``.
 
 **The input is the zero panel** ``curves_zero.parquet`` in basis points of
-monthly change — never the Phase 2 fitted yields (amendment 3). A month
+monthly change, never the Phase 2 fitted yields (amendment 3). A month
 enters only if **it and the previous calendar month** are both complete on
 the set, so a gap is never bridged into a multi-month change reported as a
 one-month one.
 
 **Signs** (amendment 2, restated for a variable set): PC1 loading at 10
-years > 0; PC2 at ``longest − 2`` years > 0; PC3 at the middle tenor of the
+years > 0; PC2 at ``longest - 2`` years > 0; PC3 at the middle tenor of the
 set > 0 (the lower of the two middles when the set is even); PC4+ first
 non-zero element positive. 10 years is in all seven scopes, so no rule needs
 a fallback.
@@ -255,7 +255,7 @@ def loading_at(loadings_k: np.ndarray, tenors: np.ndarray, target: float) -> flo
     PC1 and PC3 are signed at tenors that are always set members, so this is
     exact for them. PC2's tenor, ``longest - 2``, is **never** a member of any
     of the seven sets (10-2=8, 20-2=18, 30-2=28), so the loading there is read
-    off the loading curve by ``interp.interpolate_yield`` — linear in tenor
+    off the loading curve by ``interp.interpolate_yield``, linear in tenor
     between the two adjacent set tenors, never extrapolated (rule 13). The
     alternative readings (the nearest set tenor at or below, or the longest
     tenor itself) give the same sign for every component of every scope; the
@@ -471,7 +471,7 @@ def _stability_rows(changes: pd.DataFrame, country: str, cfg: dict, excluded: bo
     version, is kept beside it as a secondary column: Pearson removes each
     vector's mean, and for a level factor the mean is nearly the whole vector,
     so ``abs_corr`` on PC1 measures the *tilt* of the level loading rather
-    than whether it is the same factor — the US 1990s reads 0.075 on
+    than whether it is the same factor, the US 1990s reads 0.075 on
     ``abs_corr`` while its PC1 is within 0.137 of the full-sample PC1 element
     by element and ``abs_cosine`` is 0.984.
     """
@@ -548,13 +548,13 @@ CHANGE_VOL_COLUMNS = ["country", "decade", "tenor_years", "n_months", "sd_bp"]
 def change_vol(zero_panel: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """``data/checks/pca_change_vol.csv``: sd of monthly zero-yield changes in bp.
 
-    One row per ``(country, decade, tenor in that country's set)``, plus a
-    ``decade = "full"`` row per country and tenor. Session-3 fix round: the
-    stability table says a decade's loading vector moved, and nothing in it
-    says *why*. A loading vector is the eigenvector of a covariance matrix, so
-    the first place to look when one rotates is the variances on its diagonal
-    — a tenor whose changes stop moving cannot carry a factor. ``sd`` uses
-    ``ddof = 1`` like the covariance in ``pca``.
+        One row per ``(country, decade, tenor in that country's set)``, plus a
+        ``decade = "full"`` row per country and tenor. Session-3 fix round: the
+        stability table says a decade's loading vector moved, and nothing in it
+        says *why*. A loading vector is the eigenvector of a covariance matrix, so
+        the first place to look when one rotates is the variances on its diagonal
+    , a tenor whose changes stop moving cannot carry a factor. ``sd`` uses
+        ``ddof = 1`` like the covariance in ``pca``.
     """
     sets = tenor_sets(zero_panel, cfg)
     changes = monthly_changes_bp(zero_panel, cfg, sets)

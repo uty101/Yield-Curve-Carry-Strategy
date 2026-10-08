@@ -13,7 +13,7 @@ Each control is a function of information dated **strictly before** the month
 it sizes. That is the one thing a risk control can get wrong and still look
 good, so each has its own no-lookahead test.
 
-- **(a) `vol_target`** — `scale_t = min(target_vol / vol_{t-12..t-1},
+- **(a) `vol_target`**, `scale_t = min(target_vol / vol_{t-12..t-1},
   max_leverage)` with `vol` the annualised standard deviation (ddof 1) of the
   base's `r_net` over the 12 returns **dated `t-12 … t-1`**. A return dated
   `t` is earned over `t -> t+1` (4.2) and is not known at `t`, so it cannot be
@@ -22,7 +22,7 @@ good, so each has its own no-lookahead test.
   book stays duration-neutral: scaling a neutral book by a scalar leaves
   `sum wd = 0`.
 
-- **(b) `dd_stop`** — the drawdown of the base's wealth index **through
+- **(b) `dd_stop`**, the drawdown of the base's wealth index **through
   `r_{t-1}`**, `prod_{s <= t-1} (1 + r_s)` against its running peak. When that
   drawdown is below `-dd_stop` the book is **flat for months `t+1 …
   t+dd_reentry_months`** and re-enters at the base's positions afterwards. A
@@ -30,13 +30,13 @@ good, so each has its own no-lookahead test.
   as zero positions for every number the backtest computes and keeps the
   turnover of closing last month's book, charged in that month's cost.
 
-- **(c) `rates_vol_filter`** — the pooled PC1 score by the **expanding**
+- **(c) `rates_vol_filter`**, the pooled PC1 score by the **expanding**
   method of 5.4 (scope `pooled`, component 1, `pca_min_months`), then
   `v_t` = the standard deviation of the 12 scores ending at `t`, and the book
   is flat for `t -> t+1` when `v_t` exceeds the **expanding**
   `rates_vol_pct` quantile of `v` up to and including `t`.
 
-- **(d) `rates_vol_filter_rolling`** — session-6 amendment 9, pre-registered
+- **(d) `rates_vol_filter_rolling`**, session-6 amendment 9, pre-registered
   2026-09-24 before the run. Identical to (c) in every respect except that the
   `rates_vol_pct` percentile is computed on a **rolling
   `risk.rates_vol_window_months` window of `v`** instead of expanding from the
@@ -57,8 +57,8 @@ good, so each has its own no-lookahead test.
   at `t` is the **mean across the countries with a change row at `t`** of that
   country's own score, `(change_{c,t} - mean_c) @ loadings[:, 0]`. A level
   shock is common across curves, so the cross-country mean of the PC1 score is
-  the level move the pooled fit is measuring; the alternative — one country
-  standing for the pool — would make the filter a US filter.
+  the level move the pooled fit is measuring; the alternative, one country
+  standing for the pool, would make the filter a US filter.
 
 The 2022 attribution is the same decomposition (6.1) cut by country and leg
 over the twelve months of 2022, plus a `country = ALL` row per month. The
@@ -180,11 +180,11 @@ def dd_stop_flat_months(r_net: pd.Series, cfg: dict) -> pd.Series:
 
 
 def pooled_pc1_scores(changes_by_country: dict[str, pd.DataFrame], cfg: dict) -> pd.DataFrame:
-    """``date, n_countries, score`` — the expanding pooled PC1 score, month by month.
+    """``date, n_countries, score``, the expanding pooled PC1 score, month by month.
 
     At each month end the fit uses every country change row dated on or before
     that month, on the pooled tenor set, each country demeaned by its own
-    column means — the 3.1 pooled recipe, refitted from scratch each month.
+    column means, the 3.1 pooled recipe, refitted from scratch each month.
     ``pca_min_months`` counts **months of history**, as it does in 5.4, not
     stacked rows: three countries do not make a 20-month panel a 60-month one.
     """

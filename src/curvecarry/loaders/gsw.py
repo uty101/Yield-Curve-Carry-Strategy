@@ -1,4 +1,4 @@
-"""US check curve: the Fed's Gürkaynak–Sack–Wright zero-coupon yields.
+"""US check curve: the Fed's Gürkaynak (Sack) Wright zero-coupon yields.
 
 Session 1 part B, amendment 3.
 
@@ -13,7 +13,7 @@ annual compounding, once, in ``parse``. Month-end sampled like the curves.
 the Treasury CMT curve, so ``/ 100`` and nothing else. ``load`` writes
 ``gsw_us.parquet`` (zero) and ``gsw_us_par.parquet`` (par). Used only for
 the checks ``us_zero_vs_gsw.csv``, ``us_par_vs_gsw.csv`` and
-``bootstrap_on_gsw.csv`` — the bootstrapped US zero curve against an
+``bootstrap_on_gsw.csv``, the bootstrapped US zero curve against an
 independent smoothed fit. Never placed in the panel.
 
 The file is a staff research product, not an official release; the Fed's

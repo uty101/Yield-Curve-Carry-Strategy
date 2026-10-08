@@ -1,7 +1,7 @@
 # Compounding conventions of the zero-curve sources
 
 Inside the package a zero yield `z` at tenor `t` means `DF(t) = (1 + z)^(-t)`
-— annual compounding (PLAN.md, Conventions). Each zero-curve loader reads
+, annual compounding (PLAN.md, Conventions). Each zero-curve loader reads
 the source's stated convention from the source's own documentation, records
 it here with the quote, and converts once, in `parse`. Par yields (US, JP,
 FR) are quoted with the country's coupon frequency and are not converted
@@ -9,11 +9,11 @@ FR) are quoted with the country's coupon frequency and are not converted
 
 | Country | Source | Stated convention | Conversion in the loader | Recorded in step |
 |---|---|---|---|---|
-| GB | Bank of England, nominal government spot curve (`glcnominalmonthedata.zip`) | **Continuously compounded, quoted on an annual basis** | `z = exp(r) − 1` | 1.2 |
+| GB | Bank of England, nominal government spot curve (`glcnominalmonthedata.zip`) | **Continuously compounded, quoted on an annual basis** | `z = exp(r) - 1` | 1.2 |
 | DE | Deutsche Bundesbank, Svensson parameters for listed Federal securities (`BBSIS`) | **Annually (discretely) compounded** spot rates | none | 1.3 |
-| CA | Bank of Canada, zero-coupon yield curve (`lookup_yield_curve.php`, decimals) | **Continuously compounded** zero rates | `z = exp(r) − 1` | 1.5 (Session 1 part A fix, issue #8) |
+| CA | Bank of Canada, zero-coupon yield curve (`lookup_yield_curve.php`, decimals) | **Continuously compounded** zero rates | `z = exp(r) - 1` | 1.5 (Session 1 part A fix, issue #8) |
 
-## GB — Bank of England
+## GB: Bank of England
 
 Source: https://www.bankofengland.co.uk/statistics/yield-curves, read
 2026-09-17, section "Yield curve methodology":
@@ -32,7 +32,7 @@ Information: The figures are annually compounded zero coupon spot rates.*
 The annually-compounded line describes the PRA's Solvency II term
 structures, not the curves in the archive we use.
 
-Size of the conversion: at r = 5% continuous, `exp(0.05) − 1 = 5.127%`,
+Size of the conversion: at r = 5% continuous, `exp(0.05) - 1 = 5.127%`,
 12.7 bp; at 1%, 0.5 bp; at 10%, 51.7 bp. Applied to the percent value
 divided by 100, once, in `curvecarry.loaders.gb.parse_workbook`
 (`test_compounding_conversion_applied_once`).
@@ -40,7 +40,7 @@ divided by 100, once, in `curvecarry.loaders.gb.parse_workbook`
 The `info` sheet in each archive file does not state the convention; it
 points to the website.
 
-## DE — Deutsche Bundesbank
+## DE: Deutsche Bundesbank
 
 Source: Schich, S. T., *Estimating the German term structure*, Deutsche
 Bundesbank Discussion Paper 4/97 (linked from the Bundesbank's
@@ -54,40 +54,40 @@ the term structure of interest rates"):
 > order to facilitate the calculations. However, this assumption can
 > substantially alter the results of the estimates. (footnote 3)
 
-with the discount factor defined as `δ_{t,m} = (1 + z_{t,m})^{−m}` (eq. 6),
+with the discount factor defined as `δ_{t,m} = (1 + z_{t,m})^{-m}` (eq. 6),
 the Svensson function inserted into it (eq. 22), and
-`z_{t,m} = δ_{t,m}^{−1/m} − 1` (eq. 23). The Bundesbank's `z` is therefore
+`z_{t,m} = δ_{t,m}^{-1/m} - 1` (eq. 23). The Bundesbank's `z` is therefore
 the annually compounded spot rate, which is the package convention: **no
 conversion**. The spot-rate function itself is the decay-time form
-`z(m) = β0 + β1 (1−e^{−m/τ1})/(m/τ1) + β2[(1−e^{−m/τ1})/(m/τ1) − e^{−m/τ1}] + β3[(1−e^{−m/τ2})/(m/τ2) − e^{−m/τ2}]`
+`z(m) = β0 + β1 (1-e^{-m/τ1})/(m/τ1) + β2[(1-e^{-m/τ1})/(m/τ1) - e^{-m/τ1}] + β3[(1-e^{-m/τ2})/(m/τ2) - e^{-m/τ2}]`
 (Monthly Report October 1997, p. 64), implemented in
 `curvecarry.svensson.svensson_yield`; reconstructing the published 10-year
 series from the parameters matches within 0.55 bp on every one of 7,390
 days (the published series is rounded to 2 decimals of a percent).
 
-## CA — Bank of Canada
+## CA: Bank of Canada
 
 The data page (https://www.bankofcanada.ca/rates/interest-rates/bond-yield-curves/,
-read 2026-09-17) states only the unit — "The data are expressed as decimals
-(e.g. 0.0500 = 5.00% yield)" — and points to the methodology paper, which
+read 2026-09-17) states only the unit, "The data are expressed as decimals
+(e.g. 0.0500 = 5.00% yield)", and points to the methodology paper, which
 this machine could not fetch (HTTP 202, empty body; issue #8). The owner
 supplied the definition on 2026-09-22:
 
 - Bolder, D. J., Johnson, G. and Metzler, A. (2004), *An Empirical Analysis
   of the Canadian Term Structure of Zero-Coupon Interest Rates*, Bank of
-  Canada Working Paper 2004-48, https://doi.org/10.34989/swp-2004-48 —
-  defines `z(t, T)` as the **continuously compounded** yield (pp. 25–26);
+  Canada Working Paper 2004-48, https://doi.org/10.34989/swp-2004-48, 
+  defines `z(t, T)` as the **continuously compounded** yield (pp. 25 to 26);
   as restated in the data appendix of *Riding the yield curve: a spanning
   analysis*, Review of Quantitative Finance and Accounting (2012),
   https://link.springer.com/article/10.1007/s11156-011-0267-7, which uses
   the same Bank of Canada download.
 - Bolder, D. J. and Stréliski, D., *Yield Curve Modelling at the Bank of
   Canada*, Bank of Canada Technical Report 84,
-  https://www.bankofcanada.ca/wp-content/uploads/2010/01/tr84.pdf — the
+  https://www.bankofcanada.ca/wp-content/uploads/2010/01/tr84.pdf, the
   zero curve is derived continuously compounded (eq. 6 and 7).
 
-So the file's `z` is `−ln d(t) / t`, and the package's annually compounded
-zero is `exp(z) − 1`, applied once in `curvecarry.loaders.ca.parse`
+So the file's `z` is `-ln d(t) / t`, and the package's annually compounded
+zero is `exp(z) - 1`, applied once in `curvecarry.loaders.ca.parse`
 (`test_compounding_conversion_applied_once`, as for GB). Size of the
 conversion in the data: 1986-01-02 1y `0.0900549` → `0.0942343` (41.8 bp);
 1991-01-02 30y `0.1150026` → `0.1218763` (68.7 bp); 2005-06-30 10y
@@ -101,18 +101,18 @@ off the zero curve under each convention (semi-annual coupons) and compared
 with the Bank of Canada's own benchmark yields (Valet
 `bond_yields_benchmark`) on the same day:
 
-| date | T | benchmark % | par if annual | par if continuous | annual − bm (bp) | continuous − bm (bp) |
+| date | T | benchmark % | par if annual | par if continuous | annual - bm (bp) | continuous - bm (bp) |
 |---|---|---|---|---|---|---|
-| 2005-06-30 | 10 | 3.74 | 3.739 | 3.808 | −0.1 | 6.8 |
+| 2005-06-30 | 10 | 3.74 | 3.739 | 3.808 | -0.1 | 6.8 |
 | 2010-06-30 | 10 | 3.08 | 3.083 | 3.130 | 0.3 | 5.0 |
 | 2015-06-30 | 10 | 1.68 | 1.739 | 1.754 | 5.9 | 7.4 |
 | 2019-06-28 | 10 | 1.46 | 1.478 | 1.489 | 1.8 | 2.9 |
-| 2023-06-30 | 10 | 3.26 | 3.236 | 3.290 | −2.4 | 3.0 |
-| 2026-08-26 | 10 | 3.66 | 3.599 | 3.663 | −6.1 | 0.3 |
+| 2023-06-30 | 10 | 3.26 | 3.236 | 3.290 | -2.4 | 3.0 |
+| 2026-08-26 | 10 | 3.66 | 3.599 | 3.663 | -6.1 | 0.3 |
 | mean over 12 rows (5y and 10y) | | | | | **0.2** | **4.2** |
 
 **This check did not discriminate between the two conventions**: the
-benchmarks are on-the-run coupon bonds, not par bonds, and the ±5–15 bp
+benchmarks are on-the-run coupon bonds, not par bonds, and the ±5 to 15 bp
 scatter of either column is larger than the 4 bp that separates them. The
 convention is taken from the stated definition above, not from this table.
 
@@ -123,9 +123,9 @@ Written 2026-09-22 (Session 1 part B, amendment 2) before the bootstrap in step
 and the conversion the bootstrap makes from it. Inside the package a par
 yield stays as quoted (decimal, the country's coupon frequency
 `config.coupon_frequency`); the bootstrap turns it into an annually
-compounded zero via the discount factors (`DF_k = (1 − (c/f) Σ DF_j) /
-(1 + c/f)`, `z = DF^(−1/t) − 1`), so at the first coupon date
-`z = (1 + c/f)^f − 1`.
+compounded zero via the discount factors (`DF_k = (1 - (c/f) Σ DF_j) /
+(1 + c/f)`, `z = DF^(-1/t) - 1`), so at the first coupon date
+`z = (1 + c/f)^f - 1`.
 
 | Country | Series | Stated quotation | Coupon frequency used | What the series is |
 |---|---|---|---|---|
@@ -133,10 +133,10 @@ compounded zero via the discount factors (`DF_k = (1 − (c/f) Σ DF_j) /
 | FR | Banque de France `FM.D.FR.EUR.FR2.BB.FRMOYTEC<n>.HSTA` (CNO-TEC n) | **Taux de rendement actuariel annuel** of a fictitious n-year OAT, linear interpolation between the annual actuarial yields of the two bracketing OATs | 1 | yields to maturity of two actual bonds, interpolated; treated as a par yield |
 | JP | MOF "Interest Rate" (JGB constant-maturity yields) | **Semiannual compound interest rate on a constant maturity basis**, from a cubic-spline yield curve through yields to maturity of selected JGBs | 2 | yields to maturity of actual bonds on a spline; treated as a par yield |
 
-### US — Treasury par yield curve (FRED DGS series)
+### US: Treasury par yield curve (FRED DGS series)
 
 FRED's series notes point to the H.15 release and Treasury's yield-curve
-methodology. Treasury, *Interest Rates — Frequently Asked Questions*
+methodology. Treasury, *Interest Rates, Frequently Asked Questions*
 (https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/interest-rates-frequently-asked-questions,
 read 2026-09-22):
 
@@ -162,7 +162,7 @@ yields". So `DGS<n>` is the semiannual bond-equivalent par yield;
 0.25-year point is a bill's bond-equivalent yield, not a coupon bond; it
 is off the semiannual coupon grid (Session 1 part B decision issue).
 
-### FR — Banque de France CNO-TEC (Taux de l'Échéance Constante)
+### FR: Banque de France CNO-TEC (Taux de l'Échéance Constante)
 
 Banque de France, *Note technique sur les indices CNO-TEC*, revised
 2020-05-07 (https://www.banque-france.fr/system/files/2024-07/TEC%20Note%20Technique%20-%20Version%20r%C3%A9vis%C3%A9e%20FR%2020200507.pdf,
@@ -180,29 +180,29 @@ annuels" (TEC 1 may use a BTF, for which "il est retenu le taux actuariel
 équivalent"); the Banque de France "extrait un taux actuariel de la
 cotation milieu de fourchette … par la méthode … décrite dans la notice
 'Normes applicables au marché domestique obligataire français' en date de
-Juin 1992" — the CNO actuarial yield, annual compounding on actual days
-(`Dj − Di` "correspond au nombre de jours réels"). So TEC n is an
+Juin 1992", the CNO actuarial yield, annual compounding on actual days
+(`Dj - Di` "correspond au nombre de jours réels"). So TEC n is an
 **annually compounded yield to maturity**; `coupon_frequency.FR = 1`,
 no conversion before the bootstrap. (The Webstat metadata for the series
 gives only "Constant maturity rate", unit PC, source EUXT/Euronext, first
 observation 2004-11-03; the definition is in the note above.)
 
-### JP — MOF JGB constant-maturity interest rates
+### JP: MOF JGB constant-maturity interest rates
 
 MOF, *Interest Rate (Q & A)*
 (https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/qa.htm,
 read 2026-09-22):
 
-> What kind of interest rate is released by the Ministry of Finance? — The
+> What kind of interest rate is released by the Ministry of Finance? , The
 > semiannual compound interest rate on a constant maturity basis calculated
 > on prevailing prices of fixed income JGBs in the secondary market at the
 > market closing time (3pm) is released.
 
-> What is the yield curve? — It is a curve which is plotted by connecting
+> What is the yield curve? , It is a curve which is plotted by connecting
 > the points which represent the relationship between yields to maturity
 > and remaining maturity of JGBs.
 
-> How are the prevailing market yields of each JGB calculated? — They are
+> How are the prevailing market yields of each JGB calculated? , They are
 > calculated by using the average price of "Reference Statistical Prices
 > (Yields) for OTC Bond Transactions" provided by Japan Securities Dealers
 > Association (JSDA). Note that the prevailing market yields of before
@@ -226,8 +226,8 @@ the source states are the price providers (TSE to 1998-11-30, JSDA
 standard quotation to 2002-07-31, JSDA reference statistical prices
 after). Nothing in the source says the pre-1986 (or any other) portion of
 the historical file is on a different basis; review 1.4's open question
-is answered by that statement, and by nothing else — there is no separate
-document for the 1974–1985 data. `coupon_frequency.JP = 2`, no
+is answered by that statement, and by nothing else: there is no separate
+document for the 1974 to 1985 data. `coupon_frequency.JP = 2`, no
 conversion before the bootstrap.
 
 ### TEC and MOF yields are yields to maturity treated as par yields
@@ -249,21 +249,21 @@ repo (a 10-year bond priced off the zero curve with a coupon that differs
 from the 10-year par yield, then its yield to maturity compared with the
 par yield; bp):
 
-| Country | Date | 10y par | 2s10s slope | coupon = par − 200 bp | − 100 bp | + 100 bp | + 200 bp |
+| Country | Date | 10y par | 2s10s slope | coupon = par - 200 bp | - 100 bp | + 100 bp | + 200 bp |
 |---|---|---|---|---|---|---|---|
-| FR | 2010-06-30 | 3.085% | 230 bp | +8.1 | +3.8 | −3.4 | −6.6 |
-| FR | 2021-12-31 | 0.100% | 80 bp | +3.8 | +1.8 | −1.6 | −3.0 |
-| FR | 2026-08-31 | 4.114% | 104 bp | +4.2 | +2.0 | −1.8 | −3.4 |
-| JP | 2010-06-30 | 1.095% | 95 bp | +5.4 | +2.6 | −2.3 | −4.4 |
-| JP | 2021-12-31 | 0.089% | 18 bp | +1.4 | +0.7 | −0.6 | −1.1 |
-| JP | 2026-08-31 | 2.943% | 120 bp | +5.0 | +2.4 | −2.2 | −4.1 |
-| US | 2010-06-30 | 2.970% | 236 bp | +8.3 | +3.9 | −3.6 | −6.8 |
+| FR | 2010-06-30 | 3.085% | 230 bp | +8.1 | +3.8 | -3.4 | -6.6 |
+| FR | 2021-12-31 | 0.100% | 80 bp | +3.8 | +1.8 | -1.6 | -3.0 |
+| FR | 2026-08-31 | 4.114% | 104 bp | +4.2 | +2.0 | -1.8 | -3.4 |
+| JP | 2010-06-30 | 1.095% | 95 bp | +5.4 | +2.6 | -2.3 | -4.4 |
+| JP | 2021-12-31 | 0.089% | 18 bp | +1.4 | +0.7 | -0.6 | -1.1 |
+| JP | 2026-08-31 | 2.943% | 120 bp | +5.0 | +2.4 | -2.2 | -4.1 |
+| US | 2010-06-30 | 2.970% | 236 bp | +8.3 | +3.9 | -3.6 | -6.8 |
 
-So the error is of order **2–4 bp per 100 bp of coupon–par difference at
-10 years** in a curve with a 100–230 bp 2s10s slope, and proportional to
+So the error is of order **2 to 4 bp per 100 bp of coupon, par difference at
+10 years** in a curve with a 100 to 230 bp 2s10s slope, and proportional to
 both. The TEC uses the two OATs nearest the maturity, whose coupons are
 close to current yields when the curve has not moved far since issue
-(2004–2021: coupons above yields in a falling-rate period, so the TEC
+(2004 to 2021: coupons above yields in a falling-rate period, so the TEC
 reads slightly below the true par yield); the MOF grid uses on-the-run
 and nearest-maturity issues, same argument. The approximation is of the
 same nature for both, is not corrected anywhere in the package, and is
@@ -276,4 +276,4 @@ approximation: Treasury publishes a par curve.
 The Federal Reserve's `feds200628.csv` header states, for the series
 used: "Zero-coupon yield, Continuously Compounded, SVENYXX". The loader
 `loaders/gsw.py` asserts that line is present and converts with
-`exp(z) − 1` once. Used only for `data/checks/us_zero_vs_gsw.csv`.
+`exp(z) - 1` once. Used only for `data/checks/us_zero_vs_gsw.csv`.

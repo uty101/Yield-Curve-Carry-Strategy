@@ -3,7 +3,7 @@
 ``explained_table`` renders ``data/checks/pca_explained.csv`` as the markdown
 table ``scope | PC1 | PC2 | PC3 | PC1-3``, in percent to one decimal place,
 one row per scope. The rows are the six countries in ``config.countries``
-order, then the primary pooled fit, then the secondary ``pooled_20y`` fit —
+order, then the primary pooled fit, then the secondary ``pooled_20y`` fit,
 which is reported here and read by no step after 3.3 (issue #15 answer 5).
 """
 

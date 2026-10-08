@@ -5,11 +5,11 @@ funding table of that month, and nothing else:
 
 - **carry** ``= y_n - r_short``, per year. ``r_short`` is the funding rate of
   the bucket's own country and date, read from ``funding.parquet`` at
-  ``kind = config.hedge.funding_rate`` — **never off the curve** (plan v2
+  ``kind = config.hedge.funding_rate``, **never off the curve** (plan v2
   amendment B, ``decisions/short_anchor.md``).
 - **rolldown** ``= (y_n - y(n - 1/12)) * D``, per horizon month, decimal. ``D``
   is the modified duration of the par bond at ``n``, from
-  ``bondmath.par_bond_risk`` — the one duration function in the project.
+  ``bondmath.par_bond_risk``, the one duration function in the project.
 
 ``expected_return_1m = carry / 12 + rolldown`` is the bucket's expected
 return over its own financing if the curve does not move.
@@ -23,8 +23,8 @@ is a number rather than a footnote (``decisions/short_anchor.md``).
 
 The bucket universe is the **standard** zero rows of ``curves_zero.parquet``:
 a bucket exists at ``(country, date, n)`` when that country-month has a
-standard zero at ``n``. Rows with a missing input — no funding rate that
-month, or a curve that cannot price the par bond at ``n`` — are dropped and
+standard zero at ``n``. Rows with a missing input, no funding rate that
+month, or a curve that cannot price the par bond at ``n``, are dropped and
 counted, never filled.
 """
 

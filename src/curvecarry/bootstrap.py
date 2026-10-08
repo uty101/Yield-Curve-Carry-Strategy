@@ -2,16 +2,16 @@
 
 ``bootstrap_par_to_zero(par, freq)`` (PLAN.md 1.9, as amended by the
 Session 1 part B fixes): coupon dates ``t_k = k / freq`` up to the longest observed par
-tenor ``T_max``; the par yield at each ``t_k`` is ``par.at(t_k)`` — the one
+tenor ``T_max``; the par yield at each ``t_k`` is ``par.at(t_k)``, the one
 interpolator between observed par tenors, and flat at the shortest observed
-par yield below it (``config.short_end``, amendment B). ``DF_k = (1 − (c_k/f)
-Σ_{j<k} DF_j) / (1 + c_k/f)`` and ``z_k = DF_k^(−1/t_k) − 1`` (annual
-compounding); at ``t_1 = 1/f`` this is ``z = (1 + c/f)^f − 1``. Returned
+par yield below it (``config.short_end``, amendment B). ``DF_k = (1 - (c_k/f)
+Σ_{j<k} DF_j) / (1 + c_k/f)`` and ``z_k = DF_k^(-1/t_k) - 1`` (annual
+compounding); at ``t_1 = 1/f`` this is ``z = (1 + c/f)^f - 1``. Returned
 (issue #10 A, answer a): **the zero at every coupon-grid point** inside
-``[T_min, T_max]`` — the curve is then exactly invertible (any observed par
-bond reprices to 1e-10 off it) — plus, for an observed par tenor **below
+``[T_min, T_max]``, the curve is then exactly invertible (any observed par
+bond reprices to 1e-10 off it), plus, for an observed par tenor **below
 the first coupon date** (the US 0.25 bill with ``freq = 2``; #10 B, answer
-a), the money-market identity ``z = (1 + c·t)^(1/t) − 1``: a bill's
+a), the money-market identity ``z = (1 + c·t)^(1/t) - 1``: a bill's
 bond-equivalent yield ``c`` is defined by ``P = 1 / (1 + c·t)``. Grid points
 below ``T_min`` are not returned: the par is flat there by convention, so
 the bootstrap zeros there all equal ``z(T_min)`` and ``Curve.at`` (flat below
@@ -40,15 +40,15 @@ linear par interpolation produces at every node
 (``decisions/sources.md`` → "Bootstrap long-end rules").
 
 ``data/checks/bootstrap_dropped.csv``: one row per (country, date, reason)
-that dropped tenors — ``reason`` is ``node_gap`` (fix 2) or ``zero_par``,
+that dropped tenors, ``reason`` is ``node_gap`` (fix 2) or ``zero_par``,
 with the first tenor dropped and, for ``zero_par``, the zero, the par and
 the gap in bp at the breaching node.
 
 **GSW diagnostics, reported only** (Session 1 part B fix 4): ``us_par_vs_gsw.csv``
-— the CMT par yield minus the GSW par yield (``SVENPY``, coupon-equivalent,
+, the CMT par yield minus the GSW par yield (``SVENPY``, coupon-equivalent,
 the same basis) at 2, 5, 10 and 30 years every month both exist, so the
 input difference can be read apart from the bootstrap; ``bootstrap_on_gsw.csv``
-— the GSW par curve (every integer tenor the fit reaches, ``freq = 2``)
+, the GSW par curve (every integer tenor the fit reaches, ``freq = 2``)
 put through ``bootstrap_grid`` and compared with the GSW zeros at the same
 four tenors: the bootstrap's own error on a smooth curve it did not build.
 
@@ -105,7 +105,7 @@ def bootstrap_grid(par: Curve, freq: int) -> tuple[np.ndarray, np.ndarray, np.nd
 def money_market_zero(c: float | np.ndarray, t: float | np.ndarray) -> float | np.ndarray:
     """Zero yield (annual compounding) of a single-cashflow tenor ``t`` below the first coupon
     date, from its bond-equivalent (simple-interest) yield ``c``: ``P = 1 / (1 + c·t)``, so
-    ``z = (1 + c·t)^(1/t) − 1`` (#10 B). Not the coupon-frequency stub formula."""
+    ``z = (1 + c·t)^(1/t) - 1`` (#10 B). Not the coupon-frequency stub formula."""
     return (1.0 + np.asarray(c) * np.asarray(t)) ** (1.0 / np.asarray(t)) - 1.0
 
 
@@ -319,8 +319,8 @@ def us_par_vs_gsw(panel: pd.DataFrame, gsw_par: pd.DataFrame) -> pd.DataFrame:
 
 def bootstrap_on_gsw(gsw_par: pd.DataFrame, gsw_zero: pd.DataFrame, freq: int) -> pd.DataFrame:
     """``date, tenor_years, zero_bootstrap_gsw, zero_gsw, diff_bp`` at 2, 5, 10, 30y (fix 4b):
-    the GSW par curve — every integer tenor the fit reaches that month — through
-    ``bootstrap_grid`` (no node-gap or forward rule), against the GSW zeros."""
+    the GSW par curve (every integer tenor the fit reaches that month) through
+       ``bootstrap_grid`` (no node-gap or forward rule), against the GSW zeros."""
     rows = []
     for date, m in gsw_par.dropna(subset=["yield"]).groupby("date", sort=True):
         m = m.sort_values("tenor_years")

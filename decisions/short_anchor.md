@@ -1,7 +1,7 @@
 # The funding rate is never on the curve
 
-Rewritten 2026-09-16 for plan v2 (amendment B). The v1 rule — the BIS
-policy rate placed on every curve at `tenor_years = 0.25` — is withdrawn.
+Rewritten 2026-09-16 for plan v2 (amendment B). The v1 rule, the BIS
+policy rate placed on every curve at `tenor_years = 0.25`, is withdrawn.
 Nothing is appended to any curve.
 
 ## The funding rate: what it is and what it does
@@ -14,12 +14,12 @@ date** from `data/interim/funding.parquet`, never read off a curve.
 
 It is used for exactly two things:
 
-1. **Carry.** `carry_n = y_n − r_short` for every tenor (brief 6.4).
+1. **Carry.** `carry_n = y_n - r_short` for every tenor (brief 6.4).
 2. **Financing and the hedge.** Every bucket return is an excess return
-   over its own funding rate: `r_excess_local = r_local − r_short_local/12`.
+   over its own funding rate: `r_excess_local = r_local - r_short_local/12`.
    Under covered interest parity the FX-hedged excess return in the base
    currency equals the local excess return, so `r_hedged = r_excess_local`;
-   the unhedged return is `r_local + Δ ln S − r_short_base/12`
+   the unhedged return is `r_local + Δ ln S - r_short_base/12`
    (`decisions/basis.md`, step 4.3).
 
 The euro countries before 1999-01: Germany's and France's national BIS
@@ -38,18 +38,18 @@ and stops at 2026-01 for GBP and EUR.
 ## Gaps in the BIS policy rate: filled from the OECD immediate rate, labelled
 
 Owner's rule, Session 1 part A review, 2026-09-22. The BIS `WS_CBPOL` series for
-Japan has no value for **116 months**, in three windows — the periods with
+Japan has no value for **116 months**, in three windows, the periods with
 no stated target (zero interest rate policy, quantitative easing, QQE):
 
 | window | months | first filled value | last filled value | BIS on either side |
 |---|---|---|---|---|
 | 1999-03 .. 2000-07 | 17 | 0.041% (1999-03) | 0.021% (2000-07) | 0.25% (1999-02), 0.25% (2000-08) |
 | 2001-04 .. 2006-02 | 59 | 0.020% (2001-04) | 0.001% (2006-02) | 0.15% (2001-03), 0.00% (2006-03) |
-| 2013-05 .. 2016-08 | 40 | 0.070% (2013-05) | −0.043% (2016-08) | 0.05% (2013-04), −0.10% (2016-09) |
+| 2013-05 .. 2016-08 | 40 | 0.070% (2013-05) | -0.043% (2016-08) | 0.05% (2013-04), -0.10% (2016-09) |
 
 For `kind = policy`, any month **inside the BIS series' span** (between its
 first and last month) with no BIS value is filled from the OECD *immediate
-rate* — the monthly average of the overnight call-money rate, FRED
+rate*, the monthly average of the overnight call-money rate, FRED
 `IRSTCI01{US,GB,JP,CA,EZ}M156N`, percent, `/ 100`, stamped to the month end
 like the other FRED monthly series. The filled row carries
 `source = "fred_immediate"` in `funding.parquet`, so every consumer can see
@@ -63,9 +63,9 @@ country with no fill has one row with 0).
 
 What the fill is and is not: it is a traded overnight average, not a
 target. Where both exist, the immediate rate differs from the BIS policy
-rate by −2 bp (US), −6 bp (GB), −2 bp (CA) and +42 bp (JP; the BIS series is
+rate by -2 bp (US), -6 bp (GB), -2 bp (CA) and +42 bp (JP; the BIS series is
 the discount rate before 1995, above which the call rate traded) on
-average, with single months hundreds of bp apart in the 1970s–80s. Inside
+average, with single months hundreds of bp apart in the 1970s, 80s. Inside
 the three JP windows the immediate rate sits within 1 bp of the BIS value
 on the month either side, which is what a zero-target regime looks like.
 The `EZ` immediate series stops at 2026-01, so a euro gap after that could
@@ -84,10 +84,10 @@ extrapolation, and the only exception to rule 13. `Curve.at(t)` returns
 `yields[0]` for `t < tenors.min()`; above `tenors.max()` it is still NaN.
 It is exercised by `bondmath` (discounting a seasoned bond's short stub),
 by `bootstrap` (coupon dates below the shortest par tenor take that tenor's
-par yield) and by the 1-year rolldown through `Curve.at(1 − 1/12)`.
+par yield) and by the 1-year rolldown through `Curve.at(1 - 1/12)`.
 
 Where each country's observed short end starts, and what that does to the
-1-year rolldown (`y_roll = y(1 − 1/12) = y(0.9167)`):
+1-year rolldown (`y_roll = y(1 - 1/12) = y(0.9167)`):
 
 | Country | Shortest observed tenor | Source of it | 1-year rolldown |
 |---|---|---|---|
@@ -102,7 +102,7 @@ Where each country's observed short end starts, and what that does to the
 country's shortest observed tenor is the same in every month. It is not, and
 `data/checks/carry_missing.csv` is what showed it:
 
-| Country | months with no observed tenor below 1 − 1/12 | when |
+| Country | months with no observed tenor below 1 - 1/12 | when |
 |---|---|---|
 | FR | 262 of 262 (all) | always: TEC 1 is the shortest |
 | JP | 598 of 598 at the 1-year bucket, and 12 months at 2 and 3 years | always at 1y; the 12 are months whose curve starts at 2, 3 or 4 years |
@@ -113,15 +113,15 @@ country's shortest observed tenor is the same in every month. It is not, and
 The GB row is the one the table got wrong: the BoE nominal spot curve does
 not always publish a point below 1 year, so GB's 1-year rolldown is exactly
 0 in 128 months of 680 (18.8%) rather than never. The US row is right about
-the mechanism and wrong about the period — before 1981-09 the US short end
+the mechanism and wrong about the period, before 1981-09 the US short end
 is the 1-year too. Nothing about the rule changes: the flat short end is
 still the convention, still the only exception to rule 13, and every one of
 these months is counted in `n_flat_short_end` rather than filled.
 
 So JP's and FR's 1-year buckets carry no rolldown; their carry is
 unaffected. `data/checks/carry_missing.csv` reports `n_flat_short_end` per
-country — the number of 1-year bucket-months where `y_roll` fell in the
-flat region — so the size of this is a number in the review. The 2-year
+country, the number of 1-year bucket-months where `y_roll` fell in the
+flat region, so the size of this is a number in the review. The 2-year
 and longer buckets roll between observed tenors in every country and are
 untouched.
 

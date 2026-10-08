@@ -2,7 +2,7 @@
 
 Linear in yield against tenor, between the two adjacent observed tenors
 only; exact at an observed tenor; NaN for any target outside
-``[tenors.min(), tenors.max()]`` — never extrapolated. NaN inputs are
+``[tenors.min(), tenors.max()]``, never extrapolated. NaN inputs are
 dropped first. The flat short end below the shortest observed tenor
 (``config.short_end``) is not here: it lives in ``Curve.at`` and nowhere
 else, so that this function can never be the source of a value off the

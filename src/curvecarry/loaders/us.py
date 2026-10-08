@@ -7,7 +7,7 @@ coupon, ``config.coupon_frequency.US = 2``). DGS3MO and DGS6MO (0.25 and
 1987-01..1993-09; DGS30 is dropped for 2002-02-19..2006-02-08 (issue #7:
 Treasury discontinued the 30-year constant maturity on 2002-02-18 and
 reinstated it on 2006-02-09, and FRED carries Treasury's factor-based
-estimates from the 20-year for the interval — an extrapolation under rule
+estimates from the 20-year for the interval, an extrapolation under rule
 13, not an observation). Both gaps are recorded in
 ``data/checks/coverage.csv`` and never filled.
 """

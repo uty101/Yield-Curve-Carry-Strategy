@@ -7,13 +7,13 @@ Written 2026-09-23, step 4.3.
 Buy the foreign bond with one unit of foreign currency borrowed at
 `r_short_local`, and sell the proceeds forward into the base currency. Under
 covered interest parity the one-month forward premium on the foreign currency
-is `(r_short_base − r_short_local)/12`. So the position returns, in base
+is `(r_short_base - r_short_local)/12`. So the position returns, in base
 currency,
 
 ```
-r_local + (r_short_base − r_short_local)/12          (bond, plus the forward premium)
-       − r_short_base/12                              (financing in the base currency)
-=  r_local − r_short_local/12
+r_local + (r_short_base - r_short_local)/12          (bond, plus the forward premium)
+       - r_short_base/12                              (financing in the base currency)
+=  r_local - r_short_local/12
 =  r_excess_local
 ```
 
@@ -22,16 +22,16 @@ return.** `r_hedged = r_excess_local` exactly, and no exchange-rate series
 enters it. That is why `test_hedged_is_local_excess_return` asserts that
 `r_hedged` does not move when the FX series is changed.
 
-`hedge_carry = (r_short_base − r_short_local)/12` is kept in
+`hedge_carry = (r_short_base - r_short_local)/12` is kept in
 `returns.parquet` as a **diagnostic only**. It is the forward premium, the
 size of what the hedge is paying or earning, and by construction
-`r_local + hedge_carry − r_short_base/12 == r_hedged`
+`r_local + hedge_carry - r_short_base/12 == r_hedged`
 (`test_cip_identity`, to 1e-14 on 1,000 rows). Nothing reads it.
 
 The unhedged return keeps the FX exposure and finances in the base currency:
 
 ```
-r_unhedged = r_local + (ln S_{t+1} − ln S_t) − r_short_base/12
+r_unhedged = r_local + (ln S_{t+1} - ln S_t) - r_short_base/12
 ```
 
 with `S` in units of base currency per unit of foreign currency, so a foreign
@@ -41,10 +41,10 @@ appreciation is a gain. For the base country itself
 ## What the derivation omits: the cross-currency basis
 
 Covered interest parity has not held since 2008. The forward premium is not
-exactly `(r_short_base − r_short_local)/12`; it differs by the **cross-currency
+exactly `(r_short_base - r_short_local)/12`; it differs by the **cross-currency
 basis**, the price of borrowing dollars through the FX swap market rather than
-directly. Where the basis is negative — as it has been for JPY and EUR through
-most of the post-crisis period — a dollar investor hedging a foreign bond
+directly. Where the basis is negative, as it has been for JPY and EUR through
+most of the post-crisis period, a dollar investor hedging a foreign bond
 **earns** it and a foreign investor hedging a dollar bond **pays** it.
 
 So `r_hedged = r_excess_local` is right to the basis and no further. The error
@@ -70,10 +70,10 @@ cross-currency basis is therefore not measured in this project**, and
 What that costs, from the brief: the basis runs **20 to 50 bp in stress
 periods** for the major pairs, wider at quarter ends. Against a duration-
 neutral book whose carry signal is measured in tens of bp per year of
-duration, that is not negligible, and it is one-directional rather than
+duration: that is not negligible, and it is one-directional rather than
 noise. The honest statement for the report is that the hedged returns here
 are CIP-implied hedged returns, that they overstate the cost of hedging
-foreign bonds back into dollars over 2008–2020 for JPY and EUR, and that the
+foreign bonds back into dollars over 2008 to 2020 for JPY and EUR, and that the
 size of the overstatement is of the order of the basis and is not estimated.
 
 If a series is ever obtained, the step that adds it writes the CIP error by
@@ -83,8 +83,8 @@ adjustment to `hedge_carry` and hence to `r_hedged`.
 
 ## Related
 
-- `decisions/short_anchor.md` — what `r_short_local` and `r_short_base` are,
+- `decisions/short_anchor.md`, what `r_short_local` and `r_short_base` are,
   the EUR splice, and the JP policy-rate gap fill.
 - `PLAN.md` → Step 4.3 and its session-4 amendment 3.
-- `data/checks/return_coverage.csv` — per country and month, which of
+- `data/checks/return_coverage.csv`, per country and month, which of
   `r_local`, `r_hedged` and `r_unhedged` exist and why one does not.

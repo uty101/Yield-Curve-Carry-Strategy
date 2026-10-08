@@ -1,7 +1,7 @@
 # Yield Curve Modelling and a G7 Carry Strategy
 
 Read this first. The brief is
-[Project Outline/08_Yield_Curve_Carry.docx](Project%20Outline/08_Yield_Curve_Carry.docx),
+[project-outline/08_Yield_Curve_Carry.docx](project-outline/08_Yield_Curve_Carry.docx),
 the build order and every module contract are in [PLAN.md](PLAN.md), and the
 source URLs that were actually reachable from this machine are in
 [decisions/sources.md](decisions/sources.md). This file holds what every
@@ -12,10 +12,10 @@ session must not violate, and how to run things on this machine.
 sentence is in `PLAN.md` → step 5.3). *The headline result of this project
 is the **carry-only, hedged, book-wide duration-neutral book, net of costs,
 from `strategy_start` (1997-08-31) to `strategy_end`, on the universe
-available each month** — the `carry_hedged` variant, `full` window,
-`r_net`.* Everything else — unhedged, country-scope neutrality, interbank
+available each month**, the `carry_hedged` variant, `full` window,
+`r_net`.* Everything else, unhedged, country-scope neutrality, interbank
 funding, zero and double costs, the GB 30-year exclusion, the overlay and
-the combined book — is a **logged variant** with its own row in
+the combined book, is a **logged variant** with its own row in
 `reports/specifications.csv`, is reported whether it helps or not, and is
 never the headline, whatever the numbers say.
 
@@ -59,7 +59,7 @@ review is posted.
 
 **Every session ends by writing `instructions/session-N-status.md` and
 pushing it** (rule of 2026-09-22): what was built, what was not, why it
-stopped, and the last commit — however the session ends, finished, stopped
+stopped, and the last commit, however the session ends, finished, stopped
 on a question, or blocked. The owner's instruction for the session is saved
 verbatim to `instructions/session-N.md` at the start and committed as
 `Session N: instructions`.
@@ -75,7 +75,7 @@ and start the next session. **A session is never started without the
 previous one's approval line in this file.**
 
 **Everything the owner must read or answer goes on GitHub as an issue**, not
-only in the terminal — the owner reviews and replies from the Claude app,
+only in the terminal, the owner reviews and replies from the Claude app,
 which reads GitHub. Use `scripts/gh_issue.py` (token from the git credential
 store or `GITHUB_TOKEN`; never printed, never in a file):
 
@@ -90,7 +90,7 @@ At the end of every session: post the `Session N review` issue after the
 push and put its URL in the terminal summary. When a step needs a decision:
 post it as a `decision` issue with the recommendation and one reason per
 option. At the start of every session: `list`, and `read` any issue with new
-comments before doing anything — an answer on GitHub counts as the owner's
+comments before doing anything: an answer on GitHub counts as the owner's
 answer.
 
 ---
@@ -164,7 +164,7 @@ uv run curvecarry report                   # 6.4: every chart, reports/results.m
 ```
 
 **`run --all` already includes the eight risk-control variants**, so it is
-never followed by `run --risk-controls` — that would log them a second time
+never followed by `run --risk-controls`: that would log them a second time
 and move `N`. The `--risk-controls` form is for adding a control to a spec log
 that already holds its base, which is how session 6 added them.
 
@@ -197,12 +197,12 @@ and so changes `N` in every deflated Sharpe in the report.
 Owner's ruling, 2026-09-24. **These are different questions and only one of
 them is a reproduction test.**
 
-**1. Reproduction — "is the pipeline a function of its raw inputs?"**
+**1. Reproduction, "is the pipeline a function of its raw inputs?"**
 Clone the tracked tree, copy the existing `data/raw/` in, leave
 `data/interim/` and `data/processed/` empty, then `build --all`, `run --all`,
 the post-run build steps and `report`. **Every derived file and
 `reports/results.md` must come out identical. The `git commit` stamp in the
-report header is the only thing allowed to differ** — it names the commit the
+report header is the only thing allowed to differ**: it names the commit the
 report was written at, and a rebuild is a different commit. Nothing else.
 This is the standard; it passed on 2026-09-24 (83 of 83 committed
 `data/checks` files byte for byte and all six core parquets bit for bit).
@@ -210,7 +210,7 @@ It is only meaningful because `N` counts distinct labels (invariant 6): a
 rebuild re-runs every variant, and under a row-count `N` that alone would move
 every deflated Sharpe.
 
-**2. Source availability — "do the sources still answer, and still parse?"**
+**2. Source availability, "do the sources still answer, and still parse?"**
 `fetch --all` into an empty `data/raw/`, then `build --all`. This is **not** a
 reproduction test and must never be treated as one: the providers extend and
 revise, so the derived files are expected to differ. Report what changed and
@@ -227,7 +227,7 @@ Two traps this machine sets, both found the hard way on 2026-09-24:
   invariant working; to retry a partial fetch, delete the partial files first.
 - **A long scratch path breaks `scipy`.** A rebuild under a path of about 200
   characters dies in `uv sync`'s scipy with `ImportError: cannot import name
-  '_arpacklib'` — Windows `MAX_PATH`, not a code fault. The identical script
+  '_arpacklib'`, Windows `MAX_PATH`, not a code fault. The identical script
   under `C:
 6` worked. Rebuild somewhere short.
 - **`fetch --source` takes the loader name, not the raw folder.** `fr` fetches
@@ -240,15 +240,15 @@ Two traps this machine sets, both found the hard way on 2026-09-24:
 
 `data/raw/` is git-ignored except `manifest.json`; `data/interim/` and
 `data/processed/` are git-ignored; everything in `data/checks/` is committed.
-Fetched so far (2026-09-17): `data/raw/fred/` — the 10 US DGS series (1.1);
-`data/raw/boe/` — the nominal month-end archive zip (1.2);
-`data/raw/bundesbank/` — 6 Svensson parameter series + the 10y check (1.3);
-`data/raw/mof/` — the JGB historical and current-month files (1.4);
-`data/raw/boc/` — the zero-coupon curve and Valet benchmarks (1.5);
-`data/raw/bdf/` — the 10 TEC exports (1.6; needs `BDF_API_KEY`);
-`data/raw/bis/` — 7 policy-rate series; `data/raw/fred/` also holds the 5
+Fetched so far (2026-09-17): `data/raw/fred/`, the 10 US DGS series (1.1);
+`data/raw/boe/`, the nominal month-end archive zip (1.2);
+`data/raw/bundesbank/`, 6 Svensson parameter series + the 10y check (1.3);
+`data/raw/mof/`, the JGB historical and current-month files (1.4);
+`data/raw/boc/`, the zero-coupon curve and Valet benchmarks (1.5);
+`data/raw/bdf/`, the 10 TEC exports (1.6; needs `BDF_API_KEY`);
+`data/raw/bis/`, 7 policy-rate series; `data/raw/fred/` also holds the 5
 OECD interbank, the 5 OECD immediate-rate (`IRSTCI01*`, 2026-09-22, the
-policy-gap fill) and 4 daily FX series (1.7); `data/raw/gsw/` — the Fed's
+policy-gap fill) and 4 daily FX series (1.7); `data/raw/gsw/`, the Fed's
 GSW zero curve `feds200628` (1.9 check, 2026-09-22).
 `data/interim/curves_{us,gb,de,jp,ca,fr}.parquet`, `svensson_params_de.parquet`,
 `short_rates.parquet`, `funding.parquet`, `fx.parquet`, `gsw_us.parquet` are built;
@@ -280,7 +280,7 @@ throw-away run pollutes a reported number. Anything exploratory passes
 eleven session-5 rows are the eleven variants amendment 2 fixed in advance
 and nothing else.
 
-**The CLI step for 4.3 is `fx_hedge`, not `fx`** — `fx` is the 1.7 FX loader,
+**The CLI step for 4.3 is `fx_hedge`, not `fx`**: `fx` is the 1.7 FX loader,
 and a build step of the same name shadows it in `build --all`.
 
 Source facts learned in the probe and the session-1 review that later steps
@@ -292,15 +292,15 @@ depend on (full table in `decisions/sources.md`, the FR/IT ruling in
   IT. France is the Banque de France TEC constant-maturity series (par, 1 to
   30 years, daily); the records need the key in the environment variable
   `BDF_API_KEY`, read from the environment only. Without a valid key the API
-  returns 200 with zero rows — the fetch must assert on a non-empty body.
+  returns 200 with zero rows: the fetch must assert on a non-empty body.
 - **Funding rate is the BIS policy rate** (`WS_CBPOL`, monthly) for USD, GBP,
   JPY, CAD and the euro area (`XM`; the national BIS series `DE` and `FR`
   before `hedge.eur_splice = 1999-01-31`). **It is never placed on a
   curve**: it lives in `data/interim/funding.parquet`, joined by country and
   date, and every bucket return is an excess return over it
-  (`r_excess_local = r_local − r_short_local/12`; the hedged return is that
-  excess return by covered interest parity, the unhedged one is
-  `r_local + Δln S − r_short_base/12`). Below the shortest observed zero
+  (`r_excess_local = r_local - r_short_local/12`; the hedged return is that
+  excess return by covered interest parity; the unhedged one is
+  `r_local + Δln S - r_short_base/12`). Below the shortest observed zero
   tenor the curve is flat (`short_end = "flat"`, the one exception to rule
   13). `decisions/short_anchor.md` has the per-country short end and what
   it does to the 1-year rolldown. The OECD 3-month interbank series on FRED
@@ -337,9 +337,9 @@ Empty at the start. Each gate writes one dated line here when it passes.
 |---|---|---|
 | PLAN.md v2 approved by owner | 2026-09-16 | PLAN.md v2 approved by owner 2026-09-16 (commit 2c6040b), issue #2 |
 | Session 0 (0.1, 0.2, 0.3) | 2026-09-17 | Session 0 approved 2026-09-17 (142a14e), issue #6 |
-| Session 1, part A (1.1–1.7, all loaders) | 2026-09-22 | Session 1 part A approved 2026-09-22 (ccd656f), issue #9 |
+| Session 1, part A (1.1 to 1.7, all loaders) | 2026-09-22 | Session 1 part A approved 2026-09-22 (ccd656f), issue #9 |
 | Session 1, part B (1.8, 1.9, gate) | 2026-09-22 | Session 1 part B approved 2026-09-22 (48324a1), issue #11 |
-| Session 1 (1.1–1.9 and the gate) | 2026-09-22 | Session 1 approved 2026-09-22 (2151a99): Phase 1 complete, both parts approved |
+| Session 1 (1.1 to 1.9 and the gate) | 2026-09-22 | Session 1 approved 2026-09-22 (2151a99): Phase 1 complete, both parts approved |
 | Phase 1 gate: `coverage.csv` and `par_zero_gap.csv` reviewed; `strategy_start` set | 2026-09-22 | Phase 1 gate passed: `strategy_start` 1997-08-31, `sample_full_start` 2004-11-30; bootstrap verified on the GSW par curve (max 1.4 bp); no bootstrap drops on or after `strategy_start` |
 | Session 2 (2.1, 2.2, 2.3, 2.4) | 2026-09-23 | Session 2 approved 2026-09-23 (f4ffe51), issue #13 |
 | Session 3 (3.1, 3.2, 3.3) | 2026-09-23 | Session 3 approved 2026-09-23 (5a54fb0), issue #16 |
@@ -353,7 +353,7 @@ Empty at the start. Each gate writes one dated line here when it passes.
 
 **Project complete, 2026-09-24. All six phases approved.**
 
-**The headline** — the carry-only, hedged, book-wide duration-neutral book,
+**The headline**: the carry-only, hedged, book-wide duration-neutral book,
 net of costs, `full` window (1997-08-31 to 2026-08-31, 348 months), fixed
 before any result was seen:
 
@@ -369,7 +369,7 @@ before any result was seen:
 earned **75.68 points of carry**, gave back **53.43 to yield changes** and
 **5.13 to costs**, and kept **17.13**. The four pieces sum to the reported net
 return to 5.2e-18 on every month of every logged variant. The return is carry
-earned net of a *losing* yield bet — not, as the brief's failure mode would
+earned net of a *losing* yield bet, not, as the brief's failure mode would
 have it, a long-duration bet dressed up as carry. Carry earned is positive in
 every decade; the yield-change PnL is negative in every decade.
 
@@ -379,28 +379,28 @@ the evidence that this book's true Sharpe exceeds the multiple-testing
 threshold is weak. That sentence is in `README.md` and `reports/results.md` on
 its own, not in a footnote, and it is the honest summary of the project.
 
-Everything else — unhedged, country-scope neutrality, interbank funding, zero
+Everything else, unhedged, country-scope neutrality, interbank funding, zero
 and double costs, the GB 30-year exclusion, the overlay, the combined book and
-the four risk controls — is a logged variant with a row in
+the four risk controls, is a logged variant with a row in
 `reports/specifications.csv`, reported whether it helped or not, and never the
 headline.
 
 ---
 
 Note on the gate: pre-1997 US 30y zero/par gaps straddle the
-`bootstrap_zero_par_tolerance_bp` threshold (100 bp) — at 30y, 1982-09 at
+`bootstrap_zero_par_tolerance_bp` threshold (100 bp), at 30y, 1982-09 at
 97.9 bp is kept and 1982-03 at 100.5 bp is dropped; across all tenors the
 closest pair is 1985-05 at 99.5 bp kept against the same 1982-03 dropped
 (`data/checks/bootstrap_dropped.csv`, `decisions/sources.md` → "Bootstrap
-long-end rules"). Which side of the line a 1981–82 month falls on is
+long-end rules"). Which side of the line a 1981 to 82 month falls on is
 therefore close to arbitrary. No month on or after `strategy_start` is
 anywhere near it (the largest is 68.7 bp, US 2003-07 at 20y), so nothing in
 the strategy sample turns on the threshold. ~~To be revisited in the Session 3
-PCA stability review~~ — **answered and closed, 2026-09-23, step 3.2**
+PCA stability review~~, **answered and closed, 2026-09-23, step 3.2**
 (`review/3.2.md`, `data/checks/pca_stability.csv`). It is moot, for a
 structural reason: under the issue #15 ruling the US PCA tenor set is
 `1, 2, 3, 5, 7, 10`, so **the 30-year zero of a borderline month is not an
-input to any US loading** — the month enters the fit only through its 1- to
+input to any US loading**, the month enters the fit only through its 1- to
 10-year yields. Reported anyway as the robustness check session-3 amendment 4
 asks for: excluding the 9 borderline months of the 1980s (12 pre-1997 in
 total) moves the 1980s loading vector by at most 0.008 on PC1, 0.011 on PC2

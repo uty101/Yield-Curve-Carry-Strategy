@@ -6,9 +6,9 @@ reversed later with the facts that drove it in front of whoever reverses it.
 ## The rule
 
 A country in `countries` is represented by **its own** government curve. The
-ECB Data Portal's euro-area composite curves — the AAA-rated spot curve
+ECB Data Portal's euro-area composite curves, the AAA-rated spot curve
 (`YC.B.U2.EUR.4F.G_N_A.SV_C_YM.*`) and the all-issuers spot curve
-(`YC.B.U2.EUR.4F.G_N_C.SV_C_YM.*`) — are **not labelled FR or IT anywhere in
+(`YC.B.U2.EUR.4F.G_N_C.SV_C_YM.*`), are **not labelled FR or IT anywhere in
 this repo**. Neither is a national curve: the AAA curve is a changing-
 composition aggregate of AAA sovereigns (Germany, the Netherlands and others
 as their ratings move), the all-issuers curve a changing-composition aggregate
@@ -17,7 +17,7 @@ issuers with different funding markets, and a cross-country carry strategy
 that ranks a composite against real national curves is ranking a portfolio
 against its own components.
 
-## France — Banque de France TEC, `par`
+## France: Banque de France TEC, `par`
 
 Source: Banque de France Webstat, "Taux de l'Echéance Constante" (TEC), the
 CNO constant-maturity OAT yields, daily, at 1, 2, 3, 5, 7, 10, 15, 20, 25 and
@@ -43,11 +43,11 @@ catalog dataset `observations`, filtered by series key, e.g.
 with the key in the `Authorization: Apikey` header (that dataset 404s without
 a key). Export format: semicolon csv with `series_key, time_period, obs_value,
 obs_status` (status `M` rows carry no value: non-trading days). **First
-observation 2004-11-03 for TEC 1–20, 2006-10-24 for TEC 25 and 30**, daily to
+observation 2004-11-03 for TEC 1 to 20, 2006-10-24 for TEC 25 and 30**, daily to
 the present; so `sample_full_start` is no earlier than 2004-11-30, recorded in
 `data/checks/coverage.csv`.
 
-## Italy — dropped
+## Italy: dropped
 
 No national source reachable by a plain HTTP GET was located:
 
@@ -76,7 +76,7 @@ Recorded from the probe so this is a number, not a memory:
 | ECB IRS France 10y, 2026-08 (monthly) | 4.000% | probe |
 
 So on the latest observations the all-issuers composite sits about **13 bp
-below** Italy's own 10-year and about 43 bp above the AAA curve — an "Italy"
+below** Italy's own 10-year and about 43 bp above the AAA curve, an "Italy"
 bucket built from it would have carried a euro-area-average yield, not an
 Italian one, and the carry signal for that bucket would have been a blend of
 Germany, France, Italy, Spain and the rest with Italy's own spread diluted.
@@ -92,7 +92,7 @@ Effect on the windows:
   TEC start alone (unknown until fetched). If the TEC series predate 2004, the
   6-country window is longer than the 7-country window would have been.
 - **Cross-section**: 6 countries × 8 tenors = 48 buckets a month at full
-  coverage, thirds of 16, instead of 56 and thirds of 18–19.
+  coverage, thirds of 16, instead of 56 and thirds of 18 to 19.
 
 ## To reverse
 

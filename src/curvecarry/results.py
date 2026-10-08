@@ -8,7 +8,7 @@ character for character the block between the same two markers in
 
 **The deflated Sharpe is recomputed with the final `N`** (session-6 amendment
 3). `metrics_table` takes `N` from `speclog.count_runs()` at the moment the
-report is written, so every Phase 6 run — the six risk controls above all — is
+report is written, so every Phase 6 run (the six risk controls above all) is
 in it. A DSR quoted from an earlier session's smaller `N` flatters the result,
 and quoting one is a reporting error, not a rounding difference.
 `tests/test_report.py` asserts the `N` printed here equals
@@ -174,7 +174,7 @@ def selection_caveat(table: pd.DataFrame, headline: str, best: str = BEST_CONTRO
         f"{base['max_dd']:.2%}. Four things have to be said next to that.\n\n"
         f"- **It is one of {n} logged runs.** Its own deflated Sharpe is "
         f"{row['dsr']:.3f} against a threshold of SR0 = {row['sr0']:.3f} monthly over "
-        f"those {n} trials — higher than the headline's {base['dsr']:.3f}, and still "
+        f"those {n} trials, higher than the headline's {base['dsr']:.3f}, and still "
         f"far short of any sensible bar.\n"
         f"- **The improvement is largely one event.** 2022 goes from "
         f"{base['ret_2022']:.2%} to {row['ret_2022']:.2%}, and the annual return "

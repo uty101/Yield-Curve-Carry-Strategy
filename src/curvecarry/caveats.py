@@ -1,4 +1,4 @@
-"""Step 6.3: what carry does not tell you — written from this repo's own numbers.
+"""Step 6.3: what carry does not tell you, written from this repo's own numbers.
 
 **Every figure in the prose is a value read from a file in this repo**, not a
 general caveat and not a number typed by hand. `section` contains no numeric
@@ -13,9 +13,9 @@ not currency neutrality; the funding rate is a policy rate used as a
 three-month anchor; the cross-currency basis is not measured; the
 Nelson-Siegel lambda is unidentified on flat curves; the US on-the-run
 richness; and the buckets that enter or leave mid-sample. The paragraphs
-PLAN.md 6.3 already asked for — the carry share against the yield-change
+PLAN.md 6.3 already asked for, the carry share against the yield-change
 share, 2022 month by month, the size of the return approximation, and what the
-robustness rows changed — are the first, second, eighth and ninth.
+robustness rows changed, are the first, second, eighth and ninth.
 """
 
 from __future__ import annotations
@@ -298,7 +298,7 @@ sits.
 {f["overlay_years"]} years and {f["overlay_trades"]} in-sample trades it made
 {f["overlay_gross"]} gross, paid {f["overlay_cost"]} in costs and returned
 {f["overlay_net"]}. The {f["overlay_worst_n"]} worst trades alone cost
-{f["overlay_worst_total"]}: {f["overlay_worst_list"]}. They share a shape — a
+{f["overlay_worst_total"]}: {f["overlay_worst_list"]}. They share a shape: a
 mean-reversion slope signal is short the trend, so it fades a curve move that
 keeps going, and it does that hardest in the months the move is largest. An
 overlay that is flat before costs is not a diversifier; it is a fee.
@@ -319,7 +319,7 @@ they are filled from the OECD immediate rate: {f["fill_months"]} months in
 total, all in {f["fill_countries"]} ({f["fill_windows"]}). The logged
 robustness run on the OECD three-month interbank rate returns
 {f["interbank_return"]} a year at a Sharpe of {f["interbank_sharpe"]} against
-the headline's {f["headline_return"]} and {f["headline_sharpe"]} — close
+the headline's {f["headline_return"]} and {f["headline_sharpe"]}, close
 enough that the choice does not carry the result, but the interbank series
 prices bank credit, and in 2008 that credit spread would read here as carry.
 
@@ -339,13 +339,13 @@ free-lambda fits that happens in {f["lam_worst_share"]} of
 bound) and as little as {f["lam_best_share"]} of {f["lam_best_country"]}
 months. Where lambda is on a bound the reported betas are coefficients on a
 nearly singular basis and should not be read as level, slope and curvature.
-Nothing in the strategy reads them — the signal is built from zero yields —
+Nothing in the strategy reads them (the signal is built from zero yields) 
 but the fitted-curve charts inherit the problem.
 
 **8. The US curve is built from on-the-run yields, which are rich.** Against
 the Fed's own GSW fitted curve the CMT par yield at {f["otr_tenor"]} years
 differs by {f["otr_mean"]} on average and {f["otr_median"]} at the median over
-{f["otr_months"]} months — the CMT yield is the lower, which is the on-the-run
+{f["otr_months"]} months: the CMT yield is the lower, which is the on-the-run
 bond being the dearer. That is the on-the-run premium, and it is a level
 shift on one country's curve that no other country in this book carries. It
 enters the carry signal as a small standing tilt away from the US, not as
@@ -371,7 +371,7 @@ pre-registered controls, only the rolling rates-vol filter improves the
 headline: Sharpe {f["roll_sharpe"]} against {f["headline_sharpe"]}, worst
 drawdown {f["roll_dd"]} against {f["headline_dd"]}. Four things belong beside
 that. It is **one of {f["n_runs"]} logged runs**, and its own deflated Sharpe
-is {f["roll_dsr"]} against the headline's {f["headline_dsr"]} — higher, and
+is {f["roll_dsr"]} against the headline's {f["headline_dsr"]}, higher, and
 still far short of any sensible bar. **The improvement is largely one event**:
 2022 goes from {f["headline_2022"]} to {f["roll_2022"]} while the annual
 return *falls*, {f["headline_return"]} to {f["roll_return"]}, so the gain is
@@ -390,7 +390,7 @@ book-wide takes the headline to {f["scope_return"]} a year at
 {f["nogb30_sharpe"]}; zero costs, {f["cost0_return"]} at {f["cost0_sharpe"]};
 double costs, {f["cost2x_return"]} at {f["cost2x_sharpe"]}. Costs move the
 result more than any modelling choice in the list, and the country-scope run
-moves it most of all — which is the honest reading that book-wide neutrality
+moves it most of all, which is the honest reading that book-wide neutrality
 is doing real work and is a choice, not a detail.
 """
 

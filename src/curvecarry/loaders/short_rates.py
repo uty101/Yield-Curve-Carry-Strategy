@@ -1,6 +1,6 @@
 """Funding rates (step 1.7): BIS policy rates (default) and OECD 3-month interbank (robustness).
 
-Policy rates: BIS ``WS_CBPOL`` monthly, areas ``US GB JP CA XM DE FR`` — the
+Policy rates: BIS ``WS_CBPOL`` monthly, areas ``US GB JP CA XM DE FR``, the
 BIS TITLE field reads "Central bank policy rates - <area> - Monthly - End of
 period", so the monthly value is the end-of-month rate. ``DE`` and ``FR``
 end 1998-12 (euro entry) and serve as the EUR legacy areas before
@@ -12,7 +12,7 @@ series type for all five currencies (issue #1 follow-up). JP starts 2002-04,
 GB and EZ stop at 2026-01.
 
 Policy-rate gap fill (Session 1 part A fix, 2026-09-22): the BIS JP series has no
-value for 116 months (1999-03..2000-07, 2001-04..2006-02, 2013-05..2016-08 —
+value for 116 months (1999-03..2000-07, 2001-04..2006-02, 2013-05..2016-08,
 the zero-rate and QQE regimes with no stated target). For ``kind = policy``
 any month inside the BIS series' span with no BIS value is filled from the
 OECD immediate (overnight call money) rate, FRED
@@ -23,9 +23,9 @@ currency; today only JP has gaps. ``data/checks/funding_fill.csv`` lists
 each filled run (``decisions/short_anchor.md``).
 
 Two outputs: ``data/interim/short_rates.parquet`` (``date, area, rate, kind,
-source``) — every series as fetched, the immediate rates as
+source``), every series as fetched, the immediate rates as
 ``kind = immediate``; and ``data/interim/funding.parquet`` (``date, country,
-currency, rate, kind, source``) — one row per country, month and kind
+currency, rate, kind, source``), one row per country, month and kind
 (``policy`` filled as above, ``interbank_3m``), with the EUR splice applied.
 The funding rate is never placed on a curve (``decisions/short_anchor.md``).
 """

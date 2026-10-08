@@ -106,7 +106,7 @@ def lam_at_bound(lam: float | np.ndarray, grid: tuple[float, float, float]) -> b
 
     A bound hit is a constraint, not an estimate: the RMSE was still falling when
     the search ran out of grid. It is flagged rather than fixed because widening
-    the grid does not remove it — lambda -> 0 is a degeneracy of Nelson-Siegel on
+    the grid does not remove it, lambda -> 0 is a degeneracy of Nelson-Siegel on
     a flat curve, where the slope loading tends to the level loading and the
     betas run away to cancel (``decisions/lambda_bound.md``). Chart 3 leaves
     these months as gaps in its NS-free panel.
@@ -142,7 +142,7 @@ def ns_degenerate(
     """``lam_at_bound`` **or** ``beta_degenerate``: the months Chart 3 leaves as gaps.
 
     ``lam_at_bound`` alone missed months whose lambda is just inside the bound
-    and whose loadings are still nearly collinear — GB 2010-02-28 at
+    and whose loadings are still nearly collinear, GB 2010-02-28 at
     lambda = 0.0539 fits to 3.19 bp with beta2 = +50.2%. Both criteria are kept
     as separate columns; ``decisions/lambda_bound.md`` refers to the first.
     """

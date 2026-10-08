@@ -2,15 +2,15 @@
 
 One csv from the GET form ``https://www.bankofcanada.ca/stats/results/csv``
 (``lookupPage=lookup_yield_curve.php, startRange=1986-01-01, searchRange=all``),
-daily from 1986-01-02, columns ``Date, ZC025YR .. ZC3000YR`` — 120 tenors,
+daily from 1986-01-02, columns ``Date, ZC025YR .. ZC3000YR``, 120 tenors,
 0.25 to 30 years in 0.25-year steps (``tenor = int(col[2:-2]) / 100``),
 ``na`` for a missing value, a trailing empty column. **Values are already
 decimals** (the data page: "The data are expressed as decimals (e.g. 0.0500
 = 5.00% yield)"): there is no division by 100 in this loader.
 
 Compounding (issue #8, decided 2026-09-22): the BoC zero rates are
-**continuously compounded** — Bolder, Johnson & Metzler (2004) define
-z(t, T) as the continuously compounded yield (pp. 25–26), restated in the
+**continuously compounded**: Bolder, Johnson & Metzler (2004) define
+z(t, T) as the continuously compounded yield (pp. 25 to 26), restated in the
 data appendix of "Riding the yield curve: a spanning analysis" (RQFA, 2012),
 and Bank of Canada Technical Report 84 (Bolder & Stréliski) derives the zero
 curve continuously compounded (eq. 6 and 7). The package convention is

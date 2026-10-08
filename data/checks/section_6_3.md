@@ -26,7 +26,7 @@ sits.
 29 years and 181 in-sample trades it made
 -190 bp gross, paid 722 bp in costs and returned
 -912 bp. The 5 worst trades alone cost
-684 bp: GB 2008-09 flattener -176 bp; FR 2022-08 steepener -150 bp; CA 2008-09 flattener -134 bp; CA 2021-01 flattener -114 bp; JP 1998-11 flattener -110 bp. They share a shape — a
+684 bp: GB 2008-09 flattener -176 bp; FR 2022-08 steepener -150 bp; CA 2008-09 flattener -134 bp; CA 2021-01 flattener -114 bp; JP 1998-11 flattener -110 bp. They share a shape: a
 mean-reversion slope signal is short the trend, so it fades a curve move that
 keeps going, and it does that hardest in the months the move is largest. An
 overlay that is flat before costs is not a diversifier; it is a fee.
@@ -47,7 +47,7 @@ they are filled from the OECD immediate rate: 116 months in
 total, all in JP (JP 1999-03-31 to 2000-07-31 (17 months); JP 2001-04-30 to 2006-02-28 (59 months); JP 2013-05-31 to 2016-08-31 (40 months)). The logged
 robustness run on the OECD three-month interbank rate returns
 0.64% a year at a Sharpe of 0.284 against
-the headline's 0.59% and 0.265 — close
+the headline's 0.59% and 0.265, close
 enough that the choice does not carry the result, but the interbank series
 prices bank credit, and in 2008 that credit spread would read here as carry.
 
@@ -67,13 +67,13 @@ CA months (31.6% of them at the lower
 bound) and as little as 4.6% of FR
 months. Where lambda is on a bound the reported betas are coefficients on a
 nearly singular basis and should not be read as level, slope and curvature.
-Nothing in the strategy reads them — the signal is built from zero yields —
+Nothing in the strategy reads them (the signal is built from zero yields) 
 but the fitted-curve charts inherit the problem.
 
 **8. The US curve is built from on-the-run yields, which are rich.** Against
 the Fed's own GSW fitted curve the CMT par yield at 10 years
 differs by -7.9 bp on average and -7.2 bp at the median over
-661 months — the CMT yield is the lower, which is the on-the-run
+661 months: the CMT yield is the lower, which is the on-the-run
 bond being the dearer. That is the on-the-run premium, and it is a level
 shift on one country's curve that no other country in this book carries. It
 enters the carry signal as a small standing tilt away from the US, not as
@@ -99,7 +99,7 @@ pre-registered controls, only the rolling rates-vol filter improves the
 headline: Sharpe 0.285 against 0.265, worst
 drawdown -8.63% against -10.37%. Four things belong beside
 that. It is **one of 19 logged runs**, and its own deflated Sharpe
-is 0.614 against the headline's 0.573 — higher, and
+is 0.614 against the headline's 0.573, higher, and
 still far short of any sensible bar. **The improvement is largely one event**:
 2022 goes from -4.41% to -1.43% while the annual
 return *falls*, 0.59% to 0.58%, so the gain is
@@ -118,5 +118,5 @@ book-wide takes the headline to 0.19% a year at
 0.280; zero costs, 0.77% at 0.344;
 double costs, 0.41% at 0.185. Costs move the
 result more than any modelling choice in the list, and the country-scope run
-moves it most of all — which is the honest reading that book-wide neutrality
+moves it most of all, which is the honest reading that book-wide neutrality
 is doing real work and is a choice, not a detail.

@@ -1,6 +1,6 @@
 """Step 2.4: Chart 1 (fitted against observed, and RMSE by month) and Chart 3 (the betas).
 
-Matplotlib on the ``Agg`` backend — no display, no interactivity, deterministic
+Matplotlib on the ``Agg`` backend, no display, no interactivity, deterministic
 files. Every function takes frames and an output directory, writes one or more
 pngs, and returns the paths it wrote. Nothing here reads a file itself except
 ``build``, so each chart can be tested on a synthetic frame.
@@ -12,7 +12,7 @@ every month, so the same numeric value in two months is not the same quantity
 and the series is not comparable across time or countries. Fixing lambda is
 what makes it comparable, and is why Diebold-Li fix it. The bottom row is the
 same three betas from ``ns_free`` with every ``ns_degenerate`` month **left as a
-gap** — not clipped, not interpolated, not forward-filled. There is no
+gap**, not clipped, not interpolated, not forward-filled. There is no
 percentile clipping anywhere in this module.
 
 Chart 1 and ``chart1_rmse`` are unchanged and keep NS-free: what they measure
@@ -118,10 +118,10 @@ def chart1_fit(
 ) -> list[Path]:
     """One figure per country, one panel per decade: observed tenors, NS-free, Svensson.
 
-    A decade with no row in ``dates`` — the country has no fitted month in it —
-    gets an empty panel saying so, rather than a repeat of another decade's
-    curve. A country with no row for **any** configured decade has no month to
-    draw and gets no figure at all.
+    A decade with no row in ``dates`` (the country has no fitted month in it)
+       gets an empty panel saying so, rather than a repeat of another decade's
+       curve. A country with no row for **any** configured decade has no month to
+       draw and gets no figure at all.
     """
     out_dir = Path(out_dir)
     obs = nelson_siegel.standard_points(zero_panel)
@@ -169,7 +169,7 @@ def chart1_fit(
         drawn[0].set_ylabel("zero yield (%)")
         drawn[0].legend(fontsize=8, loc="best")  # the first panel that has something in it
         fig.suptitle(
-            f"Chart 1 — {country}: fitted against observed zero curve, "
+            f"Chart 1, {country}: fitted against observed zero curve, "
             "one month per decade (last December with a fit)",
             fontsize=11,
         )
@@ -195,7 +195,7 @@ def chart1_rmse(params: pd.DataFrame, out: Path = FIGURES / "chart1_rmse.png") -
         ax.set_visible(False)
     axes.ravel()[0].legend(fontsize=8, loc="best")
     fig.suptitle(
-        "Chart 1b — in-sample fit RMSE by month, 8 standard tenors (log scale). "
+        "Chart 1b, in-sample fit RMSE by month, 8 standard tenors (log scale). "
         "NS-free keeps its free lambda here: this panel measures fit quality.",
         fontsize=11,
     )
@@ -229,8 +229,8 @@ def chart3_series(
 
     NaN rather than a dropped row, so matplotlib breaks the line there instead
     of drawing a straight segment across the gap. The criterion is
-    ``ns_degenerate`` — ``lam_at_bound`` **or** a beta above 50 percentage
-    points — not ``lam_at_bound`` alone: a lambda just inside the bound leaves
+    ``ns_degenerate``, ``lam_at_bound`` **or** a beta above 50 percentage
+    points, not ``lam_at_bound`` alone: a lambda just inside the bound leaves
     the loadings nearly collinear and the betas still run away. Only the
     ``ns_free`` panel is gapped; ``ns_dl`` has a fixed lambda and trips the beta
     criterion in no month of any country (largest max |beta| 0.3365, GB).
@@ -252,7 +252,7 @@ def chart3_betas(
     """6 panels: NS-DL betas on top (the primary series), NS-free with gaps below.
 
     Returns ``(path, excluded)``. An ``ns_degenerate`` month is dropped from the
-    NS-free series and the line is broken there — ``NaN`` rather than a missing
+    NS-free series and the line is broken there, ``NaN`` rather than a missing
     row, so matplotlib leaves a gap instead of drawing across it.
     """
     p = ns_params[ns_params["date"] >= pd.Timestamp(start)]
@@ -273,11 +273,11 @@ def chart3_betas(
             ax.grid(alpha=0.3)
             ax.set_ylabel(f"{BETA_LABELS[beta]} (%)" if j == 0 else "")
             head = "NS-DL (fixed lambda)" if model == "ns_dl" else "NS-free (gaps where degenerate)"
-            ax.set_title(f"{head} — {beta}", fontsize=10)
+            ax.set_title(f"{head}, {beta}", fontsize=10)
     axes[0, 0].legend(fontsize=8, ncol=2, loc="best")
     caption = ", ".join(f"{c} {int(n)}" for c, n in gaps.items())
     fig.suptitle(
-        "Chart 3 — Nelson-Siegel betas from 1995. Top row NS-DL at fixed lambda: the "
+        "Chart 3, Nelson-Siegel betas from 1995. Top row NS-DL at fixed lambda: the "
         "comparable series, because a free lambda changes the loadings each month.\n"
         "Bottom row NS-free, with ns_degenerate months left as gaps (lambda on a bound, "
         "or a beta above 50 points; not clipped, not "
@@ -343,7 +343,7 @@ def chart2_loadings(loadings: pd.DataFrame, out: Path = FIGURES / "chart2_loadin
     The primary pooled fit is the dashed black line. Each country is drawn on
     its own tenor set, which is why the lines end at different tenors: the US
     and GB sets stop at 10 years, DE runs to 30 (step 3.1, issue #15). The
-    secondary ``pooled_20y`` fit is not drawn — it is a reported robustness
+    secondary ``pooled_20y`` fit is not drawn, it is a reported robustness
     column, and putting it on the same axes would invite reading it as a
     seventh country.
     """
@@ -365,7 +365,7 @@ def chart2_loadings(loadings: pd.DataFrame, out: Path = FIGURES / "chart2_loadin
     np.atleast_1d(axes)[0].set_ylabel("loading")
     np.atleast_1d(axes)[0].legend(fontsize=8, ncol=2)
     fig.suptitle(
-        "Chart 2 — PCA loadings on monthly zero-yield changes, per country and pooled",
+        "Chart 2, PCA loadings on monthly zero-yield changes, per country and pooled",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
@@ -451,7 +451,7 @@ def chart4_carry_heatmap(
     ax.set_xlabel("month")
     fig.colorbar(img, ax=ax, label="carry per year of duration (bp per year)")
     fig.suptitle(
-        "Chart 4 — carry per year of duration, by country-tenor bucket "
+        "Chart 4, carry per year of duration, by country-tenor bucket "
         f"(scale clipped at +/-{limit:.0f} bp; grey = bucket does not exist)",
         fontsize=11,
     )
@@ -467,7 +467,7 @@ def chart4_carry_heatmap(
         img = _chart4_heatmap(ax, sub, limit)
         ax.set_xlabel("month")
         fig.colorbar(img, ax=ax, label="bp per year of duration")
-        fig.suptitle(f"Chart 4 — {country}: carry per year of duration", fontsize=11)
+        fig.suptitle(f"Chart 4, {country}: carry per year of duration", fontsize=11)
         fig.tight_layout(rect=(0, 0, 1, 0.93))
         paths.append(_save(fig, out.parent / f"chart4_{country.lower()}.png"))
     return paths
@@ -509,7 +509,7 @@ def chart5_decomposition(decomposition: pd.DataFrame, variant: str, out: Path) -
     ax.legend(loc="best", fontsize=9)
     worst = float(d["identity_gap"].abs().max())
     fig.suptitle(
-        f"Chart 5 — {variant}: the decomposition, cumulative (max |identity gap| {worst:.1e})",
+        f"Chart 5, {variant}: the decomposition, cumulative (max |identity gap| {worst:.1e})",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))

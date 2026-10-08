@@ -236,15 +236,15 @@ def fit_panel(zero_panel: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, pd.Dat
 def bundesbank_to_lambda(row: pd.Series) -> dict:
     """Amendment 2: ``(tau1, tau2)`` -> ordered ``(lam1, lam2)`` with the betas carried along.
 
-    ``lambda = 1/tau``. Where ``1/tau2 < 1/tau1`` the two curvature terms are
-    relabelled — ``lam1`` with ``lam2`` **and** ``beta2`` with ``beta3`` — so
-    that both sides of the comparison use ``lam2 > lam1``.
+       ``lambda = 1/tau``. Where ``1/tau2 < 1/tau1`` the two curvature terms are
+    relabelled (``lam1`` with ``lam2`` **and** ``beta2`` with ``beta3``) so
+       that both sides of the comparison use ``lam2 > lam1``.
 
-    **This is a labelling convention, not an identity.** ``lam1`` drives the
-    slope loading as well as the first curvature, so the swap leaves the curve
-    unchanged only when ``beta1 = 0``; on a real month it moves the curve by
-    tens of basis points. Use it to line the two parameter sets up for
-    comparison, never to re-evaluate a curve.
+       **This is a labelling convention, not an identity.** ``lam1`` drives the
+       slope loading as well as the first curvature, so the swap leaves the curve
+       unchanged only when ``beta1 = 0``; on a real month it moves the curve by
+       tens of basis points. Use it to line the two parameter sets up for
+       comparison, never to re-evaluate a curve.
     """
     lam1, lam2 = 1.0 / float(row["tau1"]), 1.0 / float(row["tau2"])
     beta2, beta3 = float(row["beta2"]), float(row["beta3"])

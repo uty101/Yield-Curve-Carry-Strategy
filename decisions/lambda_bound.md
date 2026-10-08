@@ -35,7 +35,7 @@ The three Nelson-Siegel loadings at maturity `tau` are
     slope      (1 - e^{-lam tau}) / (lam tau)
     curvature  (1 - e^{-lam tau}) / (lam tau) - e^{-lam tau}
 
-As `lam -> 0` the slope loading tends to 1 — which **is** the level loading —
+As `lam -> 0` the slope loading tends to 1 (which **is** the level loading) 
 and the curvature loading tends to 0. The design matrix becomes collinear:
 
 | loading at tau = 1, 10, 30 | lam = 0.30 | lam = 0.05 | lam = 0.01 |
@@ -54,7 +54,7 @@ the rest: beta0 0.054 vs 0.043, beta1 **0.077 vs 0.022**, beta2
 | JP | 1980-11-30 | 0.05 | 1.986 | -1.877 | -2.202 | 15.11 |
 
 A beta0 of 2.409 is a 241% level yield cancelled by a -231% slope. The fitted
-*curve* is fine — that JP month's RMSE is 26.9 bp, poor but not absurd — and
+*curve* is fine (that JP month's RMSE is 26.9 bp, poor but not absurd) and
 the three numbers are individually meaningless.
 
 The months that hit the bound are the flat and humpless ones, where there is
@@ -64,7 +64,7 @@ RMSE 6.7-9.5 bp on bound-hit months against 2.4-4.9 bp on the rest.
 ## Why widening again does not help
 
 All 544 months that were pinned at 0.05 were refit offline on
-`[0.01, 1.5, 0.01]` — a 25x wider range at a fifth of the step. Nothing was
+`[0.01, 1.5, 0.01]`, a 25x wider range at a fifth of the step. Nothing was
 committed and `config.toml` was untouched.
 
 | country | pinned | median RMSE at lo = 0.05 | at lo = 0.01 | median gain | max gain | **still at the new bound** |
@@ -86,7 +86,7 @@ the Svensson panel from about 90 seconds to about 40 minutes.
 **It is the regulariser, not a search boundary.** It is the only thing
 stopping the betas from running to the collinear limit, and it does the same
 job as the `lam2 >= lam1 + step` separation that issue #12 (option D) put into
-the Svensson polish — which took the largest |beta2| from 3.7e11 to 66.1.
+the Svensson polish, which took the largest |beta2| from 3.7e11 to 66.1.
 Loosening it further would loosen the brake.
 
 The widening that #12 authorised was still right, and was kept: every measured
@@ -106,17 +106,17 @@ flat curve, not of the grid.
   value in two months is not the same quantity and the series is not comparable
   across time or countries. Fixing lambda is what makes it comparable, and is
   why Diebold-Li fix it. A second panel plots the NS-free betas with the
-  `lam_at_bound` months **left as gaps** — not clipped, not interpolated, not
-  forward-filled — and the gap count per country is in the caption.
+  `lam_at_bound` months **left as gaps**, not clipped, not interpolated, not
+  forward-filled, and the gap count per country is in the caption.
   `data/checks/chart3_excluded.csv` lists every excluded country-month with its
   lambda and its betas. **No percentile clipping anywhere.**
 - **Chart 1 and the RMSE comparison are unchanged**, NS-free included in both:
   what they measure is fit quality, which is where a free lambda earns its
   place.
 
-`sv_params.parquet` has two lambdas and carries no such flag — issue #14
+`sv_params.parquet` has two lambdas and carries no such flag, issue #14
 specified `ns_params.parquet`. Svensson's `lam1` sits at the lower bound in
 CA 60.9%, US 60.4%, GB 36.2%, JP 34.8%, FR 25.6% and DE 8.3% of months.
 Nothing in the plan plots or reads Svensson betas (Chart 3 is Nelson-Siegel,
 Phase 3 runs PCA on yields), so it changes no reported number today. If a
-later step reads them, it needs the same flag first.
+later step reads them: it needs the same flag first.

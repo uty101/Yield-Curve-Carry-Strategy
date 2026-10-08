@@ -9,7 +9,7 @@ is kept.
 ``sample_day_mismatch.csv`` (Session 1 part A fix, 2026-09-22): one row per
 ``(country, month)`` with the latest ``obs_date`` any tenor was sampled on
 and the number of standard tenors (``config.tenors``) sampled on an earlier
-day — the per-tenor sampling rule's footprint. Rows for a country are
+day, the per-tenor sampling rule's footprint. Rows for a country are
 replaced on each write. A check only; the sampling rule is unchanged.
 """
 
